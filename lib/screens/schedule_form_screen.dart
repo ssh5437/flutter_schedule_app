@@ -28,8 +28,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   String _selectedCompanyType = 'personal'; // samsung, carewon, personal
   String _inputMode = 'manual'; // manual, text_samsung, text_carewon
 
-  //git test
-
   // 미리 정의된 작업 항목
   final List<String> _predefinedWorkItems = [
     '1way 에어컨',

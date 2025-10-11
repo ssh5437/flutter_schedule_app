@@ -57,19 +57,6 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     );
   }
 
-  Future<void> _updateStatus(String status) async {
-    final updatedSchedule = _schedule.copyWith(status: status);
-    await StorageHelper.updateSchedule(updatedSchedule);
-    setState(() {
-      _schedule = updatedSchedule;
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('스케줄 상태가 "$status"로 변경되었습니다')),
-      );
-    }
-  }
-
   Future<void> _deleteSchedule() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -135,8 +122,6 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
               _buildInfoCard(),
               const SizedBox(height: 16),
               _buildActionButtons(),
-              const SizedBox(height: 16),
-              _buildStatusButtons(),
             ],
           ),
         ),
@@ -240,75 +225,35 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
       children: [
-        ElevatedButton.icon(
-          onPressed: _copyConfirmationMessage,
-          icon: const Icon(Icons.check_circle),
-          label: const Text('확정 메시지 복사'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.all(16),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _copyConfirmationMessage,
+            icon: const Icon(Icons.check_circle, size: 18),
+            label: const Text('확정 메시지', style: TextStyle(fontSize: 13)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: _copyAbsentMessage,
-          icon: const Icon(Icons.message),
-          label: const Text('부재시 메시지 복사'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.all(16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: _copyAbsentMessage,
+            icon: const Icon(Icons.message, size: 18),
+            label: const Text('부재시 메시지', style: TextStyle(fontSize: 13)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatusButtons() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '상태 변경',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('예정'),
-                  selected: _schedule.status == '예정',
-                  onSelected: (selected) => _updateStatus('예정'),
-                ),
-                ChoiceChip(
-                  label: const Text('확정'),
-                  selected: _schedule.status == '확정',
-                  onSelected: (selected) => _updateStatus('확정'),
-                ),
-                ChoiceChip(
-                  label: const Text('완료'),
-                  selected: _schedule.status == '완료',
-                  onSelected: (selected) => _updateStatus('완료'),
-                ),
-                ChoiceChip(
-                  label: const Text('취소'),
-                  selected: _schedule.status == '취소',
-                  selectedColor: Colors.red.withOpacity(0.3),
-                  onSelected: (selected) => _updateStatus('취소'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

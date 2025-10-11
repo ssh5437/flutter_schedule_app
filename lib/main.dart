@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/home_screen.dart';
-import 'screens/calendar_screen.dart';
+import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
 import 'screens/schedule_form_screen.dart';
 
@@ -38,7 +38,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
-  final GlobalKey<CalendarScreenState> _calendarKey = GlobalKey<CalendarScreenState>();
+  final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
 
   late final List<Widget> _screens;
 
@@ -47,7 +47,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _screens = [
       HomeScreen(key: _homeKey),
-      CalendarScreen(key: _calendarKey),
+      CalendarViewScreen(key: _calendarKey),
       const CompletedSchedulesScreen(),
     ];
   }

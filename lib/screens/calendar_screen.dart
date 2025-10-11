@@ -24,6 +24,16 @@ class CalendarScreenState extends State<CalendarScreen> {
     _loadSchedules();
   }
 
+  // 외부에서 접근 가능한 isPortrait getter
+  bool get isPortrait => _isPortrait;
+
+  // 외부에서 호출 가능한 가로/세로 전환 메서드
+  void toggleOrientation() {
+    setState(() {
+      _isPortrait = !_isPortrait;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -43,12 +53,17 @@ class CalendarScreenState extends State<CalendarScreen> {
 
       final rowHeights = _calculateRowHeights();
       final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
+      final lastDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
       final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
       final today = DateTime.now();
 
+      // 마지막 날짜가 포함된 주의 인덱스 계산
+      final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
+      final maxWeeks = lastDayWeekIndex;
+
       // 현재 날짜가 속한 주 찾기
       int currentWeek = 0;
-      for (int week = 0; week < 6; week++) {
+      for (int week = 0; week < maxWeeks; week++) {
         final weekStart = calendarStartDay.add(Duration(days: week * 7));
         final weekEnd = weekStart.add(const Duration(days: 6));
 
@@ -67,7 +82,7 @@ class CalendarScreenState extends State<CalendarScreen> {
 
       // 현재 주를 화면 중앙에 배치하기 위해 조정
       final screenHeight = MediaQuery.of(context).size.height - kToolbarHeight;
-      final currentWeekHeight = rowHeights[currentWeek];
+      final currentWeekHeight = currentWeek < rowHeights.length ? rowHeights[currentWeek] : 80.0;
       scrollOffset -= (screenHeight - currentWeekHeight) / 2;
 
       // 스크롤 범위 체크
@@ -161,22 +176,11 @@ class CalendarScreenState extends State<CalendarScreen> {
     }
 
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
         setState(() {
           _selectedDay = day;
           _focusedDay = day;
         });
-
-        if (schedules.isNotEmpty) {
-          // 스케줄이 있으면 첫 번째 스케줄 상세로 이동
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ScheduleDetailScreen(schedule: schedules[0]),
-            ),
-          );
-          _loadSchedules();
-        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -243,25 +247,9 @@ class CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('캘린더'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: Icon(_isPortrait ? Icons.phone_android : Icons.phone_iphone_outlined),
-            onPressed: () {
-              setState(() {
-                _isPortrait = !_isPortrait;
-              });
-            },
-            tooltip: _isPortrait ? '가로보기' : '세로보기',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : LayoutBuilder(
               builder: (context, constraints) {
                 if (_isPortrait) {
                   // 세로보기: 스크롤 가능
@@ -283,22 +271,26 @@ class CalendarScreenState extends State<CalendarScreen> {
                   );
                 }
               },
-            ),
-    );
+            );
   }
 
   // 각 주의 최대 스케줄 개수를 계산하여 동적 높이 적용
   List<double> _calculateRowHeights() {
     final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final lastDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 0); // 해당 월의 마지막 날
 
     // 캘린더 시작일 (첫 주의 일요일)
     final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
 
+    // 마지막 날짜가 포함된 주의 인덱스 계산
+    final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
+    final maxWeeks = lastDayWeekIndex;
+
     List<double> rowHeights = [];
     DateTime currentWeekStart = calendarStartDay;
 
-    // 최대 6주 계산
-    for (int week = 0; week < 6; week++) {
+    // 필요한 주만큼만 계산
+    for (int week = 0; week < maxWeeks; week++) {
       int maxSchedulesInWeek = 0;
 
       // 해당 주의 각 날짜에서 최대 스케줄 개수 찾기
@@ -334,7 +326,101 @@ class CalendarScreenState extends State<CalendarScreen> {
         _buildDaysOfWeekRow(),
         // 동적 높이를 가진 캘린더 행들
         ..._buildCalendarRows(rowHeights, width),
+        // 선택된 날짜의 스케줄 목록
+        if (_selectedDay != null) _buildSelectedDaySchedules(),
       ],
+    );
+  }
+
+  Widget _buildSelectedDaySchedules() {
+    final schedules = _getSchedulesForDay(_selectedDay!);
+
+    if (schedules.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: const Text(
+          '해당 날짜에 스케줄이 없습니다',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade300, width: 2),
+        ),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: schedules.length,
+        itemBuilder: (context, index) {
+          final schedule = schedules[index];
+          return ListTile(
+            leading: Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: _getStatusColor(schedule.status),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            title: Row(
+              children: [
+                if (schedule.visitTime != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(schedule.status),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      schedule.visitTime!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                if (schedule.visitTime != null) const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    schedule.customerName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Text(
+                  schedule.workItems.join(', '),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                Text(
+                  schedule.address,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ScheduleDetailScreen(schedule: schedule),
+                ),
+              );
+              _loadSchedules();
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -350,6 +436,7 @@ class CalendarScreenState extends State<CalendarScreen> {
             onPressed: () {
               setState(() {
                 _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
+                _selectedDay = null; // 월 변경 시 선택 초기화
               });
             },
           ),
@@ -362,6 +449,7 @@ class CalendarScreenState extends State<CalendarScreen> {
             onPressed: () {
               setState(() {
                 _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
+                _selectedDay = null; // 월 변경 시 선택 초기화
               });
             },
           ),
@@ -403,11 +491,16 @@ class CalendarScreenState extends State<CalendarScreen> {
 
   List<Widget> _buildCalendarRows(List<double> rowHeights, double width) {
     final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final lastDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 0); // 해당 월의 마지막 날
     final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
 
     List<Widget> rows = [];
 
-    for (int week = 0; week < 6; week++) {
+    // 마지막 날짜가 포함된 주의 인덱스 계산
+    final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
+    final maxWeeks = lastDayWeekIndex;
+
+    for (int week = 0; week < maxWeeks; week++) {
       List<Widget> dayCells = [];
 
       for (int day = 0; day < 7; day++) {
