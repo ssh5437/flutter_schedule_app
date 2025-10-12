@@ -72,8 +72,9 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('업체 관리'),
+        title: const Text('업체 관리', style: TextStyle(fontSize: 18)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

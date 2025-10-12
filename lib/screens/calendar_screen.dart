@@ -15,6 +15,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<Schedule>> _schedulesByDate = {};
+  Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
   bool _isPortrait = true; // true: 세로보기, false: 가로보기
   final ScrollController _scrollController = ScrollController();
@@ -102,6 +103,13 @@ class CalendarScreenState extends State<CalendarScreen> {
   Future<void> _loadSchedules() async {
     setState(() => _isLoading = true);
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(['예정', '확정']);
+    final companies = await DatabaseHelper.instance.readAllCompanies();
+
+    // 업체별 색상 매핑 생성
+    final Map<String, int> companyColors = {};
+    for (var company in companies) {
+      companyColors[company.name] = company.color;
+    }
 
     final Map<DateTime, List<Schedule>> schedulesByDate = {};
     for (var schedule in schedules) {
@@ -133,6 +141,7 @@ class CalendarScreenState extends State<CalendarScreen> {
 
     setState(() {
       _schedulesByDate = schedulesByDate;
+      _companyColors = companyColors;
       _isLoading = false;
     });
 
@@ -158,6 +167,14 @@ class CalendarScreenState extends State<CalendarScreen> {
       default:
         return Colors.blue;
     }
+  }
+
+  // 배경색의 밝기에 따라 적절한 텍스트 색상 반환 (검정 또는 흰색)
+  Color _getTextColorForBackground(Color backgroundColor) {
+    // 색상의 상대 휘도(relative luminance) 계산
+    final double luminance = backgroundColor.computeLuminance();
+    // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   Widget _buildDayCell(DateTime day, bool isToday, bool isSelected, {bool isOutside = false}) {
@@ -216,19 +233,31 @@ class CalendarScreenState extends State<CalendarScreen> {
                       itemCount: schedules.length,
                       itemBuilder: (context, index) {
                         final schedule = schedules[index];
+                        // 업체 색상 가져오기 (없으면 기본 파란색)
+                        final companyColor = schedule.companyName != null
+                            ? _companyColors[schedule.companyName] ?? 0xFF2196F3
+                            : 0xFF2196F3;
+                        final backgroundColor = Color(companyColor);
+                        final textColor = _getTextColorForBackground(backgroundColor);
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 3),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _getStatusColor(schedule.status),
-                            borderRadius: BorderRadius.circular(4),
+                            color: backgroundColor,
+                            border: Border(
+                              left: BorderSide(
+                                color: _getStatusColor(schedule.status),
+                                width: 3,
+                              ),
+                            ),
                           ),
                           child: Text(
                             schedule.visitTime != null
                                 ? '${schedule.visitTime} ${schedule.workItems.join(', ')}, ${schedule.workCount}건'
                                 : '${schedule.workItems.join(', ')}, ${schedule.workCount}건',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: textColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
@@ -357,6 +386,13 @@ class CalendarScreenState extends State<CalendarScreen> {
         itemCount: schedules.length,
         itemBuilder: (context, index) {
           final schedule = schedules[index];
+          // 업체 색상 가져오기 (없으면 기본 파란색)
+          final companyColor = schedule.companyName != null
+              ? _companyColors[schedule.companyName] ?? 0xFF2196F3
+              : 0xFF2196F3;
+          final backgroundColor = Color(companyColor);
+          final textColor = _getTextColorForBackground(backgroundColor);
+
           return ListTile(
             leading: Container(
               width: 4,
@@ -371,13 +407,13 @@ class CalendarScreenState extends State<CalendarScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(schedule.status),
+                      color: backgroundColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       schedule.visitTime!,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: textColor,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

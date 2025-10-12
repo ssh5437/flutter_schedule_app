@@ -67,8 +67,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
   void _showWorkItemDialog({WorkItem? workItem, int? index}) {
     final nameController = TextEditingController(text: workItem?.name);
     final priceController = TextEditingController(
-      text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
-    );
+text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
+);
 
     showDialog(
       context: context,
@@ -93,10 +93,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
                 suffixText: '원',
               ),
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                _ThousandsSeparatorInputFormatter(),
-              ],
             ),
           ],
         ),
@@ -109,11 +105,9 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
             onPressed: () {
               if (nameController.text.isNotEmpty) {
                 setState(() {
-                  // 쉼표를 제거하고 숫자만 파싱
-                  final priceText = priceController.text.replaceAll(',', '');
                   final newItem = WorkItem(
                     name: nameController.text,
-                    price: int.tryParse(priceText) ?? 0,
+                    price: int.tryParse(priceController.text) ?? 0,
                   );
                   if (index != null) {
                     _workItems[index] = newItem;
@@ -164,7 +158,11 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.company == null ? '업체 추가' : '업체 수정'),
+        title: Text(
+          widget.company == null ? '업체 추가' : '업체 수정',
+          style: const TextStyle(fontSize: 18),
+        ),
+        toolbarHeight: 40,
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
@@ -260,7 +258,7 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
                         ),
                       ),
                       title: Text(item.name),
-                      subtitle: Text('${NumberFormat('#,###').format(item.price)}원'),
+                      subtitle: Text('${item.price}원'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -285,35 +283,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// 천 단위 구분 기호를 추가하는 InputFormatter
-class _ThousandsSeparatorInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    // 쉼표를 제거하고 숫자만 추출
-    final number = int.tryParse(newValue.text.replaceAll(',', ''));
-    if (number == null) {
-      return oldValue;
-    }
-
-    // 천 단위 구분 기호 추가
-    final formatter = NumberFormat('#,###');
-    final newText = formatter.format(number);
-
-    // 커서 위치 조정
-    return TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: newText.length),
     );
   }
 }

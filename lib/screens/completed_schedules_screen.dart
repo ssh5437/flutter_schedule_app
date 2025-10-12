@@ -67,8 +67,9 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('완료 내역'),
+        title: const Text('완료 내역', style: TextStyle(fontSize: 18)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -79,8 +79,9 @@ class HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('스케줄 목록'),
+        title: const Text('스케줄 목록', style: TextStyle(fontSize: 18)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
         actions: [
           IconButton(
             icon: const Icon(Icons.business),

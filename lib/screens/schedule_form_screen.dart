@@ -366,8 +366,12 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.schedule == null ? '스케줄 추가' : '스케줄 수정'),
+        title: Text(
+          widget.schedule == null ? '스케줄 추가' : '스케줄 수정',
+          style: const TextStyle(fontSize: 18),
+        ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
         actions: [
           IconButton(
             icon: const Icon(Icons.save),

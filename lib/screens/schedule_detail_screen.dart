@@ -88,8 +88,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('스케줄 상세'),
+        title: const Text('스케줄 상세', style: TextStyle(fontSize: 18)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),

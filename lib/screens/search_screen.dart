@@ -65,8 +65,9 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('스케줄 검색'),
+        title: const Text('스케줄 검색', style: TextStyle(fontSize: 18)),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        toolbarHeight: 40,
       ),
       body: Column(
         children: [

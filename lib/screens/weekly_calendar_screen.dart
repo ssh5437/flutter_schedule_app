@@ -140,7 +140,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
               children: [
                 // 헤더: 주 네비게이션
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
@@ -148,24 +148,33 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.chevron_left),
+                        icon: const Icon(Icons.chevron_left, size: 20),
                         onPressed: _goToPreviousWeek,
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
                       ),
                       Expanded(
                         child: Center(
                           child: Text(
                             '${DateFormat('yyyy년 M월 d일', 'ko_KR').format(weekStart)} - ${DateFormat('M월 d일', 'ko_KR').format(weekEnd)}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
                       TextButton(
                         onPressed: _goToToday,
-                        child: const Text('오늘'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('오늘', style: TextStyle(fontSize: 15)),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.chevron_right),
+                        icon: const Icon(Icons.chevron_right, size: 20),
                         onPressed: _goToNextWeek,
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
@@ -206,12 +215,14 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           // 날짜 헤더 (세로)
           Container(
             width: 80,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            height: 100,
             decoration: BoxDecoration(
               border: Border(right: BorderSide(color: Colors.grey.shade300)),
               color: isToday ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.shade50,
             ),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   koreanDays[dayIndex],
@@ -251,25 +262,6 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                     ),
                   ),
                 ),
-                if (schedules.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${schedules.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -277,7 +269,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           Expanded(
             child: schedules.isEmpty
                 ? Container(
-                    height: 120,
+                    height: 100,
                     alignment: Alignment.center,
                     child: Text(
                       '일정 없음',
@@ -288,8 +280,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                     ),
                   )
                 : Container(
-                    height: 120,
-                    padding: const EdgeInsets.all(8),
+                    height: 100,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: schedules.length,
@@ -327,24 +318,16 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
       child: Container(
         width: 60,
         height: double.infinity,
-        margin: const EdgeInsets.only(right: 6),
-        padding: const EdgeInsets.all(6),
+        margin: const EdgeInsets.only(right: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(8),
           border: Border(
             left: BorderSide(
               color: _getStatusColor(schedule.status),
               width: 5,
             ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 2,
-              offset: const Offset(1, 1),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
