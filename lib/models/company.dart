@@ -1,22 +1,22 @@
 class Company {
   final int? id;
   final String name;
-  final String type; // 'samsung', 'carewon', 'personal'
   final List<WorkItem> workItems;
+  final int color; // ARGB color value
 
   Company({
     this.id,
     required this.name,
-    required this.type,
     required this.workItems,
+    this.color = 0xFF2196F3, // 기본값: 파란색
   });
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'type': type,
       'workItems': workItems.map((item) => item.toMap()).toList(),
+      'color': color,
     };
   }
 
@@ -24,10 +24,10 @@ class Company {
     return Company(
       id: map['id'],
       name: map['name'],
-      type: map['type'],
       workItems: (map['workItems'] as List<dynamic>)
           .map((item) => WorkItem.fromMap(item))
           .toList(),
+      color: map['color'] ?? 0xFF2196F3,
     );
   }
 }

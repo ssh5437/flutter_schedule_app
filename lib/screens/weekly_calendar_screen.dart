@@ -14,11 +14,8 @@ class WeeklyCalendarScreen extends StatefulWidget {
 class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   DateTime _focusedWeek = DateTime.now();
   Map<DateTime, List<Schedule>> _schedulesByDate = {};
+  Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
-  final ScrollController _scrollController = ScrollController();
-
-  // 시간대 (5:00 ~ 23:00, 1시간 단위)
-  final List<int> _hours = List.generate(19, (index) => 5 + index);
 
   @override
   void initState() {
@@ -28,7 +25,6 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -50,6 +46,13 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Future<void> _loadSchedules() async {
     setState(() => _isLoading = true);
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(['예정', '확정']);
+    final companies = await DatabaseHelper.instance.readAllCompanies();
+
+    // 업체별 색상 매핑 생성
+    final Map<String, int> companyColors = {};
+    for (var company in companies) {
+      companyColors[company.name] = company.color;
+    }
 
     final Map<DateTime, List<Schedule>> schedulesByDate = {};
     for (var schedule in schedules) {
@@ -74,30 +77,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
 
     setState(() {
       _schedulesByDate = schedulesByDate;
+      _companyColors = companyColors;
       _isLoading = false;
-    });
-
-    _scrollToCurrentTime();
-  }
-
-  void _scrollToCurrentTime() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-
-      final now = DateTime.now();
-      final currentHour = now.hour;
-
-      if (currentHour >= 5 && currentHour <= 23) {
-        final hourIndex = currentHour - 5;
-        const hourHeight = 60.0;
-        final scrollOffset = hourIndex * hourHeight - 100;
-
-        _scrollController.animateTo(
-          scrollOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
     });
   }
 
@@ -121,14 +102,12 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     }
   }
 
-  int? _parseHour(String? time) {
-    if (time == null) return null;
-    try {
-      final parts = time.split(':');
-      return int.parse(parts[0]);
-    } catch (e) {
-      return null;
-    }
+  // 배경색의 밝기에 따라 적절한 텍스트 색상 반환 (검정 또는 흰색)
+  Color _getTextColorForBackground(Color backgroundColor) {
+    // 색상의 상대 휘도(relative luminance) 계산
+    final double luminance = backgroundColor.computeLuminance();
+    // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   void _goToPreviousWeek() {
@@ -147,7 +126,6 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     setState(() {
       _focusedWeek = DateTime.now();
     });
-    _scrollToCurrentTime();
   }
 
   @override
@@ -192,207 +170,150 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                     ],
                   ),
                 ),
-                // 요일 헤더
-                _buildDayHeaders(weekDays),
-                // 시간대별 스케줄 그리드
+                // 일정 리스트 (세로로 날짜, 가로로 스케줄)
                 Expanded(
-                  child: _buildTimeGrid(weekDays),
+                  child: _buildScheduleList(weekDays),
                 ),
               ],
             );
   }
 
-  Widget _buildDayHeaders(List<DateTime> weekDays) {
+  Widget _buildScheduleList(List<DateTime> weekDays) {
+    return ListView.builder(
+      itemCount: weekDays.length,
+      itemBuilder: (context, index) {
+        return _buildDayRow(weekDays[index], index);
+      },
+    );
+  }
+
+  Widget _buildDayRow(DateTime day, int dayIndex) {
     const koreanDays = ['일', '월', '화', '수', '목', '금', '토'];
     final today = DateTime.now();
-
-    return Container(
-      height: 60,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Row(
-        children: [
-          // 시간 컬럼 공간
-          Container(
-            width: 50,
-            decoration: BoxDecoration(
-              border: Border(right: BorderSide(color: Colors.grey.shade300)),
-            ),
-          ),
-          // 요일 헤더들
-          ...weekDays.asMap().entries.map((entry) {
-            final index = entry.key;
-            final day = entry.value;
-            final isToday = day.year == today.year &&
-                day.month == today.month &&
-                day.day == today.day;
-
-            return Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    right: index < 6
-                        ? BorderSide(color: Colors.grey.shade300)
-                        : BorderSide.none,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      koreanDays[index],
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: index == 0
-                            ? Colors.red
-                            : index == 6
-                                ? Colors.blue
-                                : Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isToday ? Colors.blue : null,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                            color: isToday
-                                ? Colors.white
-                                : index == 0
-                                    ? Colors.red
-                                    : index == 6
-                                        ? Colors.blue
-                                        : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeGrid(List<DateTime> weekDays) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 시간 컬럼
-          _buildTimeColumn(),
-          // 날짜별 컬럼들
-          ...weekDays.asMap().entries.map((entry) {
-            final index = entry.key;
-            final day = entry.value;
-            return Expanded(
-              child: _buildDayColumn(day, index < 6),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeColumn() {
-    return Container(
-      width: 50,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        border: Border(right: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Column(
-        children: _hours.map((hour) {
-          return Container(
-            height: 60,
-            alignment: Alignment.topRight,
-            padding: const EdgeInsets.only(right: 4, top: 2),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Text(
-              '${hour.toString().padLeft(2, '0')}:00',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildDayColumn(DateTime day, bool showRightBorder) {
+    final isToday = day.year == today.year &&
+        day.month == today.month &&
+        day.day == today.day;
     final schedules = _getSchedulesForDay(day);
 
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          right: showRightBorder
-              ? BorderSide(color: Colors.grey.shade300)
-              : BorderSide.none,
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+        color: isToday ? Colors.blue.withValues(alpha: 0.05) : null,
       ),
-      child: Stack(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 시간 그리드 라인
-          Column(
-            children: _hours.map((hour) {
-              return Container(
-                height: 60,
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          // 날짜 헤더 (세로)
+          Container(
+            width: 80,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            decoration: BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.grey.shade300)),
+              color: isToday ? Colors.blue.withValues(alpha: 0.1) : Colors.grey.shade50,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  koreanDays[dayIndex],
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: dayIndex == 0
+                        ? Colors.red
+                        : dayIndex == 6
+                            ? Colors.blue
+                            : Colors.grey.shade700,
+                  ),
                 ),
-              );
-            }).toList(),
+                const SizedBox(height: 4),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isToday ? Colors.blue : null,
+                    shape: BoxShape.circle,
+                    border: isToday ? null : Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${day.day}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                        color: isToday
+                            ? Colors.white
+                            : dayIndex == 0
+                                ? Colors.red
+                                : dayIndex == 6
+                                    ? Colors.blue
+                                    : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                if (schedules.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${schedules.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          // 스케줄들
-          ...schedules.map((schedule) {
-            return _buildScheduleBlock(schedule);
-          }),
+          // 스케줄 목록 (가로 스크롤)
+          Expanded(
+            child: schedules.isEmpty
+                ? Container(
+                    height: 120,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '일정 없음',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : Container(
+                    height: 120,
+                    padding: const EdgeInsets.all(8),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: schedules.length,
+                      itemBuilder: (context, index) {
+                        return _buildScheduleCard(schedules[index]);
+                      },
+                    ),
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildScheduleBlock(Schedule schedule) {
-    final hour = _parseHour(schedule.visitTime);
-
-    if (hour == null || hour < 5 || hour > 23) {
-      // 시간이 없거나 범위 밖이면 맨 위에 표시
-      return Positioned(
-        top: 0,
-        left: 2,
-        right: 2,
-        child: _buildScheduleCard(schedule),
-      );
-    }
-
-    final hourIndex = hour - 5;
-    const hourHeight = 60.0;
-
-    return Positioned(
-      top: hourIndex * hourHeight,
-      left: 2,
-      right: 2,
-      child: _buildScheduleCard(schedule),
-    );
-  }
-
   Widget _buildScheduleCard(Schedule schedule) {
+    // 업체 색상 가져오기 (없으면 기본 파란색)
+    final companyColor = schedule.companyName != null
+        ? _companyColors[schedule.companyName] ?? 0xFF2196F3
+        : 0xFF2196F3;
+
+    // 배경색에 따른 텍스트 색상 결정
+    final backgroundColor = Color(companyColor);
+    final textColor = _getTextColorForBackground(backgroundColor);
+
     return GestureDetector(
       onTap: () async {
         await Navigator.push(
@@ -404,44 +325,65 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         _loadSchedules();
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        width: 60,
+        height: double.infinity,
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: _getStatusColor(schedule.status),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.white, width: 1),
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: _getStatusColor(schedule.status),
+              width: 5,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 2,
+              offset: const Offset(1, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            if (schedule.visitTime != null)
-              Text(
-                schedule.visitTime!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            if (schedule.visitTime != null && schedule.visitTime != '미정')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  schedule.visitTime!,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             Text(
               schedule.customerName,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: textColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-            Text(
-              schedule.workItems.join(', '),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
+            if (schedule.workItems.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  schedule.workItems.join(', '),
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 9,
+                    height: 1.2,
+                  ),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
           ],
         ),
       ),

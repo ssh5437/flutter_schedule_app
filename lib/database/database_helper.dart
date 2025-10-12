@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -50,8 +50,8 @@ class DatabaseHelper {
       CREATE TABLE companies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        type TEXT NOT NULL,
-        workItems TEXT NOT NULL
+        workItems TEXT NOT NULL,
+        color INTEGER NOT NULL DEFAULT 4283215411
       )
     ''');
 
@@ -65,12 +65,91 @@ class DatabaseHelper {
         CREATE TABLE companies (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL UNIQUE,
-          type TEXT NOT NULL,
-          workItems TEXT NOT NULL
+          workItems TEXT NOT NULL,
+          color INTEGER NOT NULL DEFAULT 4283215411
         )
       ''');
 
       await _insertDefaultCompanies(db);
+    }
+    if (oldVersion < 3) {
+      // color 컬럼 추가 (기존 데이터가 있는 경우)
+      try {
+        await db.execute('ALTER TABLE companies ADD COLUMN color INTEGER');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
+
+      // 기존 데이터에 기본 색상 설정
+      await db.execute('UPDATE companies SET color = 4283215411 WHERE color IS NULL');
+
+      // 업체별 기본 색상 적용
+      await db.execute("UPDATE companies SET color = 4280423122 WHERE name = '삼성케어플러스'"); // 0xFF1976D2
+      await db.execute("UPDATE companies SET color = 4293918208 WHERE name = '케어원'"); // 0xFFF57C00
+      await db.execute("UPDATE companies SET color = 4282549820 WHERE name = '개인'"); // 0xFF388E3C
+    }
+    if (oldVersion < 4) {
+      // type 컬럼 제거 (SQLite는 컬럼 삭제를 직접 지원하지 않으므로 테이블 재생성)
+      await db.execute('ALTER TABLE companies RENAME TO companies_old');
+      await db.execute('''
+        CREATE TABLE companies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          workItems TEXT NOT NULL,
+          color INTEGER NOT NULL DEFAULT 4283215411
+        )
+      ''');
+      await db.execute('INSERT INTO companies (id, name, workItems, color) SELECT id, name, workItems, color FROM companies_old');
+      await db.execute('DROP TABLE companies_old');
+
+      // "개인" 업체가 없으면 생성 (기존 업체는 유지)
+      final result = await db.query('companies', where: "name = '개인'");
+      if (result.isEmpty) {
+        await db.insert('companies', {
+          'name': '개인',
+          'workItems': jsonEncode([]),
+          'color': 4282549820, // 0xFF388E3C
+        });
+      }
+    }
+    if (oldVersion < 5) {
+      // 삭제된 기본 업체들을 복원 (없는 경우만)
+      final samsungResult = await db.query('companies', where: "name = '삼성케어플러스'");
+      if (samsungResult.isEmpty) {
+        await db.insert('companies', {
+          'name': '삼성케어플러스',
+          'workItems': jsonEncode([
+            {'name': 'TV AS', 'price': 66000},
+            {'name': '냉장고 AS', 'price': 88000},
+            {'name': '세탁기 AS', 'price': 77000},
+            {'name': '에어컨 AS', 'price': 99000},
+          ]),
+          'color': 4280423122, // 0xFF1976D2
+        });
+      }
+
+      final carewonResult = await db.query('companies', where: "name = '케어원'");
+      if (carewonResult.isEmpty) {
+        await db.insert('companies', {
+          'name': '케어원',
+          'workItems': jsonEncode([
+            {'name': 'TV 설치', 'price': 55000},
+            {'name': '냉장고 설치', 'price': 66000},
+            {'name': '세탁기 설치', 'price': 55000},
+          ]),
+          'color': 4293918208, // 0xFFF57C00
+        });
+      }
+
+      // "개인" 업체가 없으면 생성
+      final personalResult = await db.query('companies', where: "name = '개인'");
+      if (personalResult.isEmpty) {
+        await db.insert('companies', {
+          'name': '개인',
+          'workItems': jsonEncode([]),
+          'color': 4282549820, // 0xFF388E3C
+        });
+      }
     }
   }
 
@@ -78,51 +157,35 @@ class DatabaseHelper {
     final defaultCompanies = [
       Company(
         name: '삼성케어플러스',
-        type: 'samsung',
+        color: 0xFF1976D2, // 파란색
         workItems: [
-          WorkItem(name: '벽걸이 에어컨', price: 0),
-          WorkItem(name: '스텐드 에어컨', price: 0),
-          WorkItem(name: '1way 에어컨', price: 0),
-          WorkItem(name: '2way 에어컨', price: 0),
-          WorkItem(name: '드럼세탁기', price: 0),
-          WorkItem(name: '통돌이세탁기', price: 0),
-          WorkItem(name: '냉장고', price: 0),
+          WorkItem(name: 'TV AS', price: 66000),
+          WorkItem(name: '냉장고 AS', price: 88000),
+          WorkItem(name: '세탁기 AS', price: 77000),
+          WorkItem(name: '에어컨 AS', price: 99000),
         ],
       ),
       Company(
         name: '케어원',
-        type: 'carewon',
+        color: 0xFFF57C00, // 오렌지색
         workItems: [
-          WorkItem(name: '벽걸이 에어컨', price: 0),
-          WorkItem(name: '스텐드 에어컨', price: 0),
-          WorkItem(name: '드럼세탁기', price: 0),
-          WorkItem(name: '통돌이세탁기', price: 0),
-          WorkItem(name: '냉장고', price: 0),
+          WorkItem(name: 'TV 설치', price: 55000),
+          WorkItem(name: '냉장고 설치', price: 66000),
+          WorkItem(name: '세탁기 설치', price: 55000),
         ],
       ),
       Company(
         name: '개인',
-        type: 'personal',
-        workItems: [
-          WorkItem(name: '1way 에어컨', price: 35000),
-          WorkItem(name: '2way 에어컨', price: 45000),
-          WorkItem(name: '벽걸이 에어컨', price: 35000),
-          WorkItem(name: '스텐드 에어컨', price: 45000),
-          WorkItem(name: '드럼세탁기', price: 40000),
-          WorkItem(name: '통돌이세탁기', price: 35000),
-          WorkItem(name: '냉장고', price: 50000),
-          WorkItem(name: '입주 청소', price: 150000),
-          WorkItem(name: '이사 청소', price: 120000),
-          WorkItem(name: '정기 청소', price: 80000),
-        ],
+        color: 0xFF388E3C, // 초록색
+        workItems: [], // 작업 항목 없음
       ),
     ];
 
     for (var company in defaultCompanies) {
       await db.insert('companies', {
         'name': company.name,
-        'type': company.type,
         'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
+        'color': company.color,
       });
     }
   }
@@ -214,10 +277,10 @@ class DatabaseHelper {
       return Company(
         id: map['id'] as int,
         name: map['name'] as String,
-        type: map['type'] as String,
         workItems: (jsonDecode(map['workItems'] as String) as List<dynamic>)
             .map((item) => WorkItem.fromMap(item))
             .toList(),
+        color: (map['color'] as int?) ?? 0xFF2196F3,
       );
     }).toList();
   }
@@ -235,10 +298,10 @@ class DatabaseHelper {
       return Company(
         id: map['id'] as int,
         name: map['name'] as String,
-        type: map['type'] as String,
         workItems: (jsonDecode(map['workItems'] as String) as List<dynamic>)
             .map((item) => WorkItem.fromMap(item))
             .toList(),
+        color: (map['color'] as int?) ?? 0xFF2196F3,
       );
     }
     return null;
@@ -248,8 +311,8 @@ class DatabaseHelper {
     final db = await database;
     return await db.insert('companies', {
       'name': company.name,
-      'type': company.type,
       'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
+      'color': company.color,
     });
   }
 
@@ -259,8 +322,8 @@ class DatabaseHelper {
       'companies',
       {
         'name': company.name,
-        'type': company.type,
         'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
+        'color': company.color,
       },
       where: 'id = ?',
       whereArgs: [company.id],
