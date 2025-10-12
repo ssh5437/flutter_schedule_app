@@ -15,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 
 class HomeScreenState extends State<HomeScreen> {
   List<Schedule> _schedules = [];
+  Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
 
   @override
@@ -27,14 +28,24 @@ class HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
     try {
       final schedules = await DatabaseHelper.instance.getSchedulesByStatus(['예정', '확정']);
+      final companies = await DatabaseHelper.instance.readAllCompanies();
+
+      // 업체별 색상 매핑 생성
+      final Map<String, int> companyColors = {};
+      for (var company in companies) {
+        companyColors[company.name] = company.color;
+      }
+
       setState(() {
         _schedules = schedules;
+        _companyColors = companyColors;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading schedules: $e');
+      //print('Error loading schedules: $e');
       setState(() {
         _schedules = [];
+        _companyColors = {};
         _isLoading = false;
       });
     }
@@ -73,6 +84,14 @@ class HomeScreenState extends State<HomeScreen> {
       default:
         return Colors.blue;
     }
+  }
+
+  // 배경색의 밝기에 따라 적절한 텍스트 색상 반환 (검정 또는 흰색)
+  Color _getTextColorForBackground(Color backgroundColor) {
+    // 색상의 상대 휘도(relative luminance) 계산
+    final double luminance = backgroundColor.computeLuminance();
+    // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   @override
@@ -130,11 +149,29 @@ class HomeScreenState extends State<HomeScreen> {
                     itemCount: _schedules.length,
                     itemBuilder: (context, index) {
                       final schedule = _schedules[index];
-                      final displayDate = schedule.visitDate ?? schedule.requestDate;
+                      // 확정 스케줄은 방문확정일자, 그 외에는 요청일자 표시
+                      final displayDate = schedule.status == '확정' && schedule.visitDate != null
+                          ? schedule.visitDate!
+                          : schedule.requestDate;
+                      final dateLabel = schedule.status == '확정' && schedule.visitDate != null
+                          ? '방문확정일자'
+                          : '요청일자';
+
+                      // 업체별 배경색 가져오기
+                      final backgroundColor = _companyColors[schedule.companyName] != null
+                          ? Color(_companyColors[schedule.companyName]!)
+                          : Colors.white;
+
+                      // 배경색에 맞는 텍스트 색상 계산
+                      final textColor = _getTextColorForBackground(backgroundColor);
 
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         elevation: 2,
+                        color: backgroundColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(0),
+                        ),
                         child: InkWell(
                           onTap: () async {
                             await Navigator.push(
@@ -170,10 +207,10 @@ class HomeScreenState extends State<HomeScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '${schedule.visitDate != null ? '요청일자' : '요청일자'} : ${_formatDate(displayDate)}',
-                                      style: const TextStyle(
+                                      '$dateLabel : ${_formatDate(displayDate)}',
+                                      style: TextStyle(
                                         fontSize: 13,
-                                        color: Colors.black87,
+                                        color: textColor,
                                       ),
                                     ),
                                   ],
@@ -182,19 +219,20 @@ class HomeScreenState extends State<HomeScreen> {
                                 // 고객명과 전화번호
                                 Row(
                                   children: [
-                                    const Text(
+                                    Text(
                                       '이름',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey,
+                                        color: textColor.withValues(alpha: 0.6),
                                       ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       schedule.customerName,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
+                                        color: textColor,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -202,7 +240,7 @@ class HomeScreenState extends State<HomeScreen> {
                                       _formatPhoneNumber(schedule.phoneNumber),
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.blue[700],
+                                        color: textColor,
                                         decoration: TextDecoration.underline,
                                       ),
                                     ),
@@ -212,18 +250,18 @@ class HomeScreenState extends State<HomeScreen> {
                                 // 작업 내용
                                 Text(
                                   schedule.workItems.join(', '),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.black87,
+                                    color: textColor,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
                                 // 주소
                                 Text(
                                   schedule.address,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.black54,
+                                    color: textColor.withValues(alpha: 0.7),
                                   ),
                                 ),
                                 // 비고 (있는 경우만)
@@ -231,9 +269,9 @@ class HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     schedule.notes!,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.black45,
+                                      color: textColor.withValues(alpha: 0.5),
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,

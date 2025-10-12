@@ -45,7 +45,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCompanies();
+    _initializeForm();
+  }
+
+  Future<void> _initializeForm() async {
+    await _loadCompanies();
     if (widget.schedule != null) {
       _loadScheduleData();
     } else {
@@ -78,11 +82,17 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _visitTime = schedule.visitTime;
 
     // 업체명으로 업체 찾기
-    if (schedule.companyName != null) {
-      _selectedCompany = _companies.firstWhere(
-        (c) => c.name == schedule.companyName,
-        orElse: () => _companies.first,
-      );
+    if (schedule.companyName != null && _companies.isNotEmpty) {
+      try {
+        _selectedCompany = _companies.firstWhere(
+          (c) => c.name == schedule.companyName,
+        );
+      } catch (e) {
+        // 업체를 찾지 못한 경우 첫 번째 업체 선택
+        _selectedCompany = _companies.isNotEmpty ? _companies.first : null;
+      }
+    } else if (_companies.isNotEmpty) {
+      _selectedCompany = _companies.first;
     }
 
     // 기존 데이터에서 작업 항목 파싱

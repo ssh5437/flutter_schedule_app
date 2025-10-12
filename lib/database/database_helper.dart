@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'dart:convert';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import '../utils/encryption_helper.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -22,7 +23,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -151,6 +152,37 @@ class DatabaseHelper {
         });
       }
     }
+    if (oldVersion < 6) {
+      // 기존 암호화되지 않은 데이터를 암호화
+      await _migrateToEncryptedData(db);
+    }
+  }
+
+  Future<void> _migrateToEncryptedData(Database db) async {
+    // 모든 스케줄 데이터를 가져옴
+    final schedules = await db.query('schedules');
+
+    for (var schedule in schedules) {
+      final id = schedule['id'];
+      final customerName = schedule['customerName'] as String;
+      final phoneNumber = schedule['phoneNumber'] as String;
+      final address = schedule['address'] as String;
+
+      // 이미 암호화된 데이터인지 확인
+      if (!EncryptionHelper.isEncrypted(customerName)) {
+        // 암호화되지 않은 데이터만 암호화하여 업데이트
+        await db.update(
+          'schedules',
+          {
+            'customerName': await EncryptionHelper.encrypt(customerName),
+            'phoneNumber': await EncryptionHelper.encrypt(phoneNumber),
+            'address': await EncryptionHelper.encrypt(address),
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    }
   }
 
   Future _insertDefaultCompanies(Database db) async {
@@ -192,7 +224,14 @@ class DatabaseHelper {
 
   Future<int> createSchedule(Schedule schedule) async {
     final db = await database;
-    return await db.insert('schedules', schedule.toMap());
+    final map = schedule.toMap();
+
+    // 개인정보 암호화
+    map['customerName'] = await EncryptionHelper.encrypt(map['customerName']);
+    map['phoneNumber'] = await EncryptionHelper.encrypt(map['phoneNumber']);
+    map['address'] = await EncryptionHelper.encrypt(map['address']);
+
+    return await db.insert('schedules', map);
   }
 
   Future<Schedule?> readSchedule(int id) async {
@@ -204,7 +243,14 @@ class DatabaseHelper {
     );
 
     if (maps.isNotEmpty) {
-      return Schedule.fromMap(maps.first);
+      final map = Map<String, dynamic>.from(maps.first);
+
+      // 개인정보 복호화
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+
+      return Schedule.fromMap(map);
     } else {
       return null;
     }
@@ -213,7 +259,17 @@ class DatabaseHelper {
   Future<List<Schedule>> readAllSchedules() async {
     final db = await database;
     final result = await db.query('schedules', orderBy: 'requestDate DESC');
-    return result.map((map) => Schedule.fromMap(map)).toList();
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+    return schedules;
   }
 
   Future<List<Schedule>> getSchedulesByStatus(List<String> statuses) async {
@@ -224,7 +280,17 @@ class DatabaseHelper {
       whereArgs: statuses,
       orderBy: 'visitDate ASC, requestDate ASC',
     );
-    return result.map((map) => Schedule.fromMap(map)).toList();
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+    return schedules;
   }
 
   Future<List<Schedule>> getCompletedSchedules() async {
@@ -236,25 +302,57 @@ class DatabaseHelper {
       whereArgs: [now.toIso8601String(), '취소'],
       orderBy: 'visitDate DESC',
     );
-    return result.map((map) => Schedule.fromMap(map)).toList();
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+    return schedules;
   }
 
   Future<List<Schedule>> searchSchedules(String query) async {
     final db = await database;
-    final result = await db.query(
-      'schedules',
-      where: 'customerName LIKE ? OR phoneNumber LIKE ? OR requestDate LIKE ? OR visitDate LIKE ?',
-      whereArgs: ['%$query%', '%$query%', '%$query%', '%$query%'],
-      orderBy: 'requestDate DESC',
-    );
-    return result.map((map) => Schedule.fromMap(map)).toList();
+    // 암호화된 데이터는 LIKE 검색이 불가능하므로 모든 데이터를 가져와서 필터링
+    final result = await db.query('schedules', orderBy: 'requestDate DESC');
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+
+    // 복호화된 데이터로 검색
+    return schedules.where((schedule) {
+      final lowerQuery = query.toLowerCase();
+      return schedule.customerName.toLowerCase().contains(lowerQuery) ||
+             schedule.phoneNumber.toLowerCase().contains(lowerQuery) ||
+             schedule.address.toLowerCase().contains(lowerQuery) ||
+             schedule.requestDate.toString().contains(lowerQuery) ||
+             (schedule.visitDate?.toString().contains(lowerQuery) ?? false);
+    }).toList();
   }
 
   Future<int> updateSchedule(Schedule schedule) async {
     final db = await database;
+    final map = schedule.toMap();
+
+    // 개인정보 암호화
+    map['customerName'] = await EncryptionHelper.encrypt(map['customerName']);
+    map['phoneNumber'] = await EncryptionHelper.encrypt(map['phoneNumber']);
+    map['address'] = await EncryptionHelper.encrypt(map['address']);
+
     return await db.update(
       'schedules',
-      schedule.toMap(),
+      map,
       where: 'id = ?',
       whereArgs: [schedule.id],
     );

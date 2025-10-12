@@ -393,67 +393,76 @@ class CalendarScreenState extends State<CalendarScreen> {
           final backgroundColor = Color(companyColor);
           final textColor = _getTextColorForBackground(backgroundColor);
 
-          return ListTile(
-            leading: Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: _getStatusColor(schedule.status),
-                borderRadius: BorderRadius.circular(2),
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              border: Border(
+                left: BorderSide(
+                  color: _getStatusColor(schedule.status),
+                  width: 4,
+                ),
               ),
             ),
-            title: Row(
-              children: [
-                if (schedule.visitTime != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(4),
+            child: ListTile(
+              title: Row(
+                children: [
+                  if (schedule.visitTime != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        schedule.visitTime!,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
+                  if (schedule.visitTime != null) const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      schedule.visitTime!,
+                      schedule.customerName,
                       style: TextStyle(
-                        color: textColor,
-                        fontSize: 12,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: textColor,
                       ),
                     ),
                   ),
-                if (schedule.visitTime != null) const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    schedule.customerName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                ],
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    schedule.workItems.join(', '),
+                    style: TextStyle(fontSize: 14, color: textColor),
+                  ),
+                  Text(
+                    schedule.address,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textColor.withValues(alpha: 0.7),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ScheduleDetailScreen(schedule: schedule),
+                  ),
+                );
+                _loadSchedules();
+              },
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  schedule.workItems.join(', '),
-                  style: const TextStyle(fontSize: 14),
-                ),
-                Text(
-                  schedule.address,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ScheduleDetailScreen(schedule: schedule),
-                ),
-              );
-              _loadSchedules();
-            },
           );
         },
       ),
