@@ -5,7 +5,8 @@
       "Bash(flutter build:*)",
       "Bash(flutter analyze:*)",
       "Bash(flutter run:*)",
-      "Bash(clip)"
+      "Bash(clip)",
+      "Bash(flutter:*)"
     ],
     "deny": [],
     "ask": []

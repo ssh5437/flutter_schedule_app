@@ -5,6 +5,7 @@ import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
 import 'search_screen.dart';
 import 'company_management_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,6 +126,18 @@ class HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+            tooltip: '설정',
+          ),
         ],
       ),
       body: _isLoading
@@ -183,7 +196,7 @@ class HomeScreenState extends State<HomeScreen> {
                             _loadSchedules();
                           },
                           child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                            padding: const EdgeInsets.all(6.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -207,7 +220,9 @@ class HomeScreenState extends State<HomeScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '$dateLabel : ${_formatDate(displayDate)}',
+                                      schedule.status == '확정'
+                                          ? '$dateLabel : ${_formatDate(displayDate)} ${schedule.visitTime ?? '미정'}'
+                                          : '$dateLabel : ${_formatDate(displayDate)}',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: textColor,
@@ -215,18 +230,10 @@ class HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
                                 // 고객명과 전화번호
                                 Row(
                                   children: [
-                                    Text(
-                                      '이름',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: textColor.withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
                                     Text(
                                       schedule.customerName,
                                       style: TextStyle(
@@ -246,7 +253,7 @@ class HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 // 작업 내용
                                 Text(
                                   schedule.workItems.join(', '),
@@ -255,7 +262,7 @@ class HomeScreenState extends State<HomeScreen> {
                                     color: textColor,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 // 주소
                                 Text(
                                   schedule.address,

@@ -3,28 +3,147 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pointycastle/export.dart';
 
 class EncryptionHelper {
   static const _storage = FlutterSecureStorage();
   static const _keyName = 'app_encryption_key';
+  static const _saltName = 'app_encryption_salt';
+  static const _hasPasswordName = 'has_user_password';
+  static const _verificationName = 'password_verification';
   static Key? _cachedKey;
 
-  /// 앱 최초 실행 시 키 생성 또는 기존 키 로드
+  /// 사용자 비밀번호로부터 암호화 키 생성 (PBKDF2)
+  static Future<Key> _deriveKeyFromPassword(String password, Uint8List salt) async {
+    final pbkdf2 = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64));
+
+    pbkdf2.init(Pbkdf2Parameters(
+      salt,
+      100000, // 반복 횟수 (보안 강도)
+      32, // 키 길이 (256비트)
+    ));
+
+    final key = pbkdf2.process(Uint8List.fromList(utf8.encode(password)));
+    return Key(key);
+  }
+
+  /// Salt 생성 또는 로드
+  static Future<Uint8List> _getOrCreateSalt() async {
+    String? storedSalt = await _storage.read(key: _saltName);
+
+    if (storedSalt == null) {
+      // 새로운 Salt 생성
+      final random = Random.secure();
+      final salt = Uint8List.fromList(
+        List<int>.generate(16, (i) => random.nextInt(256))
+      );
+      storedSalt = base64.encode(salt);
+      await _storage.write(key: _saltName, value: storedSalt);
+      return salt;
+    }
+
+    return Uint8List.fromList(base64.decode(storedSalt));
+  }
+
+  /// 사용자가 비밀번호를 설정했는지 확인
+  static Future<bool> hasUserPassword() async {
+    final value = await _storage.read(key: _hasPasswordName);
+    return value == 'true';
+  }
+
+  /// 사용자 비밀번호 설정
+  static Future<void> setUserPassword(String password) async {
+    final salt = await _getOrCreateSalt();
+    final key = await _deriveKeyFromPassword(password, salt);
+
+    // 검증용 데이터 생성 (비밀번호 확인용)
+    final verificationData = 'password_verification_${DateTime.now().millisecondsSinceEpoch}';
+    final iv = IV.fromLength(16);
+    final encrypter = Encrypter(AES(key));
+    final encrypted = encrypter.encrypt(verificationData, iv: iv);
+
+    // 검증 데이터 저장
+    await _storage.write(
+      key: _verificationName,
+      value: '${iv.base64}:${encrypted.base64}:$verificationData'
+    );
+
+    // 생성된 키를 저장
+    await _storage.write(key: _keyName, value: base64.encode(key.bytes));
+    await _storage.write(key: _hasPasswordName, value: 'true');
+
+    _cachedKey = key;
+  }
+
+  /// 사용자 비밀번호로 키 복원 및 검증
+  static Future<bool> unlockWithPassword(String password) async {
+    try {
+      final salt = await _getOrCreateSalt();
+      final key = await _deriveKeyFromPassword(password, salt);
+
+      // 저장된 검증 데이터로 비밀번호 확인
+      final verificationData = await _storage.read(key: _verificationName);
+      if (verificationData == null) {
+        return false;
+      }
+
+      final parts = verificationData.split(':');
+      if (parts.length != 3) return false;
+
+      final iv = IV.fromBase64(parts[0]);
+      final encrypter = Encrypter(AES(key));
+      final decrypted = encrypter.decrypt64(parts[1], iv: iv);
+
+      // 복호화된 데이터가 원본과 일치하는지 확인
+      if (decrypted == parts[2]) {
+        _cachedKey = key;
+        await _storage.write(key: _keyName, value: base64.encode(key.bytes));
+        return true;
+      }
+    } catch (e) {
+      return false;
+    }
+    return false;
+  }
+
+  /// 비밀번호 변경
+  static Future<bool> changePassword(String oldPassword, String newPassword) async {
+    // 기존 비밀번호 확인
+    final isValid = await unlockWithPassword(oldPassword);
+    if (!isValid) return false;
+
+    // 새 비밀번호로 키 재생성
+    await setUserPassword(newPassword);
+    return true;
+  }
+
+  /// 기존 방식과 호환되는 키 로드
   static Future<Key> _getOrCreateKey() async {
     if (_cachedKey != null) return _cachedKey!;
 
-    // 저장된 키가 있는지 확인
-    String? storedKey = await _storage.read(key: _keyName);
+    // 사용자 비밀번호가 설정되어 있는지 확인
+    final hasPassword = await hasUserPassword();
 
+    if (hasPassword) {
+      // 비밀번호 기반 키 사용
+      String? storedKey = await _storage.read(key: _keyName);
+      if (storedKey != null) {
+        _cachedKey = Key.fromBase64(storedKey);
+        return _cachedKey!;
+      }
+
+      // 키가 없으면 에러 (앱 잠금 상태)
+      throw Exception('App is locked. Please unlock with password.');
+    }
+
+    // 기존 방식: 랜덤 키 생성 (마이그레이션용)
+    String? storedKey = await _storage.read(key: _keyName);
     if (storedKey == null) {
-      // 없으면 새로운 랜덤 키 생성 (32바이트)
       final random = Random.secure();
       final keyBytes = Uint8List.fromList(
         List<int>.generate(32, (i) => random.nextInt(256))
       );
       storedKey = base64.encode(keyBytes);
-
-      // 안전한 저장소에 저장
       await _storage.write(key: _keyName, value: storedKey);
     }
 
@@ -88,9 +207,14 @@ class EncryptionHelper {
     }
   }
 
-  /// 테스트용: 저장된 키 삭제 (개발 중에만 사용)
-  static Future<void> deleteKey() async {
-    await _storage.delete(key: _keyName);
+  /// 앱 잠금 (캐시된 키 삭제)
+  static void lock() {
+    _cachedKey = null;
+  }
+
+  /// 테스트용: 모든 데이터 삭제 (개발 중에만 사용)
+  static Future<void> resetAll() async {
+    await _storage.deleteAll();
     _cachedKey = null;
   }
 }

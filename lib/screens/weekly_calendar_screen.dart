@@ -279,7 +279,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                       ),
                     ),
                   )
-                : Container(
+                : SizedBox(
                     height: 100,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,

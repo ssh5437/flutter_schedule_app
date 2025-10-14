@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
@@ -20,6 +21,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   final _addressController = TextEditingController();
   final _workCountController = TextEditingController();
   final _notesController = TextEditingController();
+  final _phoneNumberFocus = FocusNode();
 
   DateTime _requestDate = DateTime.now();
   DateTime? _visitDate;
@@ -29,6 +31,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   List<Company> _companies = [];
   Company? _selectedCompany;
   bool _isLoadingCompanies = true;
+
+  // 전화번호 포맷팅 (000-0000-0000)
+  String _formatPhoneNumber(String phone) {
+    final digitsOnly = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.length == 11) {
+      return '${digitsOnly.substring(0, 3)}-${digitsOnly.substring(3, 7)}-${digitsOnly.substring(7)}';
+    } else if (digitsOnly.length == 10) {
+      return '${digitsOnly.substring(0, 3)}-${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+    }
+    return digitsOnly;
+  }
+
+  // 전화번호에서 숫자만 추출
+  String _getDigitsOnly(String text) {
+    return text.replaceAll(RegExp(r'[^0-9]'), '');
+  }
 
   // 방문시간 옵션 (5:00 ~ 23:00, 30분 단위)
   List<String> get _timeOptions {
@@ -46,6 +64,24 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   void initState() {
     super.initState();
     _initializeForm();
+
+    // 전화번호 포커스 리스너
+    _phoneNumberFocus.addListener(() {
+      if (!_phoneNumberFocus.hasFocus) {
+        // 포커스 아웃 시 포맷팅 적용
+        final digitsOnly = _getDigitsOnly(_phoneNumberController.text);
+        if (digitsOnly.isNotEmpty) {
+          _phoneNumberController.text = _formatPhoneNumber(digitsOnly);
+        }
+      } else {
+        // 포커스 인 시 숫자만 표시
+        final digitsOnly = _getDigitsOnly(_phoneNumberController.text);
+        _phoneNumberController.text = digitsOnly;
+        _phoneNumberController.selection = TextSelection.fromPosition(
+          TextPosition(offset: digitsOnly.length),
+        );
+      }
+    });
   }
 
   Future<void> _initializeForm() async {
@@ -112,6 +148,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _addressController.dispose();
     _workCountController.dispose();
     _notesController.dispose();
+    _phoneNumberFocus.dispose();
     super.dispose();
   }
 
@@ -346,13 +383,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         .map((e) => '${e.key} ${e.value}건')
         .toList();
 
+    // 전화번호는 숫자만 저장
+    final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
+
     final schedule = Schedule(
       id: widget.schedule?.id,
       customerName: _customerNameController.text,
       requestDate: _requestDate,
       visitDate: _visitDate,
       visitTime: _visitTime,
-      phoneNumber: _phoneNumberController.text,
+      phoneNumber: phoneNumberDigitsOnly,
       address: _addressController.text,
       companyName: _selectedCompany!.name,
       workItems: workItemsList,
@@ -452,6 +492,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               isDense: true,
                             ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zㄱ-ㅎ가-힣\s]')),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '고객명을 입력해주세요';
@@ -522,6 +565,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _phoneNumberController,
+                            focusNode: _phoneNumberFocus,
                             decoration: const InputDecoration(
                               labelText: '전화번호 *',
                               border: OutlineInputBorder(),
@@ -529,6 +573,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               isDense: true,
                             ),
                             keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '전화번호를 입력해주세요';
@@ -545,6 +592,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               isDense: true,
                             ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9ㄱ-ㅎ가-힣\s,\-]')),
+                            ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '주소를 입력해주세요';
@@ -604,20 +654,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _saveSchedule,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(
-                        widget.schedule == null ? '스케줄 추가' : '수정 완료',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _saveSchedule,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(
+                          widget.schedule == null ? '스케줄 추가' : '수정 완료',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ),
