@@ -1,8 +1,99 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '../utils/encryption_helper.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _defaultCalendar = 'monthly'; // 'monthly' 또는 'weekly'
+  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상 (연한 주황)
+  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상 (연한 파랑)
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _defaultCalendar = prefs.getString('default_calendar') ?? 'monthly';
+      _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+    });
+  }
+
+  Future<void> _saveDefaultCalendar(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('default_calendar', value);
+    setState(() {
+      _defaultCalendar = value;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('기본 캘린더가 ${value == 'monthly' ? '월간' : '주간'} 캘린더로 설정되었습니다'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveStatusColor(String status, Color color) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (status == 'pending') {
+      await prefs.setInt('pending_color', color.toARGB32());
+      setState(() {
+        _pendingColor = color;
+      });
+    } else {
+      await prefs.setInt('confirmed_color', color.toARGB32());
+      setState(() {
+        _confirmedColor = color;
+      });
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${status == 'pending' ? '예정' : '확정'} 스케줄 색상이 변경되었습니다'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showColorPicker(String status, Color currentColor) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${status == 'pending' ? '예정' : '확정'} 스케줄 색상 선택'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: currentColor,
+            onColorChanged: (color) {
+              _saveStatusColor(status, color);
+            },
+            pickerAreaHeightPercent: 0.8,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +105,101 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
+          // 캘린더 설정 섹션
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '캘린더',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+
+          // 스케줄 색상 설정
+          ListTile(
+            leading: Icon(Icons.palette, color: _pendingColor),
+            title: const Text('예정 스케줄 색상'),
+            trailing: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _pendingColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onTap: () => _showColorPicker('pending', _pendingColor),
+          ),
+
+          ListTile(
+            leading: Icon(Icons.palette, color: _confirmedColor),
+            title: const Text('확정 스케줄 색상'),
+            trailing: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _confirmedColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onTap: () => _showColorPicker('confirmed', _confirmedColor),
+          ),
+
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.calendar_view_month),
+            title: const Text('기본 캘린더'),
+            subtitle: Text(_defaultCalendar == 'monthly' ? '월간 캘린더' : '주간 캘린더'),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('기본 캘린더 선택'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text('월간 캘린더'),
+                        value: 'monthly',
+                        groupValue: _defaultCalendar,
+                        onChanged: (value) {
+                          if (value != null) {
+                            _saveDefaultCalendar(value);
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('주간 캘린더'),
+                        value: 'weekly',
+                        groupValue: _defaultCalendar,
+                        onChanged: (value) {
+                          if (value != null) {
+                            _saveDefaultCalendar(value);
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('취소'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          const Divider(),
+
           // 보안 섹션
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -65,65 +251,19 @@ class SettingsScreen extends StatelessWidget {
             subtitle: Text('1.0.0'),
           ),
 
-          const Divider(),
-
-          // 위험 구역
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              '위험 구역',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-          ),
-
-          // 모든 데이터 삭제
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text(
-              '모든 데이터 삭제',
-              style: TextStyle(color: Colors.red),
-            ),
-            subtitle: const Text('앱의 모든 데이터를 삭제합니다 (복구 불가)'),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('모든 데이터 삭제'),
-                  content: const Text(
-                    '정말로 모든 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 스케줄 데이터와 비밀번호가 모두 삭제됩니다.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('취소'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        await EncryptionHelper.resetAll();
-
-                        if (context.mounted) {
-                          // 앱 재시작 (초기 화면으로)
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                            '/',
-                            (route) => false,
-                          );
-                        }
-                      },
-                      child: const Text(
-                        '삭제',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          // 위험 구역 및 모든 데이터 삭제 기능은 숨김 처리
+          // const Divider(),
+          // const Padding(
+          //   padding: EdgeInsets.all(16.0),
+          //   child: Text(
+          //     '위험 구역',
+          //     style: TextStyle(
+          //       fontSize: 16,
+          //       fontWeight: FontWeight.bold,
+          //       color: Colors.red,
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );

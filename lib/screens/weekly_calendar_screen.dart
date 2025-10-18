@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
@@ -16,11 +17,22 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Map<DateTime, List<Schedule>> _schedulesByDate = {};
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
+  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
+  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
 
   @override
   void initState() {
     super.initState();
     _loadSchedules();
+    _loadColors();
+  }
+
+  Future<void> _loadColors() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+    });
   }
 
   @override
@@ -90,9 +102,9 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case '확정':
-        return Colors.green;
+        return _confirmedColor;
       case '예정':
-        return Colors.orange;
+        return _pendingColor;
       case '완료':
         return Colors.grey;
       case '취소':
@@ -108,6 +120,16 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     final double luminance = backgroundColor.computeLuminance();
     // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
     return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
+
+  String _formatPhoneNumber(String phone) {
+    // 전화번호 포맷팅 (010-1234-5678)
+    if (phone.length == 11) {
+      return '${phone.substring(0, 3)}-${phone.substring(3, 7)}-${phone.substring(7)}';
+    } else if (phone.length == 10) {
+      return '${phone.substring(0, 3)}-${phone.substring(3, 6)}-${phone.substring(6)}';
+    }
+    return phone;
   }
 
   void _goToPreviousWeek() {
@@ -214,7 +236,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         children: [
           // 날짜 헤더 (세로)
           Container(
-            width: 80,
+            width: 60,
             height: 100,
             decoration: BoxDecoration(
               border: Border(right: BorderSide(color: Colors.grey.shade300)),
@@ -316,7 +338,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         _loadSchedules();
       },
       child: Container(
-        width: 60,
+        width: 70,
         height: double.infinity,
         margin: const EdgeInsets.only(right: 5),
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
@@ -353,6 +375,17 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _formatPhoneNumber(schedule.phoneNumber),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 8,
+                  height: 1.2,
+                ),
               ),
             ),
             if (schedule.workItems.isNotEmpty)

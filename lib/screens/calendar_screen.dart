@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
@@ -19,6 +20,8 @@ class CalendarScreenState extends State<CalendarScreen> {
   bool _isLoading = true;
   bool _isPortrait = true; // true: 세로보기, false: 가로보기
   final ScrollController _scrollController = ScrollController();
+  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
+  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
 
   // 외부에서 호출 가능한 새로고침 메서드
   void refresh() {
@@ -40,6 +43,15 @@ class CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _selectedDay = _focusedDay;
     _loadSchedules();
+    _loadColors();
+  }
+
+  Future<void> _loadColors() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+    });
   }
 
   @override
@@ -157,9 +169,9 @@ class CalendarScreenState extends State<CalendarScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case '확정':
-        return Colors.green;
+        return _confirmedColor;
       case '예정':
-        return Colors.orange;
+        return _pendingColor;
       case '완료':
         return Colors.grey;
       case '취소':
@@ -169,12 +181,14 @@ class CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  // 배경색의 밝기에 따라 적절한 텍스트 색상 반환 (검정 또는 흰색)
-  Color _getTextColorForBackground(Color backgroundColor) {
-    // 색상의 상대 휘도(relative luminance) 계산
-    final double luminance = backgroundColor.computeLuminance();
-    // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  String _formatPhoneNumber(String phone) {
+    // 전화번호 포맷팅 (010-1234-5678)
+    if (phone.length == 11) {
+      return '${phone.substring(0, 3)}-${phone.substring(3, 7)}-${phone.substring(7)}';
+    } else if (phone.length == 10) {
+      return '${phone.substring(0, 3)}-${phone.substring(3, 6)}-${phone.substring(6)}';
+    }
+    return phone;
   }
 
   Widget _buildDayCell(DateTime day, bool isToday, bool isSelected, {bool isOutside = false}) {
@@ -233,12 +247,15 @@ class CalendarScreenState extends State<CalendarScreen> {
                       itemCount: schedules.length,
                       itemBuilder: (context, index) {
                         final schedule = schedules[index];
-                        // 업체 색상 가져오기 (없으면 기본 파란색)
+                        // 업체 색상 가져오기 (없으면 기본 회색)
                         final companyColor = schedule.companyName != null
-                            ? _companyColors[schedule.companyName] ?? 0xFF2196F3
-                            : 0xFF2196F3;
-                        final backgroundColor = Color(companyColor);
-                        final textColor = _getTextColorForBackground(backgroundColor);
+                            ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
+                            : 0xFF9E9E9E;
+                        final borderColor = Color(companyColor);
+
+                        // 상태별 배경색 가져오기
+                        final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
+                        final textColor = Colors.black87;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 3),
@@ -247,7 +264,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                             color: backgroundColor,
                             border: Border(
                               left: BorderSide(
-                                color: _getStatusColor(schedule.status),
+                                color: borderColor,
                                 width: 3,
                               ),
                             ),
@@ -363,16 +380,8 @@ class CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildSelectedDaySchedules() {
     final schedules = _getSchedulesForDay(_selectedDay!);
-
-    if (schedules.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: const Text(
-          '해당 날짜에 스케줄이 없습니다',
-          style: TextStyle(color: Colors.grey),
-        ),
-      );
-    }
+    const koreanDays = ['일', '월', '화', '수', '목', '금', '토'];
+    final dayOfWeek = koreanDays[_selectedDay!.weekday % 7];
 
     return Container(
       decoration: BoxDecoration(
@@ -380,18 +389,71 @@ class CalendarScreenState extends State<CalendarScreen> {
           top: BorderSide(color: Colors.grey.shade300, width: 2),
         ),
       ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: schedules.length,
-        itemBuilder: (context, index) {
-          final schedule = schedules[index];
-          // 업체 색상 가져오기 (없으면 기본 파란색)
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 선택된 날짜 표시
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today,
+                  size: 18,
+                  color: Colors.grey.shade700,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${_selectedDay!.month}월 ${_selectedDay!.day}일 ($dayOfWeek)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${schedules.length}건',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 스케줄이 없을 때
+          if (schedules.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: const Text(
+                '해당 날짜에 스케줄이 없습니다',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            // 스케줄 목록
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: schedules.length,
+              itemBuilder: (context, index) {
+                final schedule = schedules[index];
+          // 업체 색상 가져오기 (없으면 기본 회색)
           final companyColor = schedule.companyName != null
-              ? _companyColors[schedule.companyName] ?? 0xFF2196F3
-              : 0xFF2196F3;
-          final backgroundColor = Color(companyColor);
-          final textColor = _getTextColorForBackground(backgroundColor);
+              ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
+              : 0xFF9E9E9E;
+          final borderColor = Color(companyColor);
+
+          // 상태별 배경색 가져오기
+          final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
+          final textColor = Colors.black87;
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -399,8 +461,8 @@ class CalendarScreenState extends State<CalendarScreen> {
               color: backgroundColor,
               border: Border(
                 left: BorderSide(
-                  color: _getStatusColor(schedule.status),
-                  width: 4,
+                  color: borderColor,
+                  width: 6,
                 ),
               ),
             ),
@@ -424,32 +486,50 @@ class CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
                   if (schedule.visitTime != null) const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      schedule.customerName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
+                  Text(
+                    schedule.customerName,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatPhoneNumber(schedule.phoneNumber),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: textColor,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (schedule.companyName != null && schedule.companyName!.isNotEmpty)
+                    Text(
+                      schedule.companyName!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: textColor.withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                 ],
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 4),
-                  Text(
-                    schedule.workItems.join(', '),
-                    style: TextStyle(fontSize: 14, color: textColor),
-                  ),
+                  
                   Text(
                     schedule.address,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: textColor.withValues(alpha: 0.7),
+                      fontSize: 14,
+                      color: textColor,
                     ),
+                  ),
+                  Text(
+                    schedule.workItems.join(', '),
+                    style: TextStyle(fontSize: 14, color: textColor),
                   ),
                 ],
               ),
@@ -465,6 +545,8 @@ class CalendarScreenState extends State<CalendarScreen> {
             ),
           );
         },
+      ),
+        ],
       ),
     );
   }

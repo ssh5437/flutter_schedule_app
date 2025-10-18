@@ -29,6 +29,19 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     return DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(date);
   }
 
+  String _formatWorkItems(List<String> workItems) {
+    if (workItems.isEmpty) return '-';
+
+    // 작업 항목별 건수 카운팅
+    final Map<String, int> itemCount = {};
+    for (var item in workItems) {
+      itemCount[item] = (itemCount[item] ?? 0) + 1;
+    }
+
+    // "항목명 건수" 형식으로 변환
+    return itemCount.entries.map((e) => '${e.key} ${e.value}건').join(', ');
+  }
+
   Future<void> _sendSMS() async {
     final uri = Uri(scheme: 'sms', path: _schedule.phoneNumber);
     if (await canLaunchUrl(uri)) {
@@ -151,7 +164,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
             const Divider(),
             _buildInfoRow('업체명', _schedule.companyName ?? '-'),
             const Divider(),
-            _buildInfoRow('작업내용', _schedule.workItems.join(', ')),
+            _buildInfoRow('작업내용', _formatWorkItems(_schedule.workItems)),
             const Divider(),
             _buildInfoRow('작업건수', '${_schedule.workCount}건'),
             const Divider(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_screen.dart';
 import 'weekly_calendar_screen.dart';
 
@@ -13,6 +14,20 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
   bool _isWeeklyView = true; // true: 주간, false: 월간
   final GlobalKey<WeeklyCalendarScreenState> _weeklyKey = GlobalKey<WeeklyCalendarScreenState>();
   final GlobalKey<CalendarScreenState> _monthlyKey = GlobalKey<CalendarScreenState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultCalendar();
+  }
+
+  Future<void> _loadDefaultCalendar() async {
+    final prefs = await SharedPreferences.getInstance();
+    final defaultCalendar = prefs.getString('default_calendar') ?? 'monthly';
+    setState(() {
+      _isWeeklyView = defaultCalendar == 'weekly';
+    });
+  }
 
   void refresh() {
     if (_isWeeklyView) {

@@ -4,6 +4,7 @@ import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
 import 'screens/schedule_form_screen.dart';
+import 'screens/settings_screen.dart';
 // 비밀번호 기능 임시 비활성화 (테스트용)
 // import 'screens/password_setup_screen.dart';
 // import 'screens/password_unlock_screen.dart';
@@ -172,6 +173,7 @@ class _MainScreenState extends State<MainScreen> {
       HomeScreen(key: _homeKey),
       CalendarViewScreen(key: _calendarKey),
       const CompletedSchedulesScreen(),
+      const SettingsScreen(),
     ];
   }
 
@@ -200,6 +202,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.check_circle),
             label: '완료 내역',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: '설정',
           ),
         ],
       ),

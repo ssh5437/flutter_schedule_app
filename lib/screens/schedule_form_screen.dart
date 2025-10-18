@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
+import '../utils/gemini_helper.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -87,7 +88,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   Future<void> _initializeForm() async {
     await _loadCompanies();
     if (widget.schedule != null) {
-      _loadScheduleData();
+      setState(() {
+        _loadScheduleData();
+      });
     } else {
       // 새 스케줄 추가 시 작업 건수 기본값 1
       _workCountController.text = '1';
@@ -131,14 +134,12 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       _selectedCompany = _companies.first;
     }
 
-    // 기존 데이터에서 작업 항목 파싱
+    // 기존 데이터에서 작업 항목 파싱 (중복된 항목 카운팅)
     _workItemsWithCount.clear();
-    int totalCount = 0;
     for (var item in schedule.workItems) {
-      _workItemsWithCount[item] = 1;
-      totalCount += 1;
+      _workItemsWithCount[item] = (_workItemsWithCount[item] ?? 0) + 1;
     }
-    _workCountController.text = totalCount.toString();
+    _workCountController.text = schedule.workCount.toString();
   }
 
   @override
@@ -289,7 +290,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 return ListTile(
                   dense: true,
                   title: Text(workItem.name, style: const TextStyle(fontSize: 14)),
-                  subtitle: Text('${workItem.price}원', style: const TextStyle(fontSize: 12)),
+                  subtitle: Text('${NumberFormat('#,###').format(workItem.price)}원', style: const TextStyle(fontSize: 12)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -356,6 +357,155 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
   }
 
+  void _showPasteDialog() {
+    final textController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('텍스트에서 스케줄 추출'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '스케줄 정보가 포함된 텍스트를 붙여넣으세요.\n(이름, 전화번호, 주소, 날짜, 시간)',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: textController,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  hintText: '예시:\n홍길동\n010-1234-5678\n서울시 강남구 테헤란로 123\n2025년 10월 15일 14시',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              final text = textController.text.trim();
+              if (text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('텍스트를 입력해주세요')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _extractScheduleInfo(text);
+            },
+            icon: const Icon(Icons.auto_fix_high, size: 18),
+            label: const Text('추출하기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _extractScheduleInfo(String text) async {
+    // 로딩 다이얼로그 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('정보 추출 중...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final result = await GeminiHelper.extractScheduleInfo(text);
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+      if (result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정보 추출에 실패했습니다. Gemini API 키를 확인해주세요.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // 추출된 정보를 폼에 입력
+      setState(() {
+        if (result['name'] != null && result['name'].toString().isNotEmpty) {
+          _customerNameController.text = result['name'].toString();
+        }
+
+        if (result['phone'] != null && result['phone'].toString().isNotEmpty) {
+          final phone = result['phone'].toString().replaceAll(RegExp(r'[^0-9]'), '');
+          _phoneNumberController.text = _formatPhoneNumber(phone);
+        }
+
+        if (result['address'] != null && result['address'].toString().isNotEmpty) {
+          _addressController.text = result['address'].toString();
+        }
+
+        // 날짜는 요청일자에 넣고, 과거 날짜인 경우 오늘 날짜로 설정
+        if (result['date'] != null && result['date'].toString().isNotEmpty) {
+          try {
+            final extractedDate = DateTime.parse(result['date'].toString());
+            final today = DateTime.now();
+            final todayDate = DateTime(today.year, today.month, today.day);
+            final extractedDateOnly = DateTime(extractedDate.year, extractedDate.month, extractedDate.day);
+
+            // 과거 날짜인 경우 오늘 날짜로, 아니면 추출된 날짜 사용
+            if (extractedDateOnly.isBefore(todayDate)) {
+              _requestDate = today;
+            } else {
+              _requestDate = extractedDate;
+            }
+          } catch (e) {
+            // 날짜 파싱 실패 시 무시
+          }
+        }
+
+        // 방문시간은 미정으로 설정
+        _visitTime = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('정보가 추출되었습니다. 내용을 확인하고 수정해주세요.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('오류가 발생했습니다: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -378,10 +528,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     // 상태 자동 설정
     final autoStatus = (_visitDate != null && _visitTime != null) ? '확정' : '예정';
 
-    // 작업 항목을 "항목명 건수" 형식으로 변환
-    final workItemsList = _workItemsWithCount.entries
-        .map((e) => '${e.key} ${e.value}건')
-        .toList();
+    // 작업 항목을 건수만큼 중복하여 리스트로 변환
+    final workItemsList = <String>[];
+    for (var entry in _workItemsWithCount.entries) {
+      for (int i = 0; i < entry.value; i++) {
+        workItemsList.add(entry.key);
+      }
+    }
 
     // 전화번호는 숫자만 저장
     final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
@@ -423,6 +576,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         toolbarHeight: 40,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.content_paste),
+            onPressed: _showPasteDialog,
+            tooltip: '텍스트에서 추출',
+          ),
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveSchedule,
@@ -616,9 +774,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               child: Text(
                                 _workItemsWithCount.isEmpty
                                     ? '선택된 항목 없음'
-                                    : _workItemsWithCount.entries
-                                        .map((e) => '${e.key} ${e.value}건')
-                                        .join(', '),
+                                    : _workItemsWithCount.entries.map((e) => '${e.key} ${e.value}건').join(', '),
                                 style: const TextStyle(fontSize: 14),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,

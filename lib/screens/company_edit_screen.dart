@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../models/company.dart';
@@ -13,7 +14,7 @@ class CompanyEditScreen extends StatefulWidget {
   State<CompanyEditScreen> createState() => _CompanyEditScreenState();
 }
 
-class _CompanyEditScreenState extends State<CompanyEditScreen> {
+class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late List<WorkItem> _workItems;
@@ -22,15 +23,48 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadCompanyData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 앱이 다시 활성화될 때 데이터 새로고침
+    if (state == AppLifecycleState.resumed) {
+      _reloadCompanyData();
+    }
+  }
+
+  void _loadCompanyData() {
     _nameController = TextEditingController(text: widget.company?.name);
     _workItems = widget.company?.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList() ?? [];
     _selectedColor = widget.company != null ? Color(widget.company!.color) : const Color(0xFF2196F3);
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
+  Future<void> _reloadCompanyData() async {
+    // 기존 업체가 있는 경우에만 DB에서 최신 데이터 로드
+    if (widget.company?.id != null) {
+      final companies = await DatabaseHelper.instance.readAllCompanies();
+      final updatedCompany = companies.firstWhere(
+        (c) => c.id == widget.company!.id,
+        orElse: () => widget.company!,
+      );
+
+      if (mounted) {
+        setState(() {
+          _nameController.text = updatedCompany.name;
+          _workItems = updatedCompany.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList();
+          _selectedColor = Color(updatedCompany.color);
+        });
+      }
+    }
   }
 
   void _showColorPicker() {
@@ -63,13 +97,34 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> {
     );
   }
 
-  void _showWorkItemDialog({WorkItem? workItem, int? index}) {
+  Future<void> _showWorkItemDialog({WorkItem? workItem, int? index}) async {
     final nameController = TextEditingController(text: workItem?.name);
     final priceController = TextEditingController(
 text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
 );
+    final priceFocusNode = FocusNode();
 
-    showDialog(
+    // 포커스 이벤트 리스너 추가
+    priceFocusNode.addListener(() {
+      if (priceFocusNode.hasFocus) {
+        // 포커스 받을 때: 쉼표 제거
+        final text = priceController.text.replaceAll(',', '');
+        priceController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      } else {
+        // 포커스 잃을 때: 쉼표 추가
+        final value = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
+        final formattedText = NumberFormat('#,###').format(value);
+        priceController.value = TextEditingValue(
+          text: formattedText,
+          selection: TextSelection.collapsed(offset: formattedText.length),
+        );
+      }
+    });
+
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(workItem == null ? '작업 항목 추가' : '작업 항목 수정'),
@@ -86,35 +141,68 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
             const SizedBox(height: 12),
             TextField(
               controller: priceController,
+              focusNode: priceFocusNode,
               decoration: const InputDecoration(
                 labelText: '금액',
                 border: OutlineInputBorder(),
                 suffixText: '원',
               ),
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              priceFocusNode.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (nameController.text.isNotEmpty) {
+                final newItem = WorkItem(
+                  name: nameController.text,
+                  price: int.tryParse(priceController.text.replaceAll(',', '')) ?? 0,
+                );
+                final navigator = Navigator.of(context);
+
                 setState(() {
-                  final newItem = WorkItem(
-                    name: nameController.text,
-                    price: int.tryParse(priceController.text) ?? 0,
-                  );
                   if (index != null) {
                     _workItems[index] = newItem;
                   } else {
                     _workItems.add(newItem);
                   }
                 });
-                Navigator.pop(context);
+
+                // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
+                if (widget.company != null) {
+                  final updatedCompany = Company(
+                    id: widget.company!.id,
+                    name: _nameController.text,
+                    workItems: _workItems,
+                    color: _selectedColor.toARGB32(),
+                  );
+
+                  try {
+                    await DatabaseHelper.instance.updateCompany(updatedCompany);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('저장 실패: $e')),
+                      );
+                    }
+                  }
+                }
+
+                priceFocusNode.dispose();
+                if (mounted) {
+                  navigator.pop();
+                }
               }
             },
             child: const Text('저장'),
@@ -122,6 +210,9 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         ],
       ),
     );
+
+    // 다이얼로그가 닫힌 후 데이터 새로고침
+    await _reloadCompanyData();
   }
 
   Future<void> _saveCompany() async {
@@ -257,7 +348,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                         ),
                       ),
                       title: Text(item.name),
-                      subtitle: Text('${item.price}원'),
+                      subtitle: Text(
+                        '${NumberFormat('#,###').format(item.price)}원',
+                        style: const TextStyle(fontSize: 14),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -267,10 +361,32 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+
                               setState(() {
                                 _workItems.removeAt(index);
                               });
+
+                              // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
+                              if (widget.company != null) {
+                                final updatedCompany = Company(
+                                  id: widget.company!.id,
+                                  name: _nameController.text,
+                                  workItems: _workItems,
+                                  color: _selectedColor.toARGB32(),
+                                );
+
+                                try {
+                                  await DatabaseHelper.instance.updateCompany(updatedCompany);
+                                } catch (e) {
+                                  if (mounted) {
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text('저장 실패: $e')),
+                                    );
+                                  }
+                                }
+                              }
                             },
                           ),
                         ],
