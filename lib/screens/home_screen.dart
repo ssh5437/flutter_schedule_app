@@ -277,8 +277,10 @@ class HomeScreenState extends State<HomeScreen> {
                       // 상태별 배경색 가져오기
                       final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
 
-                      // 배경색에 맞는 텍스트 색상 (밝은 배경이므로 어두운 텍스트)
-                      final textColor = Colors.black87;
+                      // 배경색 밝기에 따라 텍스트 색상 자동 조정
+                      final textColor = backgroundColor.computeLuminance() > 0.5
+                          ? Colors.black87
+                          : Colors.white;
 
                               return Card(
                                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -314,15 +316,24 @@ class HomeScreenState extends State<HomeScreen> {
                                           // 날짜와 업체명
                                           Row(
                                             children: [
-                                              Text(
-                                                schedule.status == '확정'
-                                                    ? '$dateLabel : ${_formatDate(displayDate)} ${schedule.visitTime ?? '미정'}'
-                                                    : '$dateLabel : ${_formatDate(displayDate)}',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: textColor,
+                                              // 확정 스케줄인 경우 날짜/시간을 파란색 볼드로
+                                              if (schedule.status == '확정')
+                                                Text(
+                                                  '${_formatDate(displayDate)} ${schedule.visitTime ?? '미정'}',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    color: Color.fromARGB(255, 3, 66, 117),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              else
+                                                Text(
+                                                  '$dateLabel : ${_formatDate(displayDate)}',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: textColor,
+                                                  ),
                                                 ),
-                                              ),
                                               const Spacer(),
                                               Text(
                                                 schedule.companyName.toString() == 'null'  ? '' : schedule.companyName.toString(),

@@ -23,7 +23,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -52,7 +52,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         workItems TEXT NOT NULL,
-        color INTEGER NOT NULL DEFAULT 4283215411
+        color INTEGER NOT NULL DEFAULT 4283215411,
+        displayOrder INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -155,6 +156,25 @@ class DatabaseHelper {
     if (oldVersion < 6) {
       // 기존 암호화되지 않은 데이터를 암호화
       await _migrateToEncryptedData(db);
+    }
+    if (oldVersion < 7) {
+      // displayOrder 컬럼 추가
+      try {
+        await db.execute('ALTER TABLE companies ADD COLUMN displayOrder INTEGER NOT NULL DEFAULT 0');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
+
+      // 기존 업체들의 displayOrder를 ID 순서로 설정
+      final companies = await db.query('companies', orderBy: 'id ASC');
+      for (int i = 0; i < companies.length; i++) {
+        await db.update(
+          'companies',
+          {'displayOrder': i},
+          where: 'id = ?',
+          whereArgs: [companies[i]['id']],
+        );
+      }
     }
   }
 
@@ -315,6 +335,63 @@ class DatabaseHelper {
     return schedules;
   }
 
+  // 날짜 범위로 완료 스케줄 조회 (페이지네이션용)
+  Future<List<Schedule>> getCompletedSchedulesByDateRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final db = await database;
+    final now = DateTime.now();
+    final result = await db.query(
+      'schedules',
+      where: 'visitDate < ? AND visitDate >= ? AND visitDate <= ? AND status != ?',
+      whereArgs: [now.toIso8601String(), startDate.toIso8601String(), endDate.toIso8601String(), '취소'],
+      orderBy: 'visitDate DESC',
+    );
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+    return schedules;
+  }
+
+  // 완료 스케줄 검색 (전체 범위에서)
+  Future<List<Schedule>> searchCompletedSchedules(String query) async {
+    final db = await database;
+    final now = DateTime.now();
+    // 암호화된 데이터는 LIKE 검색이 불가능하므로 모든 완료 스케줄을 가져와서 필터링
+    final result = await db.query(
+      'schedules',
+      where: 'visitDate < ? AND status != ?',
+      whereArgs: [now.toIso8601String(), '취소'],
+      orderBy: 'visitDate DESC',
+    );
+
+    // 모든 스케줄의 개인정보 복호화
+    final schedules = <Schedule>[];
+    for (var item in result) {
+      final map = Map<String, dynamic>.from(item);
+      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
+      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
+      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      schedules.add(Schedule.fromMap(map));
+    }
+
+    // 복호화된 데이터로 검색
+    final lowerQuery = query.toLowerCase();
+    return schedules.where((schedule) {
+      return schedule.customerName.toLowerCase().contains(lowerQuery) ||
+             schedule.phoneNumber.toLowerCase().contains(lowerQuery) ||
+             (schedule.companyName?.toLowerCase().contains(lowerQuery) ?? false);
+    }).toList();
+  }
+
   Future<List<Schedule>> searchSchedules(String query) async {
     final db = await database;
     // 암호화된 데이터는 LIKE 검색이 불가능하므로 모든 데이터를 가져와서 필터링
@@ -370,7 +447,7 @@ class DatabaseHelper {
   // Company CRUD operations
   Future<List<Company>> readAllCompanies() async {
     final db = await database;
-    final result = await db.query('companies', orderBy: 'name ASC');
+    final result = await db.query('companies', orderBy: 'displayOrder ASC, id ASC');
     return result.map((map) {
       return Company(
         id: map['id'] as int,
@@ -379,6 +456,7 @@ class DatabaseHelper {
             .map((item) => WorkItem.fromMap(item))
             .toList(),
         color: (map['color'] as int?) ?? 0xFF2196F3,
+        displayOrder: (map['displayOrder'] as int?) ?? 0,
       );
     }).toList();
   }
@@ -400,6 +478,7 @@ class DatabaseHelper {
             .map((item) => WorkItem.fromMap(item))
             .toList(),
         color: (map['color'] as int?) ?? 0xFF2196F3,
+        displayOrder: (map['displayOrder'] as int?) ?? 0,
       );
     }
     return null;
@@ -407,10 +486,16 @@ class DatabaseHelper {
 
   Future<int> createCompany(Company company) async {
     final db = await database;
+
+    // 새 업체는 맨 마지막 순서로 추가
+    final result = await db.rawQuery('SELECT MAX(displayOrder) as maxOrder FROM companies');
+    final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
+
     return await db.insert('companies', {
       'name': company.name,
       'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
       'color': company.color,
+      'displayOrder': maxOrder + 1,
     });
   }
 
@@ -422,10 +507,28 @@ class DatabaseHelper {
         'name': company.name,
         'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
         'color': company.color,
+        'displayOrder': company.displayOrder,
       },
       where: 'id = ?',
       whereArgs: [company.id],
     );
+  }
+
+  // 업체 순서 일괄 업데이트
+  Future<void> updateCompaniesOrder(List<Company> companies) async {
+    final db = await database;
+    final batch = db.batch();
+
+    for (int i = 0; i < companies.length; i++) {
+      batch.update(
+        'companies',
+        {'displayOrder': i},
+        where: 'id = ?',
+        whereArgs: [companies[i].id],
+      );
+    }
+
+    await batch.commit(noResult: true);
   }
 
   Future<int> deleteCompany(int id) async {

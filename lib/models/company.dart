@@ -3,12 +3,14 @@ class Company {
   final String name;
   final List<WorkItem> workItems;
   final int color; // ARGB color value
+  final int displayOrder; // 표시 순서
 
   Company({
     this.id,
     required this.name,
     required this.workItems,
     this.color = 0xFF2196F3, // 기본값: 파란색
+    this.displayOrder = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -17,6 +19,7 @@ class Company {
       'name': name,
       'workItems': workItems.map((item) => item.toMap()).toList(),
       'color': color,
+      'displayOrder': displayOrder,
     };
   }
 
@@ -28,6 +31,23 @@ class Company {
           .map((item) => WorkItem.fromMap(item))
           .toList(),
       color: map['color'] ?? 0xFF2196F3,
+      displayOrder: map['displayOrder'] ?? 0,
+    );
+  }
+
+  Company copyWith({
+    int? id,
+    String? name,
+    List<WorkItem>? workItems,
+    int? color,
+    int? displayOrder,
+  }) {
+    return Company(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      workItems: workItems ?? this.workItems,
+      color: color ?? this.color,
+      displayOrder: displayOrder ?? this.displayOrder,
     );
   }
 }

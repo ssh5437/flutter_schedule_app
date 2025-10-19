@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:intl/intl.dart';
 import '../utils/encryption_helper.dart';
+import '../services/auth_service.dart';
+import '../services/backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -95,6 +98,182 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // 백업 실행
+  Future<void> _performBackup() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final backupService = BackupService();
+      final filePath = await backupService.downloadBackup();
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 닫기
+
+      // 공유하기 옵션 표시
+      final shouldShare = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('백업 완료'),
+          content: Text('백업 파일이 저장되었습니다.\n\n$filePath\n\n다른 기기로 공유하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('닫기'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('공유하기'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldShare == true) {
+        await backupService.shareBackup();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 닫기
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('백업 실패: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // 백업 복구
+  Future<void> _performRestore() async {
+    try {
+      final backupService = BackupService();
+      final filePath = await backupService.pickBackupFile();
+
+      if (filePath == null) return;
+
+      // 백업 정보 조회
+      final backupInfo = await backupService.getBackupInfo(filePath);
+      final exportDate = backupInfo['exportDate'] as DateTime?;
+      final schedulesCount = backupInfo['schedulesCount'] as int;
+      final companiesCount = backupInfo['companiesCount'] as int;
+
+      if (!mounted) return;
+
+      // 복구 옵션 선택
+      final restoreOption = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('백업 복구'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('백업 일시: ${exportDate != null ? DateFormat('yyyy-MM-dd HH:mm').format(exportDate) : '알 수 없음'}'),
+              Text('스케줄: $schedulesCount개'),
+              Text('업체: $companiesCount개'),
+              const SizedBox(height: 16),
+              const Text('복구 방법을 선택하세요:'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'add'),
+              child: const Text('기존 데이터에 추가'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'replace'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('기존 데이터 삭제 후 복구'),
+            ),
+          ],
+        ),
+      );
+
+      if (restoreOption == null) return;
+
+      if (!mounted) return;
+
+      // 최종 확인
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('복구 확인'),
+          content: Text(
+            restoreOption == 'replace'
+                ? '기존 데이터를 모두 삭제하고 백업 데이터로 복구합니다.\n이 작업은 되돌릴 수 없습니다.'
+                : '백업 데이터를 기존 데이터에 추가합니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(
+                foregroundColor: restoreOption == 'replace' ? Colors.red : null,
+              ),
+              child: const Text('복구'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      if (!mounted) return;
+
+      // 복구 실행
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final result = await backupService.restoreBackup(
+        filePath,
+        replaceAll: restoreOption == 'replace',
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 닫기
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '복구 완료\n스케줄: ${result['schedules']}개, 업체: ${result['companies']}개',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context); // 로딩 닫기
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('복구 실패: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,19 +284,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
-          // 캘린더 설정 섹션
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              '캘린더',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-
           // 스케줄 색상 설정
           ListTile(
             leading: Icon(Icons.palette, color: _pendingColor),
@@ -158,44 +324,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('기본 캘린더 선택'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RadioListTile<String>(
-                        title: const Text('월간 캘린더'),
-                        value: 'monthly',
-                        groupValue: _defaultCalendar,
+                builder: (context) {
+                  String selectedCalendar = _defaultCalendar;
+                  return StatefulBuilder(
+                    builder: (context, setState) => AlertDialog(
+                      title: const Text('기본 캘린더 선택'),
+                      content: RadioGroup<String>(
                         onChanged: (value) {
                           if (value != null) {
+                            setState(() {
+                              selectedCalendar = value;
+                            });
                             _saveDefaultCalendar(value);
                             Navigator.pop(context);
                           }
                         },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<String>(
+                              title: const Text('월간 캘린더'),
+                              value: 'monthly',
+                              selected: selectedCalendar == 'monthly',
+                            ),
+                            RadioListTile<String>(
+                              title: const Text('주간 캘린더'),
+                              value: 'weekly',
+                              selected: selectedCalendar == 'weekly',
+                            ),
+                          ],
+                        ),
                       ),
-                      RadioListTile<String>(
-                        title: const Text('주간 캘린더'),
-                        value: 'weekly',
-                        groupValue: _defaultCalendar,
-                        onChanged: (value) {
-                          if (value != null) {
-                            _saveDefaultCalendar(value);
-                            Navigator.pop(context);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('취소'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('취소'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               );
             },
+          ),
+
+          const Divider(),
+
+          // 데이터 관리 섹션
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '데이터 관리',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+
+          // 백업
+          ListTile(
+            leading: const Icon(Icons.backup, color: Colors.blue),
+            title: const Text('데이터 백업'),
+            subtitle: const Text('스케줄과 업체 데이터를 백업합니다'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _performBackup,
+          ),
+
+          // 복구
+          ListTile(
+            leading: const Icon(Icons.restore, color: Colors.green),
+            title: const Text('데이터 복구'),
+            subtitle: const Text('백업 파일에서 데이터를 복구합니다'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _performRestore,
           ),
 
           const Divider(),
@@ -226,6 +429,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   builder: (context) => const ChangePasswordScreen(),
                 ),
               );
+            },
+          ),
+
+          // 로그아웃
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('로그아웃', style: TextStyle(color: Colors.red)),
+            subtitle: const Text('현재 계정에서 로그아웃합니다'),
+            onTap: () async {
+              // 확인 다이얼로그
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('로그아웃'),
+                  content: const Text('정말 로그아웃 하시겠습니까?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('취소'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('로그아웃'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true && mounted) {
+                try {
+                  await AuthService().signOut();
+                  // 로그아웃 성공 시 자동으로 로그인 화면으로 이동됨 (StreamBuilder에 의해)
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('로그아웃 실패: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
             },
           ),
 

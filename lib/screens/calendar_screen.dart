@@ -191,6 +191,21 @@ class CalendarScreenState extends State<CalendarScreen> {
     return phone;
   }
 
+  String _formatWorkItems(List<String> workItems) {
+    if (workItems.isEmpty) return '-';
+
+    // 작업 항목별 건수 카운팅
+    final Map<String, int> itemCount = {};
+    for (var item in workItems) {
+      // 기존 데이터에 " X건" 형식이 포함된 경우 제거
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
+    }
+
+    // "항목명 건수" 형식으로 변환
+    return itemCount.entries.map((e) => '${e.key} ${e.value}건').join(', ');
+  }
+
   Widget _buildDayCell(DateTime day, bool isToday, bool isSelected, {bool isOutside = false}) {
     final schedules = _getSchedulesForDay(day);
     final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
@@ -255,7 +270,11 @@ class CalendarScreenState extends State<CalendarScreen> {
 
                         // 상태별 배경색 가져오기
                         final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
-                        final textColor = Colors.black87;
+
+                        // 배경색 밝기에 따라 텍스트 색상 자동 조정
+                        final textColor = backgroundColor.computeLuminance() > 0.5
+                            ? Colors.black87
+                            : Colors.white;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 3),
@@ -271,8 +290,8 @@ class CalendarScreenState extends State<CalendarScreen> {
                           ),
                           child: Text(
                             schedule.visitTime != null
-                                ? '${schedule.visitTime} ${schedule.workItems.join(', ')}, ${schedule.workCount}건'
-                                : '${schedule.workItems.join(', ')}, ${schedule.workCount}건',
+                                ? '${schedule.visitTime} ${_formatWorkItems(schedule.workItems)}'
+                                : _formatWorkItems(schedule.workItems),
                             style: TextStyle(
                               color: textColor,
                               fontSize: 10,
@@ -453,7 +472,11 @@ class CalendarScreenState extends State<CalendarScreen> {
 
           // 상태별 배경색 가져오기
           final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
-          final textColor = Colors.black87;
+
+          // 배경색 밝기에 따라 텍스트 색상 자동 조정
+          final textColor = backgroundColor.computeLuminance() > 0.5
+              ? Colors.black87
+              : Colors.white;
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -528,7 +551,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                     ),
                   ),
                   Text(
-                    schedule.workItems.join(', '),
+                    _formatWorkItems(schedule.workItems),
                     style: TextStyle(fontSize: 14, color: textColor),
                   ),
                 ],

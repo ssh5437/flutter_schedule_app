@@ -35,7 +35,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     // 작업 항목별 건수 카운팅
     final Map<String, int> itemCount = {};
     for (var item in workItems) {
-      itemCount[item] = (itemCount[item] ?? 0) + 1;
+      // 기존 데이터에 " X건" 형식이 포함된 경우 제거
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
     }
 
     // "항목명 건수" 형식으로 변환

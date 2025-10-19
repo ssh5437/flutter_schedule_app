@@ -91,9 +91,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       setState(() {
         _loadScheduleData();
       });
-    } else {
-      // 새 스케줄 추가 시 작업 건수 기본값 1
-      _workCountController.text = '1';
     }
   }
 
@@ -137,7 +134,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     // 기존 데이터에서 작업 항목 파싱 (중복된 항목 카운팅)
     _workItemsWithCount.clear();
     for (var item in schedule.workItems) {
-      _workItemsWithCount[item] = (_workItemsWithCount[item] ?? 0) + 1;
+      // 기존 데이터에 " X건" 형식이 포함된 경우 제거
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      _workItemsWithCount[cleanedItem] = (_workItemsWithCount[cleanedItem] ?? 0) + 1;
     }
     _workCountController.text = schedule.workCount.toString();
   }
@@ -159,6 +158,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       initialDate: _requestDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      locale: const Locale('ko', 'KR'),
+      helpText: '접수 일자 선택',
+      cancelText: '취소',
+      confirmText: '확인',
     );
     if (picked != null) {
       setState(() {
@@ -173,6 +176,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       initialDate: _visitDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      locale: const Locale('ko', 'KR'),
+      helpText: '방문 일자 선택',
+      cancelText: '취소',
+      confirmText: '확인',
     );
     if (picked != null) {
       setState(() {

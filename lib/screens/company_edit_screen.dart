@@ -273,9 +273,13 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.business),
               ),
+              maxLength: 10,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return '업체명을 입력해주세요';
+                }
+                if (value.length > 10) {
+                  return '업체명은 10자 이내로 입력해주세요';
                 }
                 return null;
               },

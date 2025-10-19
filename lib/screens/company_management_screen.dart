@@ -97,12 +97,25 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
+              : ReorderableListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: _companies.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    setState(() {
+                      if (newIndex > oldIndex) {
+                        newIndex -= 1;
+                      }
+                      final company = _companies.removeAt(oldIndex);
+                      _companies.insert(newIndex, company);
+                    });
+
+                    // DB에 순서 저장
+                    await DatabaseHelper.instance.updateCompaniesOrder(_companies);
+                  },
                   itemBuilder: (context, index) {
                     final company = _companies[index];
                     return Card(
+                      key: ValueKey(company.id),
                       elevation: 2,
                       margin: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
@@ -112,6 +125,12 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
                           padding: const EdgeInsets.all(16),
                           child: Row(
                             children: [
+                              // 드래그 핸들
+                              Icon(
+                                Icons.drag_handle,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 8),
                               // 색상 표시
                               Container(
                                 width: 50,

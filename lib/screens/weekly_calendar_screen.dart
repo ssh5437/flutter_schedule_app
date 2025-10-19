@@ -114,12 +114,19 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     }
   }
 
-  // 배경색의 밝기에 따라 적절한 텍스트 색상 반환 (검정 또는 흰색)
-  Color _getTextColorForBackground(Color backgroundColor) {
-    // 색상의 상대 휘도(relative luminance) 계산
-    final double luminance = backgroundColor.computeLuminance();
-    // 휘도가 0.5보다 크면 어두운 텍스트, 작으면 밝은 텍스트
-    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  String _formatWorkItems(List<String> workItems) {
+    if (workItems.isEmpty) return '-';
+
+    // 작업 항목별 건수 카운팅
+    final Map<String, int> itemCount = {};
+    for (var item in workItems) {
+      // 기존 데이터에 " X건" 형식이 포함된 경우 제거
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
+    }
+
+    // "항목명 건수" 형식으로 변환
+    return itemCount.entries.map((e) => '${e.key} ${e.value}건').join(', ');
   }
 
   String _formatPhoneNumber(String phone) {
@@ -318,14 +325,18 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   }
 
   Widget _buildScheduleCard(Schedule schedule) {
-    // 업체 색상 가져오기 (없으면 기본 파란색)
-    final companyColor = schedule.companyName != null
-        ? _companyColors[schedule.companyName] ?? 0xFF2196F3
-        : 0xFF2196F3;
+    // 업체 색상 가져오기 (테두리용, 없으면 기본 회색)
+    final borderColor = schedule.companyName != null && _companyColors[schedule.companyName] != null
+        ? Color(_companyColors[schedule.companyName]!)
+        : Colors.grey;
 
-    // 배경색에 따른 텍스트 색상 결정
-    final backgroundColor = Color(companyColor);
-    final textColor = _getTextColorForBackground(backgroundColor);
+    // 상태별 배경색 가져오기
+    final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
+
+    // 배경색 밝기에 따라 텍스트 색상 자동 조정
+    final textColor = backgroundColor.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
 
     return GestureDetector(
       onTap: () async {
@@ -346,7 +357,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           color: backgroundColor,
           border: Border(
             left: BorderSide(
-              color: _getStatusColor(schedule.status),
+              color: borderColor,
               width: 5,
             ),
           ),
@@ -392,7 +403,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  schedule.workItems.join(', '),
+                  _formatWorkItems(schedule.workItems),
                   style: TextStyle(
                     color: textColor,
                     fontSize: 9,
