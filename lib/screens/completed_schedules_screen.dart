@@ -239,8 +239,6 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                   ? Color(_companyColors[schedule.companyName]!)
                                   : Colors.grey;
 
-                              // 완료 내역은 회색 배경 고정
-                              const backgroundColor = Color.fromARGB(255, 100, 99, 99);
                               const textColor = Colors.black87;
 
                               return Card(

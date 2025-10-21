@@ -62,7 +62,7 @@ class StorageHelper {
 
   static Future<List<Schedule>> getSchedulesByStatus(List<String> statuses) async {
     final schedules = await getAllSchedules();
-    final filtered = schedules.where((s) => statuses.contains(s.status)).toList();
+    final filtered = schedules.where((s) => statuses.contains(s.computedStatus)).toList();
 
     filtered.sort((a, b) {
       if (a.visitDate == null && b.visitDate == null) return 0;
@@ -80,7 +80,7 @@ class StorageHelper {
 
     final completed = schedules.where((s) {
       if (s.visitDate == null) return false;
-      if (s.status == '취소') return false;
+      if (s.computedStatus == '취소') return false;
       return s.visitDate!.isBefore(now);
     }).toList();
 

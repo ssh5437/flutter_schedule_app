@@ -333,7 +333,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         : Colors.grey;
 
     // 상태별 배경색 가져오기
-    final backgroundColor = _getStatusColor(schedule.status).withValues(alpha: 1);
+    final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
 
     // 배경색 밝기에 따라 텍스트 색상 자동 조정
     final textColor = backgroundColor.computeLuminance() > 0.5

@@ -154,9 +154,9 @@ class _SearchScreenState extends State<SearchScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: _getStatusColor(schedule.status),
+              backgroundColor: _getStatusColor(schedule.computedStatus),
               child: Text(
-                schedule.status,
+                schedule.computedStatus,
                 style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),

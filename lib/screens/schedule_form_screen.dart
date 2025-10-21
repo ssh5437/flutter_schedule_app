@@ -477,9 +477,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
-    // 상태 자동 설정
-    final autoStatus = (_visitDate != null && _visitTime != null) ? '확정' : '예정';
-
     // 작업 항목을 건수만큼 중복하여 리스트로 변환
     final workItemsList = <String>[];
     for (var entry in _workItemsWithCount.entries) {
@@ -506,7 +503,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       workPrices: _workPrices,
       workCount: int.parse(_workCountController.text),
       notes: _notesController.text.isEmpty ? null : _notesController.text,
-      status: autoStatus,
+      status: '예정', // status 필드는 유지하지만 computedStatus로 판단함
     );
 
     int savedId;
@@ -649,12 +646,28 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                 child: InkWell(
                                   onTap: _selectVisitDate,
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       labelText: '방문확정일자',
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      border: const OutlineInputBorder(),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                       isDense: true,
-                                      suffixIcon: Icon(Icons.calendar_today, size: 20),
+                                      suffixIcon: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (_visitDate != null)
+                                            InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _visitDate = null;
+                                                  _visitTime = null;
+                                                });
+                                              },
+                                              child: const Icon(Icons.clear, size: 20),
+                                            ),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.calendar_today, size: 20),
+                                        ],
+                                      ),
                                     ),
                                     child: Text(
                                       _visitDate != null

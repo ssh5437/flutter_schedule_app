@@ -382,24 +382,25 @@ class DatabaseHelper {
   }
 
   Future<List<Schedule>> getSchedulesByStatus(String userId, List<String> statuses) async {
-    final db = await database;
-    final result = await db.query(
-      'schedules',
-      where: 'userId = ? AND status IN (${List.filled(statuses.length, '?').join(',')})',
-      whereArgs: [userId, ...statuses],
-      orderBy: 'visitDate ASC, requestDate ASC',
-    );
+    // 모든 스케줄을 가져온 후 상태로 필터링
+    final allSchedules = await readAllSchedules(userId);
 
-    // 모든 스케줄의 개인정보 복호화
-    final schedules = <Schedule>[];
-    for (var item in result) {
-      final map = Map<String, dynamic>.from(item);
-      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
-      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      map['address'] = await EncryptionHelper.decrypt(map['address']);
-      schedules.add(Schedule.fromMap(map));
-    }
-    return schedules;
+    // computedStatus로 필터링
+    return allSchedules.where((schedule) {
+      return statuses.contains(schedule.computedStatus);
+    }).toList()
+      ..sort((a, b) {
+        // visitDate가 있으면 visitDate 순, 없으면 requestDate 순
+        if (a.visitDate != null && b.visitDate != null) {
+          return a.visitDate!.compareTo(b.visitDate!);
+        } else if (a.visitDate != null) {
+          return -1;
+        } else if (b.visitDate != null) {
+          return 1;
+        } else {
+          return a.requestDate.compareTo(b.requestDate);
+        }
+      });
   }
 
   Future<List<Schedule>> getCompletedSchedules(String userId) async {

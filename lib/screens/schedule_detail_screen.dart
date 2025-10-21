@@ -194,8 +194,6 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
               const Divider(height: 2),
             ],
             _buildInfoRow('비고', _schedule.notes ?? '-'),
-            const Divider(height: 2),
-            _buildInfoRow('상태', _schedule.status),
           ],
         ),
       ),

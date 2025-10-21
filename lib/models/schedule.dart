@@ -36,6 +36,21 @@ class Schedule {
     return workPrices.values.fold(0, (sum, price) => sum + price);
   }
 
+  // 스케줄 상태 자동 판단 (visitDate와 visitTime 기반)
+  String get computedStatus {
+    // visitDate와 visitTime이 모두 있으면 '확정'
+    if (visitDate != null && visitTime != null && visitTime != '미정') {
+      return '확정';
+    }
+    // 하나라도 없으면 '예정'
+    return '예정';
+  }
+
+  // 확정 스케줄인지 확인
+  bool get isConfirmed {
+    return visitDate != null && visitTime != null && visitTime != '미정';
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
