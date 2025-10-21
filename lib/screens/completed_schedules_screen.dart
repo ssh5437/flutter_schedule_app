@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
@@ -38,7 +39,8 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   Future<void> _loadCompletedSchedules() async {
     setState(() => _isLoading = true);
     try {
-      final companies = await DatabaseHelper.instance.readAllCompanies();
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
 
       // 업체별 색상 매핑 생성
       final Map<String, int> companyColors = {};
@@ -52,6 +54,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       final endDate = now;
 
       final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
+        userId: userId,
         startDate: startDate,
         endDate: endDate,
       );
@@ -79,6 +82,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
 
     setState(() => _isLoadingMore = true);
     try {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
       // 추가 3개월 로드
       _loadedMonths += 3;
       final now = DateTime.now();
@@ -86,6 +90,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       final endDate = now;
 
       final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
+        userId: userId,
         startDate: startDate,
         endDate: endDate,
       );
@@ -116,7 +121,8 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       // DB에서 직접 검색
       setState(() => _isSearching = true);
       try {
-        final schedules = await DatabaseHelper.instance.searchCompletedSchedules(query);
+        final userId = Supabase.instance.client.auth.currentUser!.id;
+        final schedules = await DatabaseHelper.instance.searchCompletedSchedules(userId, query);
         setState(() {
           _completedSchedules = schedules;
         });

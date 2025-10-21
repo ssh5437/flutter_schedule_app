@@ -48,8 +48,6 @@ dependencies:
   google_generative_ai: ^0.4.0
   http: ^1.2.0
   supabase_flutter: ^2.5.0
-  google_sign_in: ^6.2.1
-  kakao_flutter_sdk: ^1.9.5
   app_links: ^6.3.2
   file_picker: ^8.0.0+1
   path_provider: ^2.1.1

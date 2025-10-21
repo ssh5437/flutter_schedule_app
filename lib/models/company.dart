@@ -1,5 +1,6 @@
 class Company {
   final int? id;
+  final String userId;
   final String name;
   final List<WorkItem> workItems;
   final int color; // ARGB color value
@@ -7,6 +8,7 @@ class Company {
 
   Company({
     this.id,
+    required this.userId,
     required this.name,
     required this.workItems,
     this.color = 0xFF2196F3, // 기본값: 파란색
@@ -16,6 +18,7 @@ class Company {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'userId': userId,
       'name': name,
       'workItems': workItems.map((item) => item.toMap()).toList(),
       'color': color,
@@ -26,6 +29,7 @@ class Company {
   factory Company.fromMap(Map<String, dynamic> map) {
     return Company(
       id: map['id'],
+      userId: map['userId'] ?? 'legacy_user',
       name: map['name'],
       workItems: (map['workItems'] as List<dynamic>)
           .map((item) => WorkItem.fromMap(item))
@@ -37,6 +41,7 @@ class Company {
 
   Company copyWith({
     int? id,
+    String? userId,
     String? name,
     List<WorkItem>? workItems,
     int? color,
@@ -44,6 +49,7 @@ class Company {
   }) {
     return Company(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       workItems: workItems ?? this.workItems,
       color: color ?? this.color,

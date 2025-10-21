@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
@@ -41,8 +42,9 @@ class HomeScreenState extends State<HomeScreen> {
   Future<void> _loadSchedules() async {
     setState(() => _isLoading = true);
     try {
-      final schedules = await DatabaseHelper.instance.getSchedulesByStatus(['예정', '확정']);
-      final companies = await DatabaseHelper.instance.readAllCompanies();
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
+      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
 
       // 업체별 색상 매핑 생성
       final Map<String, int> companyColors = {};

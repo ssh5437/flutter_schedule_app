@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 
@@ -51,7 +52,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   Future<void> _reloadCompanyData() async {
     // 기존 업체가 있는 경우에만 DB에서 최신 데이터 로드
     if (widget.company?.id != null) {
-      final companies = await DatabaseHelper.instance.readAllCompanies();
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
       final updatedCompany = companies.firstWhere(
         (c) => c.id == widget.company!.id,
         orElse: () => widget.company!,
@@ -181,8 +183,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
 
                 // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
                 if (widget.company != null) {
+                  final userId = Supabase.instance.client.auth.currentUser!.id;
                   final updatedCompany = Company(
                     id: widget.company!.id,
+                    userId: userId,
                     name: _nameController.text,
                     workItems: _workItems,
                     color: _selectedColor.toARGB32(),
@@ -217,8 +221,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
 
   Future<void> _saveCompany() async {
     if (_formKey.currentState!.validate()) {
+      final userId = Supabase.instance.client.auth.currentUser!.id;
       final company = Company(
         id: widget.company?.id,
+        userId: userId,
         name: _nameController.text,
         workItems: _workItems,
         color: _selectedColor.toARGB32(),
@@ -374,8 +380,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
 
                               // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
                               if (widget.company != null) {
+                                final userId = Supabase.instance.client.auth.currentUser!.id;
                                 final updatedCompany = Company(
                                   id: widget.company!.id,
+                                  userId: userId,
                                   name: _nameController.text,
                                   workItems: _workItems,
                                   color: _selectedColor.toARGB32(),

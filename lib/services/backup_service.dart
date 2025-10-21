@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
@@ -11,12 +12,13 @@ class BackupService {
   // 백업 데이터 생성
   Future<Map<String, dynamic>> createBackupData() async {
     final db = DatabaseHelper.instance;
+    final userId = Supabase.instance.client.auth.currentUser!.id;
 
     // 모든 스케줄 조회
-    final schedules = await db.readAllSchedules();
+    final schedules = await db.readAllSchedules(userId);
 
     // 모든 업체 조회
-    final companies = await db.readAllCompanies();
+    final companies = await db.readAllCompanies(userId);
 
     // JSON 형식으로 변환
     final backupData = {
@@ -120,29 +122,33 @@ class BackupService {
   }
 
   // 백업 복구 (기존 데이터 유지하고 추가)
-  Future<Map<String, int>> restoreBackup(String filePath, {bool replaceAll = false}) async {
+  Future<Map<String, dynamic>> restoreBackup(String filePath, {bool replaceAll = false}) async {
     try {
       final backupData = await readBackupFile(filePath);
       final db = DatabaseHelper.instance;
+      final userId = Supabase.instance.client.auth.currentUser!.id;
 
       int schedulesImported = 0;
       int companiesImported = 0;
+      int schedulesFailed = 0;
+      int companiesFailed = 0;
+      final List<String> errors = [];
 
       // 전체 교체 모드인 경우 기존 데이터 삭제
       if (replaceAll) {
         // 모든 스케줄 삭제
-        final existingSchedules = await db.readAllSchedules();
+        final existingSchedules = await db.readAllSchedules(userId);
         for (final schedule in existingSchedules) {
           if (schedule.id != null) {
-            await db.deleteSchedule(schedule.id!);
+            await db.deleteSchedule(userId, schedule.id!);
           }
         }
 
         // 모든 업체 삭제 (기본 업체 제외)
-        final existingCompanies = await db.readAllCompanies();
+        final existingCompanies = await db.readAllCompanies(userId);
         for (final company in existingCompanies) {
           if (company.id != null && company.name != '개인') {
-            await db.deleteCompany(company.id!);
+            await db.deleteCompany(userId, company.id!);
           }
         }
       }
@@ -150,22 +156,27 @@ class BackupService {
       // 업체 복구
       if (backupData.containsKey('companies')) {
         final companies = backupData['companies'] as List<dynamic>;
-        for (final companyMap in companies) {
+        for (int i = 0; i < companies.length; i++) {
           try {
-            final company = Company.fromMap(companyMap as Map<String, dynamic>);
+            final companyMap = companies[i] as Map<String, dynamic>;
+            // userId를 현재 사용자 ID로 덮어쓰기
+            companyMap['userId'] = userId;
+            final company = Company.fromMap(companyMap);
 
             // 중복 확인
-            final existing = await db.readCompanyByName(company.name);
+            final existing = await db.readCompanyByName(userId, company.name);
             if (existing == null) {
               await db.createCompany(company);
               companiesImported++;
             } else if (replaceAll) {
               // 교체 모드에서는 업데이트
-              await db.updateCompany(company.copyWith(id: existing.id));
+              await db.updateCompany(company.copyWith(id: existing.id, userId: userId));
               companiesImported++;
             }
           } catch (e) {
-            // 개별 업체 복구 실패는 무시하고 계속 진행
+            // 개별 업체 복구 실패
+            companiesFailed++;
+            errors.add('업체 ${i + 1} 복구 실패: $e');
             print('업체 복구 실패: $e');
           }
         }
@@ -174,13 +185,31 @@ class BackupService {
       // 스케줄 복구
       if (backupData.containsKey('schedules')) {
         final schedules = backupData['schedules'] as List<dynamic>;
-        for (final scheduleMap in schedules) {
+        for (int i = 0; i < schedules.length; i++) {
           try {
-            final schedule = Schedule.fromMap(scheduleMap as Map<String, dynamic>);
+            final scheduleMap = schedules[i] as Map<String, dynamic>;
+
+            // DateTime 파싱 처리 개선
+            final requestDateStr = scheduleMap['requestDate'] as String;
+            final visitDateStr = scheduleMap['visitDate'] as String?;
+
+            // 안전한 DateTime 파싱
+            scheduleMap['requestDate'] = _parseDateTime(requestDateStr).toIso8601String();
+            if (visitDateStr != null) {
+              scheduleMap['visitDate'] = _parseDateTime(visitDateStr).toIso8601String();
+            }
+
+            // userId를 현재 사용자 ID로 덮어쓰기
+            scheduleMap['userId'] = userId;
+
+            final schedule = Schedule.fromMap(scheduleMap);
             await db.createSchedule(schedule);
             schedulesImported++;
           } catch (e) {
-            // 개별 스케줄 복구 실패는 무시하고 계속 진행
+            // 개별 스케줄 복구 실패
+            schedulesFailed++;
+            final customerName = (schedules[i] as Map<String, dynamic>)['customerName'] ?? '알 수 없음';
+            errors.add('스케줄 "$customerName" 복구 실패: $e');
             print('스케줄 복구 실패: $e');
           }
         }
@@ -189,9 +218,24 @@ class BackupService {
       return {
         'schedules': schedulesImported,
         'companies': companiesImported,
+        'schedulesFailed': schedulesFailed,
+        'companiesFailed': companiesFailed,
+        'errors': errors,
       };
     } catch (e) {
       throw Exception('백업 복구 실패: $e');
+    }
+  }
+
+  // DateTime 파싱 헬퍼 (밀리초 처리)
+  DateTime _parseDateTime(String dateStr) {
+    try {
+      // ISO 8601 형식 파싱 (.000 밀리초 포함)
+      return DateTime.parse(dateStr);
+    } catch (e) {
+      // 파싱 실패 시 밀리초 제거 후 재시도
+      final cleanStr = dateStr.replaceAll(RegExp(r'\.\d{3}'), '');
+      return DateTime.parse(cleanStr);
     }
   }
 

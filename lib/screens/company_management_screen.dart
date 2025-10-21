@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import 'company_edit_screen.dart';
@@ -22,7 +23,8 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
 
   Future<void> _loadCompanies() async {
     setState(() => _isLoading = true);
-    final companies = await DatabaseHelper.instance.readAllCompanies();
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    final companies = await DatabaseHelper.instance.readAllCompanies(userId);
     setState(() {
       _companies = companies;
       _isLoading = false;
@@ -63,7 +65,8 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
     );
 
     if (confirm == true) {
-      await DatabaseHelper.instance.deleteCompany(company.id!);
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await DatabaseHelper.instance.deleteCompany(userId, company.id!);
       _loadCompanies();
     }
   }
@@ -110,7 +113,8 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
                     });
 
                     // DB에 순서 저장
-                    await DatabaseHelper.instance.updateCompaniesOrder(_companies);
+                    final userId = Supabase.instance.client.auth.currentUser!.id;
+                    await DatabaseHelper.instance.updateCompaniesOrder(userId, _companies);
                   },
                   itemBuilder: (context, index) {
                     final company = _companies[index];

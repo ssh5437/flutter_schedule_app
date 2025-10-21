@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
 import 'package:app_links/app_links.dart';
 import 'config/supabase_config.dart';
+import 'database/database_helper.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
@@ -19,9 +19,6 @@ import 'screens/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ko_KR', null);
-
-  // Kakao SDK 초기화
-  KakaoSdk.init(nativeAppKey: SupabaseConfig.kakaoNativeAppKey);
 
   // Supabase 초기화
   await Supabase.initialize(
@@ -69,6 +66,19 @@ class _MyAppState extends State<MyApp> {
     debugPrint('Deep Link received: $uri');
   }
 
+  // 사용자의 기본 업체 초기화
+  Future<void> _initializeDefaultCompanies(String userId) async {
+    try {
+      // 1. 먼저 legacy_user 데이터를 현재 사용자에게 마이그레이션
+      await DatabaseHelper.instance.migrateLegacyDataToUser(userId);
+
+      // 2. 기본 업체 초기화 (새 사용자인 경우에만)
+      await DatabaseHelper.instance.initializeDefaultCompaniesForUser(userId);
+    } catch (e) {
+      debugPrint('Failed to initialize default companies: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -105,8 +115,20 @@ class _MyAppState extends State<MyApp> {
 
           // 로그인 여부에 따라 화면 분기
           if (session != null) {
-            // 로그인 상태 - 메인 화면으로
-            return const MainScreen();
+            // 로그인 상태 - 기본 업체 초기화 후 메인 화면으로
+            return FutureBuilder(
+              future: _initializeDefaultCompanies(session.user.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                return const MainScreen();
+              },
+            );
           } else {
             // 비로그인 상태 - 로그인 화면으로
             return const LoginScreen();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
@@ -28,6 +29,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   DateTime? _visitDate;
   String? _visitTime;
   Map<String, int> _workItemsWithCount = {}; // 작업 항목과 건수
+  Map<String, int> _workPrices = {}; // 작업별 금액
 
   List<Company> _companies = [];
   Company? _selectedCompany;
@@ -96,7 +98,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _loadCompanies() async {
     setState(() => _isLoadingCompanies = true);
-    final companies = await DatabaseHelper.instance.readAllCompanies();
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    final companies = await DatabaseHelper.instance.readAllCompanies(userId);
     setState(() {
       _companies = companies;
       _isLoadingCompanies = false;
@@ -139,6 +142,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       _workItemsWithCount[cleanedItem] = (_workItemsWithCount[cleanedItem] ?? 0) + 1;
     }
     _workCountController.text = schedule.workCount.toString();
+
+    // 작업별 금액 로드
+    _workPrices = Map.from(schedule.workPrices);
   }
 
   @override
@@ -282,84 +288,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
-    final tempWorkItems = Map<String, int>.from(_workItemsWithCount);
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('${_selectedCompany!.name} - 작업 선택'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView(
-              shrinkWrap: true,
-              children: _selectedCompany!.workItems.map((workItem) {
-                return ListTile(
-                  dense: true,
-                  title: Text(workItem.name, style: const TextStyle(fontSize: 14)),
-                  subtitle: Text('${NumberFormat('#,###').format(workItem.price)}원', style: const TextStyle(fontSize: 12)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (tempWorkItems.containsKey(workItem.name)) ...[
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, size: 20),
-                          onPressed: () {
-                            setDialogState(() {
-                              if (tempWorkItems[workItem.name]! > 1) {
-                                tempWorkItems[workItem.name] = tempWorkItems[workItem.name]! - 1;
-                              } else {
-                                tempWorkItems.remove(workItem.name);
-                              }
-                            });
-                          },
-                        ),
-                        Text(
-                          '${tempWorkItems[workItem.name]}건',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                          onPressed: () {
-                            setDialogState(() {
-                              tempWorkItems[workItem.name] = tempWorkItems[workItem.name]! + 1;
-                            });
-                          },
-                        ),
-                      ] else
-                        IconButton(
-                          icon: const Icon(Icons.add_circle, size: 20, color: Colors.blue),
-                          onPressed: () {
-                            setDialogState(() {
-                              tempWorkItems[workItem.name] = 1;
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _workItemsWithCount = tempWorkItems;
-                  // 총 건수 자동 계산
-                  int total = _workItemsWithCount.values.fold(0, (sum, count) => sum + count);
-                  _workCountController.text = total.toString();
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('확인'),
-            ),
-          ],
-        ),
+      builder: (context) => _WorkItemsDialog(
+        company: _selectedCompany!,
+        initialWorkItems: _workItemsWithCount,
+        initialWorkPrices: _workPrices,
+        onConfirm: (workItems, workPrices) {
+          setState(() {
+            _workItemsWithCount = workItems;
+            _workPrices = workPrices;
+            // 총 건수 자동 계산
+            int total = _workItemsWithCount.values.fold(0, (sum, count) => sum + count);
+            _workCountController.text = total.toString();
+          });
+        },
       ),
     );
   }
@@ -545,9 +488,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
     // 전화번호는 숫자만 저장
     final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
+    final userId = Supabase.instance.client.auth.currentUser!.id;
 
     final schedule = Schedule(
       id: widget.schedule?.id,
+      userId: userId,
       customerName: _customerNameController.text,
       requestDate: _requestDate,
       visitDate: _visitDate,
@@ -556,6 +501,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       address: _addressController.text,
       companyName: _selectedCompany!.name,
       workItems: workItemsList,
+      workPrices: _workPrices,
       workCount: int.parse(_workCountController.text),
       notes: _notesController.text.isEmpty ? null : _notesController.text,
       status: autoStatus,
@@ -638,6 +584,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                 _selectedCompany = newValue;
                                 // 업체 변경 시 작업 항목 초기화
                                 _workItemsWithCount.clear();
+                                _workPrices.clear();
                                 _workCountController.text = '0';
                               });
                             },
@@ -803,6 +750,26 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             enabled: false,
                           ),
                           const SizedBox(height: 8),
+                          // 총 금액 표시
+                          if (_workPrices.isNotEmpty)
+                            InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: '총 금액',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                isDense: true,
+                                filled: true,
+                                fillColor: Color(0xFFF5F5F5),
+                              ),
+                              child: Text(
+                                '${NumberFormat('#,###').format(_workPrices.values.fold(0, (sum, price) => sum + price))}원',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          if (_workPrices.isNotEmpty) const SizedBox(height: 8),
                           TextFormField(
                             controller: _notesController,
                             decoration: const InputDecoration(
@@ -839,6 +806,192 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+// 작업 항목 선택 다이얼로그
+class _WorkItemsDialog extends StatefulWidget {
+  final Company company;
+  final Map<String, int> initialWorkItems;
+  final Map<String, int> initialWorkPrices;
+  final Function(Map<String, int>, Map<String, int>) onConfirm;
+
+  const _WorkItemsDialog({
+    required this.company,
+    required this.initialWorkItems,
+    required this.initialWorkPrices,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_WorkItemsDialog> createState() => _WorkItemsDialogState();
+}
+
+class _WorkItemsDialogState extends State<_WorkItemsDialog> {
+  late Map<String, int> _tempWorkItems;
+  late Map<String, int> _tempWorkPrices;
+  final Map<String, TextEditingController> _priceControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _tempWorkItems = Map<String, int>.from(widget.initialWorkItems);
+    _tempWorkPrices = Map<String, int>.from(widget.initialWorkPrices);
+
+    // 각 작업 항목에 대한 컨트롤러 초기화
+    for (var workItem in widget.company.workItems) {
+      final currentPrice = _tempWorkPrices[workItem.name] ?? workItem.price;
+      _priceControllers[workItem.name] = TextEditingController(
+        text: currentPrice.toString(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    // 모든 컨트롤러 정리
+    for (var controller in _priceControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${widget.company.name} - 작업 선택'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.company.workItems.length,
+          itemBuilder: (context, index) {
+            final workItem = widget.company.workItems[index];
+            final isSelected = _tempWorkItems.containsKey(workItem.name);
+
+            return Card(
+              key: ValueKey(workItem.name),
+              margin: const EdgeInsets.only(bottom: 8),
+              elevation: isSelected ? 2 : 0,
+              color: isSelected ? Colors.blue.shade50 : null,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isSelected,
+                          onChanged: (value) {
+                            setState(() {
+                              if (value == true) {
+                                _tempWorkItems[workItem.name] = 1;
+                                _tempWorkPrices[workItem.name] =
+                                    int.tryParse(_priceControllers[workItem.name]!.text) ?? workItem.price;
+                              } else {
+                                _tempWorkItems.remove(workItem.name);
+                                _tempWorkPrices.remove(workItem.name);
+                              }
+                            });
+                          },
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                workItem.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '기본 금액: ${NumberFormat('#,###').format(workItem.price)}원',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected) ...[
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            onPressed: () {
+                              setState(() {
+                                if (_tempWorkItems[workItem.name]! > 1) {
+                                  _tempWorkItems[workItem.name] = _tempWorkItems[workItem.name]! - 1;
+                                } else {
+                                  _tempWorkItems[workItem.name] = 1;
+                                }
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_tempWorkItems[workItem.name]}건',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                            onPressed: () {
+                              setState(() {
+                                _tempWorkItems[workItem.name] = _tempWorkItems[workItem.name]! + 1;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (isSelected)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 48.0, right: 8.0, top: 4.0),
+                        child: TextField(
+                          key: ValueKey('price_${workItem.name}'),
+                          controller: _priceControllers[workItem.name],
+                          decoration: const InputDecoration(
+                            labelText: '금액',
+                            hintText: '금액 입력',
+                            suffixText: '원',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (value) {
+                            final price = int.tryParse(value) ?? 0;
+                            _tempWorkPrices[workItem.name] = price;
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: const Text('취소'),
+        ),
+        TextButton(
+          onPressed: () {
+            widget.onConfirm(_tempWorkItems, _tempWorkPrices);
+            Navigator.pop(context);
+          },
+          child: const Text('확인'),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/schedule.dart';
 import '../models/company.dart';
@@ -23,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -33,6 +34,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId TEXT NOT NULL,
         customerName TEXT NOT NULL,
         requestDate TEXT NOT NULL,
         visitDate TEXT,
@@ -41,6 +43,7 @@ class DatabaseHelper {
         address TEXT NOT NULL,
         companyName TEXT,
         workItems TEXT NOT NULL,
+        workPrices TEXT NOT NULL,
         workCount INTEGER NOT NULL,
         notes TEXT,
         status TEXT NOT NULL
@@ -50,15 +53,16 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE companies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
+        userId TEXT NOT NULL,
+        name TEXT NOT NULL,
         workItems TEXT NOT NULL,
         color INTEGER NOT NULL DEFAULT 4283215411,
         displayOrder INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
-    // 기본 업체 데이터 삽입
-    await _insertDefaultCompanies(db);
+    // 새로운 DB 생성 시에는 기본 업체를 삽입하지 않음
+    // 첫 로그인 시 사용자별로 기본 업체가 생성됨
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -71,8 +75,6 @@ class DatabaseHelper {
           color INTEGER NOT NULL DEFAULT 4283215411
         )
       ''');
-
-      await _insertDefaultCompanies(db);
     }
     if (oldVersion < 3) {
       // color 컬럼 추가 (기존 데이터가 있는 경우)
@@ -121,10 +123,9 @@ class DatabaseHelper {
         await db.insert('companies', {
           'name': '삼성케어플러스',
           'workItems': jsonEncode([
-            {'name': 'TV AS', 'price': 66000},
-            {'name': '냉장고 AS', 'price': 88000},
-            {'name': '세탁기 AS', 'price': 77000},
-            {'name': '에어컨 AS', 'price': 99000},
+            {'name': '냉장고 세척', 'price': 88000},
+            {'name': '드럼세탁기 세척', 'price': 77000},
+            {'name': '스탠드에어컨 세척', 'price': 99000},
           ]),
           'color': 4280423122, // 0xFF1976D2
         });
@@ -135,9 +136,9 @@ class DatabaseHelper {
         await db.insert('companies', {
           'name': '케어원',
           'workItems': jsonEncode([
-            {'name': 'TV 설치', 'price': 55000},
-            {'name': '냉장고 설치', 'price': 66000},
-            {'name': '세탁기 설치', 'price': 55000},
+            {'name': '벽걸이에어컨 세척', 'price': 55000},
+            {'name': '냉장고 세척', 'price': 66000},
+            {'name': '통돌이세탁기 세척', 'price': 55000},
           ]),
           'color': 4293918208, // 0xFFF57C00
         });
@@ -176,6 +177,30 @@ class DatabaseHelper {
         );
       }
     }
+    if (oldVersion < 8) {
+      // userId 컬럼 추가
+      try {
+        await db.execute('ALTER TABLE schedules ADD COLUMN userId TEXT');
+        await db.execute('ALTER TABLE companies ADD COLUMN userId TEXT');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
+
+      // 기존 데이터는 'legacy_user'로 할당 (첫 로그인 시 현재 사용자 ID로 변경됨)
+      await db.execute("UPDATE schedules SET userId = 'legacy_user' WHERE userId IS NULL");
+      await db.execute("UPDATE companies SET userId = 'legacy_user' WHERE userId IS NULL");
+    }
+    if (oldVersion < 9) {
+      // workPrices 컬럼 추가
+      try {
+        await db.execute('ALTER TABLE schedules ADD COLUMN workPrices TEXT');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
+
+      // 기존 데이터는 빈 문자열로 초기화 (금액 정보 없음)
+      await db.execute("UPDATE schedules SET workPrices = '' WHERE workPrices IS NULL");
+    }
   }
 
   Future<void> _migrateToEncryptedData(Database db) async {
@@ -205,9 +230,63 @@ class DatabaseHelper {
     }
   }
 
-  Future _insertDefaultCompanies(Database db) async {
+  // legacy_user 데이터를 현재 사용자에게 마이그레이션
+  Future<void> migrateLegacyDataToUser(String userId) async {
+    final db = await database;
+
+    // 현재 사용자의 데이터가 이미 있는지 확인
+    final userSchedules = await db.query(
+      'schedules',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    final userCompanies = await db.query(
+      'companies',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    // 현재 사용자의 데이터가 없고, legacy_user 데이터가 있으면 마이그레이션
+    if (userSchedules.isEmpty && userCompanies.isEmpty) {
+      // legacy_user의 스케줄을 현재 사용자에게 할당
+      await db.update(
+        'schedules',
+        {'userId': userId},
+        where: "userId = 'legacy_user'",
+      );
+
+      // legacy_user의 업체를 현재 사용자에게 할당
+      await db.update(
+        'companies',
+        {'userId': userId},
+        where: "userId = 'legacy_user'",
+      );
+
+      debugPrint('Migrated legacy data to user: $userId');
+    }
+  }
+
+  // 사용자별 기본 업체 생성
+  Future<void> initializeDefaultCompaniesForUser(String userId) async {
+    final db = await database;
+
+    // 이미 업체가 있는지 확인
+    final existingCompanies = await db.query(
+      'companies',
+      where: 'userId = ?',
+      whereArgs: [userId],
+    );
+
+    if (existingCompanies.isNotEmpty) {
+      return; // 이미 업체가 있으면 생성하지 않음
+    }
+
     final defaultCompanies = [
       Company(
+        userId: userId,
         name: '삼성케어플러스',
         color: 0xFF1976D2, // 파란색
         workItems: [
@@ -218,6 +297,7 @@ class DatabaseHelper {
         ],
       ),
       Company(
+        userId: userId,
         name: '케어원',
         color: 0xFFF57C00, // 오렌지색
         workItems: [
@@ -227,17 +307,21 @@ class DatabaseHelper {
         ],
       ),
       Company(
+        userId: userId,
         name: '개인',
         color: 0xFF388E3C, // 초록색
         workItems: [], // 작업 항목 없음
       ),
     ];
 
-    for (var company in defaultCompanies) {
+    for (int i = 0; i < defaultCompanies.length; i++) {
+      final company = defaultCompanies[i];
       await db.insert('companies', {
+        'userId': company.userId,
         'name': company.name,
         'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
         'color': company.color,
+        'displayOrder': i,
       });
     }
   }
@@ -254,12 +338,12 @@ class DatabaseHelper {
     return await db.insert('schedules', map);
   }
 
-  Future<Schedule?> readSchedule(int id) async {
+  Future<Schedule?> readSchedule(String userId, int id) async {
     final db = await database;
     final maps = await db.query(
       'schedules',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
 
     if (maps.isNotEmpty) {
@@ -276,9 +360,14 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Schedule>> readAllSchedules() async {
+  Future<List<Schedule>> readAllSchedules(String userId) async {
     final db = await database;
-    final result = await db.query('schedules', orderBy: 'requestDate DESC');
+    final result = await db.query(
+      'schedules',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'requestDate DESC',
+    );
 
     // 모든 스케줄의 개인정보 복호화
     final schedules = <Schedule>[];
@@ -292,12 +381,12 @@ class DatabaseHelper {
     return schedules;
   }
 
-  Future<List<Schedule>> getSchedulesByStatus(List<String> statuses) async {
+  Future<List<Schedule>> getSchedulesByStatus(String userId, List<String> statuses) async {
     final db = await database;
     final result = await db.query(
       'schedules',
-      where: 'status IN (${List.filled(statuses.length, '?').join(',')})',
-      whereArgs: statuses,
+      where: 'userId = ? AND status IN (${List.filled(statuses.length, '?').join(',')})',
+      whereArgs: [userId, ...statuses],
       orderBy: 'visitDate ASC, requestDate ASC',
     );
 
@@ -313,13 +402,13 @@ class DatabaseHelper {
     return schedules;
   }
 
-  Future<List<Schedule>> getCompletedSchedules() async {
+  Future<List<Schedule>> getCompletedSchedules(String userId) async {
     final db = await database;
     final now = DateTime.now();
     final result = await db.query(
       'schedules',
-      where: 'visitDate < ? AND status != ?',
-      whereArgs: [now.toIso8601String(), '취소'],
+      where: 'userId = ? AND visitDate < ? AND status != ?',
+      whereArgs: [userId, now.toIso8601String(), '취소'],
       orderBy: 'visitDate DESC',
     );
 
@@ -337,6 +426,7 @@ class DatabaseHelper {
 
   // 날짜 범위로 완료 스케줄 조회 (페이지네이션용)
   Future<List<Schedule>> getCompletedSchedulesByDateRange({
+    required String userId,
     required DateTime startDate,
     required DateTime endDate,
   }) async {
@@ -344,8 +434,8 @@ class DatabaseHelper {
     final now = DateTime.now();
     final result = await db.query(
       'schedules',
-      where: 'visitDate < ? AND visitDate >= ? AND visitDate <= ? AND status != ?',
-      whereArgs: [now.toIso8601String(), startDate.toIso8601String(), endDate.toIso8601String(), '취소'],
+      where: 'userId = ? AND visitDate < ? AND visitDate >= ? AND visitDate <= ? AND status != ?',
+      whereArgs: [userId, now.toIso8601String(), startDate.toIso8601String(), endDate.toIso8601String(), '취소'],
       orderBy: 'visitDate DESC',
     );
 
@@ -362,14 +452,14 @@ class DatabaseHelper {
   }
 
   // 완료 스케줄 검색 (전체 범위에서)
-  Future<List<Schedule>> searchCompletedSchedules(String query) async {
+  Future<List<Schedule>> searchCompletedSchedules(String userId, String query) async {
     final db = await database;
     final now = DateTime.now();
     // 암호화된 데이터는 LIKE 검색이 불가능하므로 모든 완료 스케줄을 가져와서 필터링
     final result = await db.query(
       'schedules',
-      where: 'visitDate < ? AND status != ?',
-      whereArgs: [now.toIso8601String(), '취소'],
+      where: 'userId = ? AND visitDate < ? AND status != ?',
+      whereArgs: [userId, now.toIso8601String(), '취소'],
       orderBy: 'visitDate DESC',
     );
 
@@ -392,10 +482,15 @@ class DatabaseHelper {
     }).toList();
   }
 
-  Future<List<Schedule>> searchSchedules(String query) async {
+  Future<List<Schedule>> searchSchedules(String userId, String query) async {
     final db = await database;
     // 암호화된 데이터는 LIKE 검색이 불가능하므로 모든 데이터를 가져와서 필터링
-    final result = await db.query('schedules', orderBy: 'requestDate DESC');
+    final result = await db.query(
+      'schedules',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'requestDate DESC',
+    );
 
     // 모든 스케줄의 개인정보 복호화
     final schedules = <Schedule>[];
@@ -430,27 +525,33 @@ class DatabaseHelper {
     return await db.update(
       'schedules',
       map,
-      where: 'id = ?',
-      whereArgs: [schedule.id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [schedule.id, schedule.userId],
     );
   }
 
-  Future<int> deleteSchedule(int id) async {
+  Future<int> deleteSchedule(String userId, int id) async {
     final db = await database;
     return await db.delete(
       'schedules',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
   }
 
   // Company CRUD operations
-  Future<List<Company>> readAllCompanies() async {
+  Future<List<Company>> readAllCompanies(String userId) async {
     final db = await database;
-    final result = await db.query('companies', orderBy: 'displayOrder ASC, id ASC');
+    final result = await db.query(
+      'companies',
+      where: 'userId = ?',
+      whereArgs: [userId],
+      orderBy: 'displayOrder ASC, id ASC',
+    );
     return result.map((map) {
       return Company(
         id: map['id'] as int,
+        userId: map['userId'] as String,
         name: map['name'] as String,
         workItems: (jsonDecode(map['workItems'] as String) as List<dynamic>)
             .map((item) => WorkItem.fromMap(item))
@@ -461,18 +562,19 @@ class DatabaseHelper {
     }).toList();
   }
 
-  Future<Company?> readCompanyByName(String name) async {
+  Future<Company?> readCompanyByName(String userId, String name) async {
     final db = await database;
     final result = await db.query(
       'companies',
-      where: 'name = ?',
-      whereArgs: [name],
+      where: 'userId = ? AND name = ?',
+      whereArgs: [userId, name],
     );
 
     if (result.isNotEmpty) {
       final map = result.first;
       return Company(
         id: map['id'] as int,
+        userId: map['userId'] as String,
         name: map['name'] as String,
         workItems: (jsonDecode(map['workItems'] as String) as List<dynamic>)
             .map((item) => WorkItem.fromMap(item))
@@ -487,11 +589,15 @@ class DatabaseHelper {
   Future<int> createCompany(Company company) async {
     final db = await database;
 
-    // 새 업체는 맨 마지막 순서로 추가
-    final result = await db.rawQuery('SELECT MAX(displayOrder) as maxOrder FROM companies');
+    // 새 업체는 해당 사용자의 맨 마지막 순서로 추가
+    final result = await db.rawQuery(
+      'SELECT MAX(displayOrder) as maxOrder FROM companies WHERE userId = ?',
+      [company.userId],
+    );
     final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
 
     return await db.insert('companies', {
+      'userId': company.userId,
       'name': company.name,
       'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
       'color': company.color,
@@ -504,18 +610,19 @@ class DatabaseHelper {
     return await db.update(
       'companies',
       {
+        'userId': company.userId,
         'name': company.name,
         'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
         'color': company.color,
         'displayOrder': company.displayOrder,
       },
-      where: 'id = ?',
-      whereArgs: [company.id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [company.id, company.userId],
     );
   }
 
   // 업체 순서 일괄 업데이트
-  Future<void> updateCompaniesOrder(List<Company> companies) async {
+  Future<void> updateCompaniesOrder(String userId, List<Company> companies) async {
     final db = await database;
     final batch = db.batch();
 
@@ -523,20 +630,20 @@ class DatabaseHelper {
       batch.update(
         'companies',
         {'displayOrder': i},
-        where: 'id = ?',
-        whereArgs: [companies[i].id],
+        where: 'id = ? AND userId = ?',
+        whereArgs: [companies[i].id, userId],
       );
     }
 
     await batch.commit(noResult: true);
   }
 
-  Future<int> deleteCompany(int id) async {
+  Future<int> deleteCompany(String userId, int id) async {
     final db = await database;
     return await db.delete(
       'companies',
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
     );
   }
 

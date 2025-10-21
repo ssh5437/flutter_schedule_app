@@ -6,7 +6,8 @@
       "Bash(flutter analyze:*)",
       "Bash(flutter run:*)",
       "Bash(clip)",
-      "Bash(flutter:*)"
+      "Bash(flutter:*)",
+      "Read(//c/Users/Administrator/Downloads/**)"
     ],
     "deny": [],
     "ask": []

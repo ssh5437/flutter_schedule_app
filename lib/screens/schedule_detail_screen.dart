@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
-import '../database/storage_helper.dart';
+import '../database/database_helper.dart';
 import 'schedule_form_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
@@ -29,19 +30,25 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     return DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(date);
   }
 
-  String _formatWorkItems(List<String> workItems) {
+  // 작업별 금액 포맷팅 (금액 정보 포함)
+  String _formatWorkItemsWithPrices(List<String> workItems, Map<String, int> workPrices) {
     if (workItems.isEmpty) return '-';
 
     // 작업 항목별 건수 카운팅
     final Map<String, int> itemCount = {};
     for (var item in workItems) {
-      // 기존 데이터에 " X건" 형식이 포함된 경우 제거
       String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
       itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
     }
 
-    // "항목명 건수" 형식으로 변환
-    return itemCount.entries.map((e) => '${e.key} ${e.value}건').join(', ');
+    // 금액 정보가 있으면 "항목명 건수 (금액)" 형식으로 변환
+    return itemCount.entries.map((e) {
+      final price = workPrices[e.key];
+      if (price != null && price > 0) {
+        return '${e.key} ${e.value}건 (${NumberFormat('#,###').format(price)}원)';
+      }
+      return '${e.key} ${e.value}건';
+    }).join('\n');
   }
 
   Future<void> _sendSMS() async {
@@ -92,7 +99,8 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     );
 
     if (confirm == true && mounted) {
-      await StorageHelper.deleteSchedule(_schedule.id!);
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      await DatabaseHelper.instance.deleteSchedule(userId, _schedule.id!);
       if (mounted) {
         Navigator.pop(context);
       }
@@ -148,30 +156,35 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   Widget _buildInfoCard() {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow('고객명', _schedule.customerName),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('요청일자', _formatDate(_schedule.requestDate)),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('방문확정일자', _formatDate(_schedule.visitDate)),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('방문확정시간', _schedule.visitTime ?? '미정'),
-            const Divider(),
+            const Divider(height: 2),
             _buildPhoneRow('전화번호', _schedule.phoneNumber),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('주소', _schedule.address),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('업체명', _schedule.companyName ?? '-'),
-            const Divider(),
-            _buildInfoRow('작업내용', _formatWorkItems(_schedule.workItems)),
-            const Divider(),
+            const Divider(height: 2),
+            _buildInfoRow('작업내용', _formatWorkItemsWithPrices(_schedule.workItems, _schedule.workPrices)),
+            const Divider(height: 2),
             _buildInfoRow('작업건수', '${_schedule.workCount}건'),
-            const Divider(),
+            const Divider(height: 2),
+            // 총 금액 표시 (금액 정보가 있는 경우에만)
+            if (_schedule.workPrices.isNotEmpty && _schedule.totalPrice > 0) ...[
+              _buildPriceRow('총 금액', _schedule.totalPrice),
+              const Divider(height: 2),
+            ],
             _buildInfoRow('비고', _schedule.notes ?? '-'),
-            const Divider(),
+            const Divider(height: 2),
             _buildInfoRow('상태', _schedule.status),
           ],
         ),
@@ -206,9 +219,39 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     );
   }
 
+  Widget _buildPriceRow(String label, int price) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${NumberFormat('#,###').format(price)}원',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPhoneRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

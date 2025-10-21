@@ -251,14 +251,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       Navigator.pop(context); // 로딩 닫기
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '복구 완료\n스케줄: ${result['schedules']}개, 업체: ${result['companies']}개',
+      // 결과 메시지 생성
+      final schedulesSuccess = result['schedules'] as int;
+      final companiesSuccess = result['companies'] as int;
+      final schedulesFailed = result['schedulesFailed'] as int;
+      final companiesFailed = result['companiesFailed'] as int;
+      final errors = result['errors'] as List<String>;
+
+      String message = '복구 완료\n';
+      message += '스케줄: ${schedulesSuccess}개 성공';
+      if (schedulesFailed > 0) {
+        message += ', ${schedulesFailed}개 실패';
+      }
+      message += '\n업체: ${companiesSuccess}개 성공';
+      if (companiesFailed > 0) {
+        message += ', ${companiesFailed}개 실패';
+      }
+
+      // 에러가 있으면 상세 정보 다이얼로그 표시
+      if (errors.isNotEmpty) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('복구 완료 (일부 오류 발생)'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message),
+                  const SizedBox(height: 16),
+                  const Text('오류 내역:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...errors.take(10).map((error) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $error', style: const TextStyle(fontSize: 12)),
+                  )),
+                  if (errors.length > 10)
+                    Text('... 외 ${errors.length - 10}개', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
           ),
-          backgroundColor: Colors.green,
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       if (Navigator.canPop(context)) {
