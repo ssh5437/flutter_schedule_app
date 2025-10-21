@@ -169,8 +169,22 @@ class BackupService {
               await db.createCompany(company);
               companiesImported++;
             } else if (replaceAll) {
-              // 교체 모드에서는 업데이트
-              await db.updateCompany(company.copyWith(id: existing.id, userId: userId));
+              // 교체 모드에서는 업데이트 (색상 포함)
+              await db.updateCompany(company.copyWith(
+                id: existing.id,
+                userId: userId,
+                color: company.color, // 백업된 색상으로 복원
+                displayOrder: company.displayOrder, // 표시 순서도 복원
+              ));
+              companiesImported++;
+            } else {
+              // 병합 모드에서도 색상과 작업 항목 업데이트
+              await db.updateCompany(company.copyWith(
+                id: existing.id,
+                userId: userId,
+                color: company.color, // 백업된 색상으로 업데이트
+                displayOrder: company.displayOrder,
+              ));
               companiesImported++;
             }
           } catch (e) {

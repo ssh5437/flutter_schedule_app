@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
+import '../services/notification_service.dart';
 import 'schedule_form_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
@@ -101,6 +102,10 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     if (confirm == true && mounted) {
       final userId = Supabase.instance.client.auth.currentUser!.id;
       await DatabaseHelper.instance.deleteSchedule(userId, _schedule.id!);
+
+      // 스케줄이 삭제되었으므로 알림 다시 설정
+      await NotificationService.instance.setupDailyNotifications();
+
       if (mounted) {
         Navigator.pop(context);
       }
@@ -118,16 +123,21 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () async {
-              final result = await Navigator.push(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ScheduleFormScreen(schedule: _schedule),
                 ),
               );
-              if (result != null && mounted) {
-                setState(() {
-                  _schedule = result;
-                });
+              // 수정 화면에서 돌아온 후 최신 데이터 다시 불러오기
+              if (mounted) {
+                final userId = Supabase.instance.client.auth.currentUser!.id;
+                final updatedSchedule = await DatabaseHelper.instance.readSchedule(userId, _schedule.id!);
+                if (updatedSchedule != null && mounted) {
+                  setState(() {
+                    _schedule = updatedSchedule;
+                  });
+                }
               }
             },
           ),

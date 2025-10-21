@@ -5,16 +5,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
+import 'services/notification_service.dart';
+import 'services/background_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
 import 'screens/schedule_form_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
-// 비밀번호 기능 임시 비활성화 (테스트용)
-// import 'screens/password_setup_screen.dart';
-// import 'screens/password_unlock_screen.dart';
-// import 'utils/encryption_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +23,12 @@ void main() async {
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
+
+  // 알림 서비스 초기화
+  await NotificationService.instance.initialize();
+
+  // 백그라운드 서비스 초기화
+  await BackgroundService.initialize();
 
   runApp(const MyApp());
 }
@@ -74,6 +78,10 @@ class _MyAppState extends State<MyApp> {
 
       // 2. 기본 업체 초기화 (새 사용자인 경우에만)
       await DatabaseHelper.instance.initializeDefaultCompaniesForUser(userId);
+
+      // 3. 알림 설정 및 백그라운드 작업 등록
+      await NotificationService.instance.setupDailyNotifications();
+      await BackgroundService.registerDailyTask();
     } catch (e) {
       debugPrint('Failed to initialize default companies: $e');
     }
@@ -138,117 +146,6 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-
-// ============================================================
-// 비밀번호 기능 (테스트용 비활성화)
-// 필요 시 아래 주석을 해제하고 상단 import도 해제하세요
-// ============================================================
-/*
-// 앱 초기화 및 비밀번호 확인
-class AppInitializer extends StatefulWidget {
-  const AppInitializer({super.key});
-
-  @override
-  State<AppInitializer> createState() => _AppInitializerState();
-}
-
-class _AppInitializerState extends State<AppInitializer> {
-  bool _isChecking = true;
-  Widget? _targetScreen;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkPasswordStatus();
-  }
-
-  Future<void> _checkPasswordStatus() async {
-    // 비밀번호 설정 여부 확인
-    final hasPassword = await EncryptionHelper.hasUserPassword();
-
-    if (!mounted) return;
-
-    setState(() {
-      _isChecking = false;
-      _targetScreen = hasPassword
-          ? const PasswordUnlockScreen()
-          : const PasswordSetupScreen();
-    });
-  }
-
-  void _onAuthSuccess() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const MainScreen(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isChecking) {
-      // 로딩 화면
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.schedule,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                '현장 서비스 스케줄 관리',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 48),
-              const CircularProgressIndicator(),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // 비밀번호 화면 표시
-    return PopScope(
-      canPop: false, // 뒤로가기 방지
-      child: _targetScreen is PasswordSetupScreen
-          ? PasswordSetupWrapper(onSuccess: _onAuthSuccess)
-          : PasswordUnlockWrapper(onSuccess: _onAuthSuccess),
-    );
-  }
-}
-
-// 비밀번호 설정 래퍼
-class PasswordSetupWrapper extends StatelessWidget {
-  final VoidCallback onSuccess;
-
-  const PasswordSetupWrapper({required this.onSuccess, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return PasswordSetupScreen(onSuccess: onSuccess);
-  }
-}
-
-// 비밀번호 잠금 해제 래퍼
-class PasswordUnlockWrapper extends StatelessWidget {
-  final VoidCallback onSuccess;
-
-  const PasswordUnlockWrapper({required this.onSuccess, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return PasswordUnlockScreen(onSuccess: onSuccess);
-  }
-}
-*/
-// ============================================================
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

@@ -6,6 +6,7 @@ import '../models/schedule.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../utils/gemini_helper.dart';
+import '../services/notification_service.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -113,7 +114,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   void _loadScheduleData() {
     final schedule = widget.schedule!;
     _customerNameController.text = schedule.customerName;
-    _phoneNumberController.text = schedule.phoneNumber;
+    // 전화번호는 포맷팅해서 표시
+    _phoneNumberController.text = _formatPhoneNumber(schedule.phoneNumber);
     _addressController.text = schedule.address;
     _notesController.text = schedule.notes ?? '';
     _requestDate = schedule.requestDate;
@@ -507,14 +509,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       status: autoStatus,
     );
 
+    int savedId;
     if (widget.schedule == null) {
-      await DatabaseHelper.instance.createSchedule(schedule);
+      savedId = await DatabaseHelper.instance.createSchedule(schedule);
     } else {
-      await DatabaseHelper.instance.updateSchedule(schedule);
+      savedId = await DatabaseHelper.instance.updateSchedule(schedule);
     }
 
+    // 저장된 ID로 스케줄 객체 업데이트
+    final savedSchedule = schedule.copyWith(id: savedId);
+
+    // 스케줄이 변경되었으므로 알림 다시 설정
+    await NotificationService.instance.setupDailyNotifications();
+
     if (mounted) {
-      Navigator.pop(context, schedule);
+      Navigator.pop(context, savedSchedule);
     }
   }
 
@@ -530,14 +539,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         toolbarHeight: 40,
         actions: [
           IconButton(
-            icon: const Icon(Icons.content_paste),
+            icon: const Icon(Icons.assignment),
             onPressed: _showPasteDialog,
             tooltip: '텍스트에서 추출',
           ),
+          /*
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveSchedule,
           ),
+          */
         ],
       ),
       body: _isLoadingCompanies
@@ -680,6 +691,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             focusNode: _phoneNumberFocus,
                             decoration: const InputDecoration(
                               labelText: '전화번호 *',
+                              hintText: '010-0000-0000',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               isDense: true,
@@ -691,6 +703,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return '전화번호를 입력해주세요';
+                              }
+                              final digitsOnly = _getDigitsOnly(value);
+                              if (digitsOnly.length != 10 && digitsOnly.length != 11) {
+                                return '올바른 전화번호 형식이 아닙니다 (10-11자리)';
+                              }
+                              if (digitsOnly.length == 11 && !digitsOnly.startsWith('010')) {
+                                return '휴대폰 번호는 010으로 시작해야 합니다';
                               }
                               return null;
                             },

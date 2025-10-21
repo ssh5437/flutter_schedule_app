@@ -379,6 +379,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             Text(
@@ -389,6 +391,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                 fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -399,6 +403,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                   fontSize: 8,
                   height: 1.2,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (schedule.workItems.isNotEmpty)
@@ -411,6 +417,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                     fontSize: 9,
                     height: 1.2,
                   ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
           ],

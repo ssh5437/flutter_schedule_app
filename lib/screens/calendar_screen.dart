@@ -113,6 +113,19 @@ class CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  void _scrollToScheduleList() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+
+      // 스크롤을 맨 아래로 이동 (하단 스케줄 목록이 보이도록)
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   Future<void> _loadSchedules() async {
     setState(() => _isLoading = true);
     final userId = Supabase.instance.client.auth.currentUser!.id;
@@ -229,6 +242,8 @@ class CalendarScreenState extends State<CalendarScreen> {
           _selectedDay = day;
           _focusedDay = day;
         });
+        // 하단 스케줄 목록으로 스크롤
+        _scrollToScheduleList();
       },
       child: Container(
         decoration: BoxDecoration(
