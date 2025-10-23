@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:background="#FFFFFF">
+
+    <!-- 왼쪽: 달력 영역 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingRight="6dp">
+
+        <!-- 월 표시 -->
+        <TextView
+            android:id="@+id/calendar_month"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2025년 10월"
+            android:textSize="12sp"
+            android:textColor="#333333"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingBottom="4dp" />
+
+        <!-- 요일 헤더 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="일"
+                android:textSize="8sp"
+                android:textColor="#FF5252"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="월"
+                android:textSize="8sp"
+                android:textColor="#666666"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="화"
+                android:textSize="8sp"
+                android:textColor="#666666"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="수"
+                android:textSize="8sp"
+                android:textColor="#666666"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="목"
+                android:textSize="8sp"
+                android:textColor="#666666"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="금"
+                android:textSize="8sp"
+                android:textColor="#666666"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="토"
+                android:textSize="8sp"
+                android:textColor="#2196F3"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 달력 날짜들 (5주) -->
+        <!-- 1주차 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/day_0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#999999" android:gravity="center" />
+            <TextView android:id="@+id/day_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 2주차 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/day_7" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_8" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_9" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_11" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_12" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_13" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 3주차 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/day_14" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_15" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_16" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_17" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_18" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_19" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_20" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 4주차 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/day_21" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_22" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_23" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_24" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_26" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_27" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+        </LinearLayout>
+
+        <!-- 5주차 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/day_28" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_29" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_30" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_31" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_32" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_33" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#333333" android:gravity="center" />
+            <TextView android:id="@+id/day_34" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="" android:textSize="9sp" android:textColor="#999999" android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 구분선 -->
+    <TextView
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="#EEEEEE" />
+
+    <!-- 오른쪽: 스케줄 영역 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingLeft="6dp">
+
+        <TextView
+            android:id="@+id/selected_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="10월 23일 (수)"
+            android:textSize="12sp"
+            android:textColor="#333333"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <!-- 스케줄 리스트 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- 스케줄 1 -->
+            <LinearLayout
+                android:id="@+id/schedule_1_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/schedule_1_indicator"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:background="#FF9800"
+                    android:layout_marginRight="6dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/schedule_1_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="09:00"
+                        android:textSize="9sp"
+                        android:textColor="#666666" />
+
+                    <TextView
+                        android:id="@+id/schedule_1_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="스케줄"
+                        android:textSize="11sp"
+                        android:textColor="#000000"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 스케줄 2 -->
+            <LinearLayout
+                android:id="@+id/schedule_2_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/schedule_2_indicator"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:background="#FF9800"
+                    android:layout_marginRight="6dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/schedule_2_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="14:00"
+                        android:textSize="9sp"
+                        android:textColor="#666666" />
+
+                    <TextView
+                        android:id="@+id/schedule_2_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="스케줄"
+                        android:textSize="11sp"
+                        android:textColor="#000000"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 스케줄 3 -->
+            <LinearLayout
+                android:id="@+id/schedule_3_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/schedule_3_indicator"
+                    android:layout_width="4dp"
+                    android:layout_height="4dp"
+                    android:background="#FF9800"
+                    android:layout_marginRight="6dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/schedule_3_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="16:00"
+                        android:textSize="9sp"
+                        android:textColor="#666666" />
+
+                    <TextView
+                        android:id="@+id/schedule_3_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="스케줄"
+                        android:textSize="11sp"
+                        android:textColor="#000000"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 스케줄 없을 때 메시지 -->
+            <TextView
+                android:id="@+id/no_schedule_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="오늘 예정된 일정이 없습니다"
+                android:textSize="10sp"
+                android:textColor="#999999"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:visibility="visible" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

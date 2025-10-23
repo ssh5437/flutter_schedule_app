@@ -7,6 +7,7 @@ import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../utils/gemini_helper.dart';
 import '../services/notification_service.dart';
+import '../services/widget_service.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -518,6 +519,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
     // 스케줄이 변경되었으므로 알림 다시 설정
     await NotificationService.instance.setupDailyNotifications();
+
+    // 위젯 업데이트
+    await WidgetService.updateWidget();
 
     if (mounted) {
       Navigator.pop(context, savedSchedule);

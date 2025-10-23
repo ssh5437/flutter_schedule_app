@@ -5,37 +5,35 @@ import 'notification_service.dart';
 
 // 백그라운드 작업 핸들러 (반드시 top-level 함수여야 함)
 @pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    try {
-      debugPrint('========================================');
-      debugPrint('🌙 Background task started: $task');
-      debugPrint('========================================');
+Future<bool> callbackDispatcher(String task, Map<String, dynamic>? inputData) async {
+  try {
+    debugPrint('========================================');
+    debugPrint('🌙 Background task started: $task');
+    debugPrint('========================================');
 
-      // Supabase 초기화 (백그라운드에서도 필요)
-      if (Supabase.instance.client.auth.currentUser == null) {
-        debugPrint('⚠️  User not logged in, skipping notification setup');
-        return Future.value(true);
-      }
-
-      // 알림 서비스 초기화
-      await NotificationService.instance.initialize();
-
-      // 매일 알림 재설정
-      await NotificationService.instance.setupDailyNotifications();
-
-      debugPrint('========================================');
-      debugPrint('✅ Background task completed successfully');
-      debugPrint('========================================');
-
-      return Future.value(true);
-    } catch (e) {
-      debugPrint('========================================');
-      debugPrint('❌ Background task failed: $e');
-      debugPrint('========================================');
-      return Future.value(false);
+    // Supabase 초기화 (백그라운드에서도 필요)
+    if (Supabase.instance.client.auth.currentUser == null) {
+      debugPrint('⚠️  User not logged in, skipping notification setup');
+      return true;
     }
-  });
+
+    // 알림 서비스 초기화
+    await NotificationService.instance.initialize();
+
+    // 매일 알림 재설정
+    await NotificationService.instance.setupDailyNotifications();
+
+    debugPrint('========================================');
+    debugPrint('✅ Background task completed successfully');
+    debugPrint('========================================');
+
+    return true;
+  } catch (e) {
+    debugPrint('========================================');
+    debugPrint('❌ Background task failed: $e');
+    debugPrint('========================================');
+    return false;
+  }
 }
 
 class BackgroundService {
@@ -48,7 +46,6 @@ class BackgroundService {
 
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: kDebugMode,
       );
 
       debugPrint('✅ Background service initialized');
@@ -72,7 +69,7 @@ class BackgroundService {
         frequency: const Duration(hours: 24),
         initialDelay: _getDelayUntilMidnight(),
         constraints: Constraints(
-          networkType: NetworkType.not_required,
+          networkType: NetworkType.notRequired,
           requiresBatteryNotLow: false,
           requiresCharging: false,
           requiresDeviceIdle: false,

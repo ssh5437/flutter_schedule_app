@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import '../services/notification_service.dart';
+import '../services/widget_service.dart';
 import 'schedule_form_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
@@ -105,6 +106,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
       // 스케줄이 삭제되었으므로 알림 다시 설정
       await NotificationService.instance.setupDailyNotifications();
+
+      // 위젯 업데이트
+      await WidgetService.updateWidget();
 
       if (mounted) {
         Navigator.pop(context);

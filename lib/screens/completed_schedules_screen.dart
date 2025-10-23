@@ -37,6 +37,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   }
 
   Future<void> _loadCompletedSchedules() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
@@ -59,6 +60,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         endDate: endDate,
       );
 
+      if (!mounted) return;
       setState(() {
         _completedSchedules = schedules;
         _companyColors = companyColors;
@@ -67,7 +69,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         _hasMoreData = schedules.isNotEmpty;
       });
     } catch (e) {
-      print('Error loading completed schedules: $e');
+      if (!mounted) return;
       setState(() {
         _completedSchedules = [];
         _companyColors = {};
@@ -78,7 +80,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   }
 
   Future<void> _loadMoreSchedules() async {
-    if (_isLoadingMore || !_hasMoreData || _isSearching) return;
+    if (_isLoadingMore || !_hasMoreData || _isSearching || !mounted) return;
 
     setState(() => _isLoadingMore = true);
     try {
@@ -95,6 +97,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         endDate: endDate,
       );
 
+      if (!mounted) return;
       setState(() {
         _completedSchedules = schedules;
         _isLoadingMore = false;
@@ -102,7 +105,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         _hasMoreData = schedules.length > _completedSchedules.length;
       });
     } catch (e) {
-      print('Error loading more schedules: $e');
+      if (!mounted) return;
       setState(() {
         _isLoadingMore = false;
       });
@@ -112,6 +115,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   Future<void> _filterSchedules(String query) async {
     if (query.isEmpty) {
       // 검색어가 비었으면 기본 데이터로 복귀
+      if (!mounted) return;
       setState(() {
         _isSearching = false;
         _loadedMonths = 3;
@@ -119,15 +123,17 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       _loadCompletedSchedules();
     } else {
       // DB에서 직접 검색
+      if (!mounted) return;
       setState(() => _isSearching = true);
       try {
         final userId = Supabase.instance.client.auth.currentUser!.id;
         final schedules = await DatabaseHelper.instance.searchCompletedSchedules(userId, query);
+        if (!mounted) return;
         setState(() {
           _completedSchedules = schedules;
         });
       } catch (e) {
-        print('Error searching schedules: $e');
+        // 에러 발생 시 무시
       }
     }
   }
@@ -288,7 +294,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                                   schedule.companyName!,
                                                   style: TextStyle(
                                                     fontSize: 13,
-                                                    color: textColor,
+                                                    color: borderColor,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   overflow: TextOverflow.ellipsis,

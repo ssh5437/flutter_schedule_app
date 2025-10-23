@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -191,7 +192,7 @@ class BackupService {
             // 개별 업체 복구 실패
             companiesFailed++;
             errors.add('업체 ${i + 1} 복구 실패: $e');
-            print('업체 복구 실패: $e');
+            debugPrint('업체 복구 실패: $e');
           }
         }
       }
@@ -199,34 +200,114 @@ class BackupService {
       // 스케줄 복구
       if (backupData.containsKey('schedules')) {
         final schedules = backupData['schedules'] as List<dynamic>;
+        debugPrint('========================================');
+        debugPrint('📦 스케줄 복구 시작: 총 ${schedules.length}개');
+        debugPrint('========================================');
         for (int i = 0; i < schedules.length; i++) {
           try {
             final scheduleMap = schedules[i] as Map<String, dynamic>;
 
             // DateTime 파싱 처리 개선
-            final requestDateStr = scheduleMap['requestDate'] as String;
-            final visitDateStr = scheduleMap['visitDate'] as String?;
+            final requestDateStr = scheduleMap['requestDate'];
+            final visitDateStr = scheduleMap['visitDate'];
 
-            // 안전한 DateTime 파싱
-            scheduleMap['requestDate'] = _parseDateTime(requestDateStr).toIso8601String();
-            if (visitDateStr != null) {
-              scheduleMap['visitDate'] = _parseDateTime(visitDateStr).toIso8601String();
+            // requestDate 파싱 (필수)
+            if (requestDateStr != null && requestDateStr.toString().isNotEmpty) {
+              scheduleMap['requestDate'] = _parseDateTime(requestDateStr.toString()).toIso8601String();
+            } else {
+              throw Exception('requestDate is required');
+            }
+
+            // visitDate 파싱 (선택)
+            if (visitDateStr != null && visitDateStr.toString().isNotEmpty && visitDateStr.toString() != 'null') {
+              try {
+                scheduleMap['visitDate'] = _parseDateTime(visitDateStr.toString()).toIso8601String();
+              } catch (e) {
+                // visitDate 파싱 실패 시 null로 설정
+                scheduleMap['visitDate'] = null;
+              }
+            } else {
+              scheduleMap['visitDate'] = null;
             }
 
             // userId를 현재 사용자 ID로 덮어쓰기
             scheduleMap['userId'] = userId;
 
+            // visitTime null 처리
+            if (scheduleMap['visitTime'] == null || scheduleMap['visitTime'].toString() == 'null') {
+              scheduleMap['visitTime'] = null;
+            }
+
+            // notes null 처리
+            if (scheduleMap['notes'] == null || scheduleMap['notes'].toString() == 'null') {
+              scheduleMap['notes'] = null;
+            }
+
+            // companyName null 처리
+            if (scheduleMap['companyName'] == null || scheduleMap['companyName'].toString() == 'null') {
+              scheduleMap['companyName'] = null;
+            }
+
+            // workPrices 필드가 없으면 빈 문자열로 설정 (버전 9 이전 백업 대응)
+            if (!scheduleMap.containsKey('workPrices') || scheduleMap['workPrices'] == null) {
+              scheduleMap['workPrices'] = '';
+            }
+
+            // workItems 처리: 리스트를 쉼표로 구분된 문자열로 변환
+            if (scheduleMap['workItems'] is List) {
+              final workItemsList = scheduleMap['workItems'] as List;
+              scheduleMap['workItems'] = workItemsList.join(',');
+            } else if (scheduleMap['workItems'] == null || scheduleMap['workItems'].toString().isEmpty) {
+              scheduleMap['workItems'] = '';
+            }
+
+            // workPrices 처리: Map을 문자열로 변환
+            if (scheduleMap['workPrices'] is Map) {
+              final workPricesMap = scheduleMap['workPrices'] as Map;
+              scheduleMap['workPrices'] = workPricesMap.entries
+                  .map((e) => '${e.key}:${e.value}')
+                  .join('|');
+            }
+
+            // workCount null 처리
+            if (scheduleMap['workCount'] == null) {
+              scheduleMap['workCount'] = 0;
+            }
+
+            // status null 처리
+            if (scheduleMap['status'] == null || scheduleMap['status'].toString().isEmpty) {
+              scheduleMap['status'] = '예정';
+            }
+
             final schedule = Schedule.fromMap(scheduleMap);
             await db.createSchedule(schedule);
             schedulesImported++;
-          } catch (e) {
+            debugPrint('✅ 스케줄 복구 성공 [${i + 1}/${schedules.length}]: ${scheduleMap['customerName']}');
+          } catch (e, stackTrace) {
             // 개별 스케줄 복구 실패
             schedulesFailed++;
-            final customerName = (schedules[i] as Map<String, dynamic>)['customerName'] ?? '알 수 없음';
+            final scheduleMap = schedules[i] as Map<String, dynamic>;
+            final customerName = scheduleMap['customerName'] ?? '알 수 없음';
             errors.add('스케줄 "$customerName" 복구 실패: $e');
-            print('스케줄 복구 실패: $e');
+            debugPrint('========================================');
+            debugPrint('❌ 스케줄 복구 실패 [${i + 1}/${schedules.length}]: $customerName');
+            debugPrint('  에러: $e');
+            debugPrint('  스케줄 데이터:');
+            debugPrint('    requestDate: ${scheduleMap['requestDate']}');
+            debugPrint('    visitDate: ${scheduleMap['visitDate']}');
+            debugPrint('    visitTime: ${scheduleMap['visitTime']}');
+            debugPrint('    workItems: ${scheduleMap['workItems']}');
+            debugPrint('    workPrices: ${scheduleMap['workPrices']}');
+            debugPrint('    status: ${scheduleMap['status']}');
+            debugPrint('  스택트레이스: $stackTrace');
+            debugPrint('========================================');
           }
         }
+        debugPrint('========================================');
+        debugPrint('📊 스케줄 복구 완료:');
+        debugPrint('   성공: $schedulesImported개');
+        debugPrint('   실패: $schedulesFailed개');
+        debugPrint('========================================');
       }
 
       return {

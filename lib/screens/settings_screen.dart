@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import 'notification_settings_screen.dart';
+import 'debug_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -477,6 +478,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
+          ),
+
+          // 디버그 정보
+          ListTile(
+            leading: const Icon(Icons.bug_report, color: Colors.orange),
+            title: const Text('디버그 정보'),
+            subtitle: const Text('데이터베이스 상태를 확인합니다'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DebugScreen(),
                 ),
               );
             },

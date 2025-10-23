@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,10 +8,12 @@ import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
+import 'services/widget_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
 import 'screens/schedule_form_screen.dart';
+import 'screens/schedule_detail_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 
@@ -29,6 +32,9 @@ void main() async {
 
   // 백그라운드 서비스 초기화
   await BackgroundService.initialize();
+
+  // 위젯 서비스 초기화
+  await WidgetService.initialize();
 
   runApp(const MyApp());
 }
@@ -158,6 +164,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
+  static const platform = MethodChannel('com.example.flutter_schedule_app/widget');
 
   late final List<Widget> _screens;
 
@@ -170,6 +177,74 @@ class _MainScreenState extends State<MainScreen> {
       const CompletedSchedulesScreen(),
       const SettingsScreen(),
     ];
+    _setupMethodChannel();
+    _checkForWidgetScheduleId();
+  }
+
+  // MethodChannel 설정 - Android에서 보내는 메시지 수신
+  void _setupMethodChannel() {
+    platform.setMethodCallHandler((call) async {
+      if (call.method == 'openSchedule') {
+        final int? scheduleId = call.arguments as int?;
+        debugPrint('Received openSchedule call with scheduleId: $scheduleId');
+        if (scheduleId != null && scheduleId > 0 && mounted) {
+          // 약간의 지연 후 상세보기 화면으로 이동
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              _navigateToScheduleDetail(scheduleId);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // 위젯에서 전달된 스케줄 ID 확인 및 상세보기로 이동
+  Future<void> _checkForWidgetScheduleId() async {
+    try {
+      // 앱 시작 시 pending schedule ID 확인
+      final int? scheduleId = await platform.invokeMethod('getScheduleId');
+      debugPrint('Initial getScheduleId returned: $scheduleId');
+      if (scheduleId != null && scheduleId > 0 && mounted) {
+        // 약간의 지연 후 상세보기 화면으로 이동 (UI가 완전히 로드된 후)
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _navigateToScheduleDetail(scheduleId);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to get schedule ID from widget: $e');
+    }
+  }
+
+  // 스케줄 상세보기로 이동
+  Future<void> _navigateToScheduleDetail(int scheduleId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // 스케줄 데이터 가져오기
+    final schedules = await DatabaseHelper.instance.readAllSchedules(userId);
+    final schedule = schedules.firstWhere(
+      (s) => s.id == scheduleId,
+      orElse: () => schedules.first, // 못 찾으면 첫 번째 스케줄로
+    );
+
+    if (mounted) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ScheduleDetailScreen(schedule: schedule),
+        ),
+      );
+
+      if (result != null) {
+        // 상세보기에서 돌아온 후 새로고침
+        _homeKey.currentState?.refresh();
+        _calendarKey.currentState?.refresh();
+        setState(() {});
+      }
+    }
   }
 
   @override

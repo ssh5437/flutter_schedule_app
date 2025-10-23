@@ -57,7 +57,9 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+
     final userId = Supabase.instance.client.auth.currentUser!.id;
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
     final companies = await DatabaseHelper.instance.readAllCompanies(userId);
@@ -89,6 +91,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
       });
     }
 
+    if (!mounted) return;
     setState(() {
       _schedulesByDate = schedulesByDate;
       _companyColors = companyColors;

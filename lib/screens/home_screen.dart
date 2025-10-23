@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
+import '../services/widget_service.dart';
 import 'schedule_detail_screen.dart';
 import 'search_screen.dart';
 import 'company_management_screen.dart';
@@ -27,12 +28,14 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    print('🚀 HomeScreen initState called');
     _loadSchedules();
     _loadColors();
   }
 
   Future<void> _loadColors() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
       _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
@@ -40,9 +43,11 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
+
       final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
       final companies = await DatabaseHelper.instance.readAllCompanies(userId);
 
@@ -76,13 +81,17 @@ class HomeScreenState extends State<HomeScreen> {
         return aDate.compareTo(bDate);
       });
 
+      if (!mounted) return;
       setState(() {
         _schedules = schedules;
         _companyColors = companyColors;
         _isLoading = false;
       });
+
+      // 위젯 업데이트
+      WidgetService.updateWidget();
     } catch (e) {
-      //print('Error loading schedules: $e');
+      if (!mounted) return;
       setState(() {
         _schedules = [];
         _companyColors = {};
@@ -367,7 +376,7 @@ class HomeScreenState extends State<HomeScreen> {
                                                 schedule.companyName.toString() == 'null'  ? '' : schedule.companyName.toString(),
                                                 style: TextStyle(
                                                   fontSize: 13,
-                                                  color: textColor.withValues(alpha: 0.7),
+                                                  color: borderColor,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,

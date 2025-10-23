@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "flutter_schedule_app (데이터 유지)",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--no-uninstall-first"
+            ]
+        },
+        {
             "name": "flutter_schedule_app",
             "request": "launch",
             "type": "dart"

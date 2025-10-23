@@ -49,6 +49,7 @@ class CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _loadColors() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
       _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
@@ -127,6 +128,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     final userId = Supabase.instance.client.auth.currentUser!.id;
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
@@ -153,19 +155,34 @@ class CalendarScreenState extends State<CalendarScreen> {
       schedulesByDate[date]!.add(schedule);
     }
 
-    // 각 날짜별로 스케줄 정렬: 시간 없는 것이 먼저, 그 다음 시간순
+    // 각 날짜별로 스케줄 정렬: 요청 스케줄 먼저, 각각 시간순
     for (var date in schedulesByDate.keys) {
       schedulesByDate[date]!.sort((a, b) {
-        // visitTime이 없는 것을 먼저
-        if (a.visitTime == null && b.visitTime != null) return -1;
-        if (a.visitTime != null && b.visitTime == null) return 1;
-        if (a.visitTime == null && b.visitTime == null) return 0;
+        // 1. 상태별 정렬: 예정(요청) 스케줄이 확정 스케줄보다 먼저
+        final aStatus = a.computedStatus;
+        final bStatus = b.computedStatus;
 
-        // 둘 다 visitTime이 있으면 시간순으로 정렬
-        return a.visitTime!.compareTo(b.visitTime!);
+        if (aStatus != bStatus) {
+          if (aStatus == '예정') return -1;  // 예정이 먼저
+          if (bStatus == '예정') return 1;
+        }
+
+        // 2. 같은 상태 내에서 시간순 정렬
+        // 요청 스케줄(예정): requestDate의 시간 순서 (시간 정보가 없으면 날짜만)
+        // 확정 스케줄: visitTime 순서
+        if (aStatus == '확정' && bStatus == '확정') {
+          // 확정 스케줄끼리: visitTime으로 정렬
+          final aTime = a.visitTime ?? '99:99';  // 시간 없으면 맨 뒤로
+          final bTime = b.visitTime ?? '99:99';
+          return aTime.compareTo(bTime);
+        } else {
+          // 예정 스케줄끼리: requestDate 시간으로 정렬
+          return a.requestDate.compareTo(b.requestDate);
+        }
       });
     }
 
+    if (!mounted) return;
     setState(() {
       _schedulesByDate = schedulesByDate;
       _companyColors = companyColors;
@@ -549,7 +566,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                       schedule.companyName!,
                       style: TextStyle(
                         fontSize: 13,
-                        color: textColor.withValues(alpha: 0.7),
+                        color: borderColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
