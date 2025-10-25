@@ -224,33 +224,35 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
   Widget _buildInfoCard() {
     return Card(
+      color: const Color.fromARGB(255, 255, 255, 255),
+      
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow('고객명', _schedule.customerName),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('요청일자', _formatDate(_schedule.requestDate)),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('방문확정일자', _formatDate(_schedule.visitDate)),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('방문확정시간', _schedule.visitTime ?? '미정'),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildPhoneRow('전화번호', _schedule.phoneNumber),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('주소', _schedule.address),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('업체명', _schedule.companyName ?? '-'),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('작업내용', _formatWorkItemsWithPrices(_schedule.workItems, _schedule.workPrices)),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('작업건수', '${_schedule.workCount}건'),
-            const Divider(height: 2),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             // 총 금액 표시 (금액 정보가 있는 경우에만)
             if (_schedule.workPrices.isNotEmpty && _schedule.totalPrice > 0) ...[
               _buildPriceRow('총 금액', _schedule.totalPrice),
-              const Divider(height: 2),
+              const Divider(height: 2, color: Color(0xFFabd9ff)),
             ],
             _buildInfoRow('비고', _schedule.notes ?? '-'),
           ],
@@ -261,7 +263,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -288,7 +290,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
   Widget _buildPriceRow(String label, int price) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -318,7 +320,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
   Widget _buildPhoneRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

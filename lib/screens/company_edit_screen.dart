@@ -70,6 +70,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
       if (mounted) {
         setState(() {
           _nameController.text = updatedCompany.name;
+          _confirmMessageController.text = updatedCompany.confirmMessage;
+          _absenceMessageController.text = updatedCompany.absenceMessage;
           _workItems = updatedCompany.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList();
           _selectedColor = Color(updatedCompany.color);
         });
@@ -395,20 +397,61 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 ),
               )
             else
-              ListView.builder(
+              ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _workItems.length,
+                onReorder: (oldIndex, newIndex) async {
+                  setState(() {
+                    if (newIndex > oldIndex) {
+                      newIndex -= 1;
+                    }
+                    final item = _workItems.removeAt(oldIndex);
+                    _workItems.insert(newIndex, item);
+                  });
+
+                  // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
+                  if (widget.company != null) {
+                    final userId = Supabase.instance.client.auth.currentUser!.id;
+                    final updatedCompany = Company(
+                      id: widget.company!.id,
+                      userId: userId,
+                      name: _nameController.text,
+                      workItems: _workItems,
+                      color: _selectedColor.toARGB32(),
+                      confirmMessage: _confirmMessageController.text,
+                      absenceMessage: _absenceMessageController.text,
+                    );
+
+                    try {
+                      await DatabaseHelper.instance.updateCompany(updatedCompany);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('저장 실패: $e')),
+                        );
+                      }
+                    }
+                  }
+                },
                 itemBuilder: (context, index) {
                   final item = _workItems[index];
                   return Card(
+                    key: ValueKey(item.name + index.toString()),
                     child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _selectedColor.withValues(alpha: 0.2),
-                        child: Text(
-                          '${index + 1}',
-                          style: TextStyle(color: _selectedColor),
-                        ),
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.drag_handle, color: Colors.grey[400]),
+                          const SizedBox(width: 8),
+                          CircleAvatar(
+                            backgroundColor: _selectedColor.withValues(alpha: 0.2),
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(color: _selectedColor),
+                            ),
+                          ),
+                        ],
                       ),
                       title: Text(item.name),
                       subtitle: Text(

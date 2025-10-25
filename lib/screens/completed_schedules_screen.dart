@@ -276,7 +276,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                       _loadCompletedSchedules();
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
+                                      padding: const EdgeInsets.all(8.0),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
@@ -303,7 +303,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                                 ),
                                             ],
                                           ),
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: 3),
                                           // 고객명과 전화번호
                                           Row(
                                             children: [
@@ -326,7 +326,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
+                                          const SizedBox(height: 3),
                                           // 주소
                                           Text(
                                             schedule.address,
@@ -335,7 +335,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                               color: textColor,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
+                                          const SizedBox(height: 3),
                                           // 작업 내용
                                           Text(
                                             _formatWorkItems(schedule.workItems),

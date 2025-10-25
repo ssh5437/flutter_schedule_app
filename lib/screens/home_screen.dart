@@ -116,6 +116,23 @@ class HomeScreenState extends State<HomeScreen> {
     return phone;
   }
 
+  String _formatWorkItems(List<String> workItems) {
+    if (workItems.isEmpty) return '-';
+
+    final Map<String, int> itemCount = {};
+    for (var item in workItems) {
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
+    }
+
+    return itemCount.entries.map((e) {
+      if (e.value > 1) {
+        return '${e.key} ${e.value}건';
+      }
+      return e.key;
+    }).join(', ');
+  }
+
   // 외부에서 호출 가능한 새로고침 메서드
   void refresh() {
     _loadSchedules();
@@ -409,7 +426,7 @@ class HomeScreenState extends State<HomeScreen> {
                                           const SizedBox(height: 4),
                                           // 작업 내용
                                           Text(
-                                            schedule.workItems.join(', '),
+                                            _formatWorkItems(schedule.workItems),
                                             style: TextStyle(
                                               fontSize: 14,
                                               color: textColor,

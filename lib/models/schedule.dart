@@ -31,9 +31,23 @@ class Schedule {
     this.status = '예정',
   });
 
-  // 총 금액 계산
+  // 총 금액 계산 (작업 항목별 건수를 반영)
   int get totalPrice {
-    return workPrices.values.fold(0, (sum, price) => sum + price);
+    // 작업 항목별 건수 카운팅
+    final Map<String, int> itemCount = {};
+    for (var item in workItems) {
+      String cleanedItem = item.replaceAll(RegExp(r'\s+\d+건$'), '');
+      itemCount[cleanedItem] = (itemCount[cleanedItem] ?? 0) + 1;
+    }
+
+    // 각 작업의 (단가 × 건수)를 모두 합산
+    int total = 0;
+    for (var entry in itemCount.entries) {
+      final price = workPrices[entry.key] ?? 0;
+      final count = entry.value;
+      total += price * count;
+    }
+    return total;
   }
 
   // 스케줄 상태 자동 판단 (visitDate와 visitTime 기반)
