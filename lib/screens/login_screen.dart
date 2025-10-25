@@ -356,27 +356,27 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Kakao 로그인 버튼
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleKakaoLogin,
-                    icon: Image.asset(
-                      'assets/images/kakao_logo.png',
-                      height: 24,
-                      width: 24,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.chat_bubble, size: 24);
-                      },
-                    ),
-                    label: const Text('Kakao로 로그인'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFEE500),
-                      foregroundColor: Colors.black87,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
+                  // Kakao 로그인 버튼 (비활성화)
+                  // ElevatedButton.icon(
+                  //   onPressed: _isLoading ? null : _handleKakaoLogin,
+                  //   icon: Image.asset(
+                  //     'assets/images/kakao_logo.png',
+                  //     height: 24,
+                  //     width: 24,
+                  //     errorBuilder: (context, error, stackTrace) {
+                  //       return const Icon(Icons.chat_bubble, size: 24);
+                  //     },
+                  //   ),
+                  //   label: const Text('Kakao로 로그인'),
+                  //   style: ElevatedButton.styleFrom(
+                  //     backgroundColor: const Color(0xFFFEE500),
+                  //     foregroundColor: Colors.black87,
+                  //     padding: const EdgeInsets.symmetric(vertical: 12),
+                  //     shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(8),
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ),

@@ -172,6 +172,33 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     }
   }
 
+  Future<void> _openMap(String address) async {
+    // 안드로이드에서는 geo: URI를 사용하여 앱 선택기를 띄웁니다
+    // q 파라미터에 주소를 넣으면 다양한 지도/네비게이션 앱에서 처리 가능
+    final uri = Uri.parse('geo:0,0?q=${Uri.encodeComponent(address)}');
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication, // 외부 앱으로 실행
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('지도 앱을 열 수 없습니다')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류가 발생했습니다: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -241,7 +268,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildPhoneRow('전화번호', _schedule.phoneNumber),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
-            _buildInfoRow('주소', _schedule.address),
+            _buildAddressRow('주소', _schedule.address),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('업체명', _schedule.companyName ?? '-'),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
@@ -346,6 +373,40 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.map, color: Colors.blue, size: 24),
+            onPressed: () => _openMap(value),
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            tooltip: '지도에서 보기',
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'schedule_detail_screen.dart';
+import 'statistics_screen.dart';
 
 class CompletedSchedulesScreen extends StatefulWidget {
   const CompletedSchedulesScreen({super.key});
@@ -179,9 +180,23 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const GradientAppBar(
+      appBar: GradientAppBar(
         title: '완료 내역',
         toolbarHeight: 40,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.assessment),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const StatisticsScreen(),
+                ),
+              );
+            },
+            tooltip: '매출 관리',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
