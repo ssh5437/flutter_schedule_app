@@ -1,4 +1,4 @@
-package com.example.flutter_schedule_app
+package com.vividlife.bizplan
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider

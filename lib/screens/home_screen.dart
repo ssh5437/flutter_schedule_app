@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import '../services/widget_service.dart';
+import '../widgets/gradient_app_bar.dart';
 import 'schedule_detail_screen.dart';
 import 'search_screen.dart';
 import 'company_management_screen.dart';
@@ -138,9 +139,8 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('스케줄 목록', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: GradientAppBar(
+        title: '스케줄 목록',
         toolbarHeight: 40,
         actions: [
           IconButton(

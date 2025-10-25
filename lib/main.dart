@@ -96,7 +96,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '현장 서비스 스케줄 관리',
+      title: '비비 관리',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -164,7 +164,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
-  static const platform = MethodChannel('com.example.flutter_schedule_app/widget');
+  static const platform = MethodChannel('com.example.bizPlan/widget');
 
   late final List<Widget> _screens;
 
@@ -295,7 +295,8 @@ class _MainScreenState extends State<MainScreen> {
             setState(() {});
           }
         },
-        child: const Icon(Icons.add),
+        backgroundColor: const Color.fromARGB(255, 220, 232, 248),
+        child: const Icon(Icons.add, color: Color.fromARGB(255, 53, 48, 48)),
       ),
     );
   }

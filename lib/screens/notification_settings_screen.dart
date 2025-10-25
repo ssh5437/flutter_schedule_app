@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -125,182 +126,182 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     return '$period ${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _testNotification() async {
-    await NotificationService.instance.showTestNotification();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('테스트 알림이 전송되었습니다'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
-  }
+  // 테스트용 함수들 (숨김)
+  // Future<void> _testNotification() async {
+  //   await NotificationService.instance.showTestNotification();
+  //   if (mounted) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('테스트 알림이 전송되었습니다'),
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+  //   }
+  // }
 
-  Future<void> _scheduleTestNotification() async {
-    await NotificationService.instance.scheduleTestNotificationAfterOneMinute();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('1분 후 테스트 알림이 예약되었습니다.\n알림이 오는지 확인하세요!'),
-          backgroundColor: Colors.blue,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
+  // Future<void> _scheduleTestNotification() async {
+  //   await NotificationService.instance.scheduleTestNotificationAfterOneMinute();
+  //   if (mounted) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('1분 후 테스트 알림이 예약되었습니다.\n알림이 오는지 확인하세요!'),
+  //         backgroundColor: Colors.blue,
+  //         duration: Duration(seconds: 3),
+  //       ),
+  //     );
+  //   }
+  // }
 
-  Future<void> _showPendingNotifications() async {
-    final pendingNotifications = await NotificationService.instance.getPendingNotifications();
+  // Future<void> _showPendingNotifications() async {
+  //   final pendingNotifications = await NotificationService.instance.getPendingNotifications();
 
-    if (!mounted) return;
+  //   if (!mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('예약된 알림 목록 (${pendingNotifications.length}개)'),
-        content: pendingNotifications.isEmpty
-            ? const Text('예약된 알림이 없습니다.')
-            : SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: pendingNotifications.map((notification) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ID: ${notification.id}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            notification.title ?? '제목 없음',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            notification.body ?? '내용 없음',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          const Divider(),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-  }
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text('예약된 알림 목록 (${pendingNotifications.length}개)'),
+  //       content: pendingNotifications.isEmpty
+  //           ? const Text('예약된 알림이 없습니다.')
+  //           : SingleChildScrollView(
+  //               child: Column(
+  //                 mainAxisSize: MainAxisSize.min,
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: pendingNotifications.map((notification) {
+  //                   return Padding(
+  //                     padding: const EdgeInsets.only(bottom: 12.0),
+  //                     child: Column(
+  //                       crossAxisAlignment: CrossAxisAlignment.start,
+  //                       children: [
+  //                         Text(
+  //                           'ID: ${notification.id}',
+  //                           style: const TextStyle(
+  //                             fontWeight: FontWeight.bold,
+  //                             fontSize: 12,
+  //                           ),
+  //                         ),
+  //                         Text(
+  //                           notification.title ?? '제목 없음',
+  //                           style: const TextStyle(fontWeight: FontWeight.bold),
+  //                         ),
+  //                         Text(
+  //                           notification.body ?? '내용 없음',
+  //                           style: const TextStyle(fontSize: 12),
+  //                         ),
+  //                         const Divider(),
+  //                       ],
+  //                     ),
+  //                   );
+  //                 }).toList(),
+  //               ),
+  //             ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('확인'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-  Future<void> _checkPermissions() async {
-    final permissions = await NotificationService.instance.getPermissionStatus();
+  // Future<void> _checkPermissions() async {
+  //   final permissions = await NotificationService.instance.getPermissionStatus();
 
-    if (!mounted) return;
+  //   if (!mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('알림 권한 상태'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPermissionRow('알림 권한', permissions['notification'] ?? false),
-            const SizedBox(height: 8),
-            _buildPermissionRow('정확한 알람', permissions['scheduleExactAlarm'] ?? false),
-            const SizedBox(height: 8),
-            _buildPermissionRow('배터리 최적화 제외', permissions['ignoreBatteryOptimizations'] ?? false),
-            const SizedBox(height: 16),
-            const Text(
-              '모든 권한이 허용되어야 알림이 정상적으로 작동합니다.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('닫기'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _requestPermissions();
-            },
-            child: const Text('권한 요청'),
-          ),
-        ],
-      ),
-    );
-  }
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('알림 권한 상태'),
+  //       content: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           _buildPermissionRow('알림 권한', permissions['notification'] ?? false),
+  //           const SizedBox(height: 8),
+  //           _buildPermissionRow('정확한 알람', permissions['scheduleExactAlarm'] ?? false),
+  //           const SizedBox(height: 8),
+  //           _buildPermissionRow('배터리 최적화 제외', permissions['ignoreBatteryOptimizations'] ?? false),
+  //           const SizedBox(height: 16),
+  //           const Text(
+  //             '모든 권한이 허용되어야 알림이 정상적으로 작동합니다.',
+  //             style: TextStyle(fontSize: 12, color: Colors.grey),
+  //           ),
+  //         ],
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('닫기'),
+  //         ),
+  //         TextButton(
+  //           onPressed: () async {
+  //             Navigator.pop(context);
+  //             await _requestPermissions();
+  //           },
+  //           child: const Text('권한 요청'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-  Widget _buildPermissionRow(String label, bool granted) {
-    return Row(
-      children: [
-        Icon(
-          granted ? Icons.check_circle : Icons.cancel,
-          color: granted ? Colors.green : Colors.red,
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: granted ? Colors.black : Colors.red,
-            ),
-          ),
-        ),
-        Text(
-          granted ? '허용됨' : '거부됨',
-          style: TextStyle(
-            fontSize: 12,
-            color: granted ? Colors.green : Colors.red,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _buildPermissionRow(String label, bool granted) {
+  //   return Row(
+  //     children: [
+  //       Icon(
+  //         granted ? Icons.check_circle : Icons.cancel,
+  //         color: granted ? Colors.green : Colors.red,
+  //         size: 20,
+  //       ),
+  //       const SizedBox(width: 8),
+  //       Expanded(
+  //         child: Text(
+  //           label,
+  //           style: TextStyle(
+  //             color: granted ? Colors.black : Colors.red,
+  //           ),
+  //         ),
+  //       ),
+  //       Text(
+  //         granted ? '허용됨' : '거부됨',
+  //         style: TextStyle(
+  //           fontSize: 12,
+  //           color: granted ? Colors.green : Colors.red,
+  //           fontWeight: FontWeight.bold,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
-  Future<void> _requestPermissions() async {
-    final results = await NotificationService.instance.checkAndRequestPermissions();
+  // Future<void> _requestPermissions() async {
+  //   final results = await NotificationService.instance.checkAndRequestPermissions();
 
-    if (!mounted) return;
+  //   if (!mounted) return;
 
-    final allGranted = results.values.every((granted) => granted);
+  //   final allGranted = results.values.every((granted) => granted);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          allGranted
-            ? '모든 권한이 허용되었습니다!'
-            : '일부 권한이 거부되었습니다. 알림이 제대로 작동하지 않을 수 있습니다.',
-        ),
-        backgroundColor: allGranted ? Colors.green : Colors.orange,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text(
+  //         allGranted
+  //           ? '모든 권한이 허용되었습니다!'
+  //           : '일부 권한이 거부되었습니다. 알림이 제대로 작동하지 않을 수 있습니다.',
+  //       ),
+  //       backgroundColor: allGranted ? Colors.green : Colors.orange,
+  //       duration: const Duration(seconds: 3),
+  //     ),
+  //   );
+  // }
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('알림 설정', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '알림 설정',
         toolbarHeight: 40,
       ),
       body: ListView(
@@ -474,56 +475,56 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
           const SizedBox(height: 24),
 
-          // 권한 확인 버튼
-          ElevatedButton.icon(
-            onPressed: _checkPermissions,
-            icon: const Icon(Icons.security),
-            label: const Text('알림 권한 확인'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-          ),
+          // 권한 확인 버튼 (숨김)
+          // ElevatedButton.icon(
+          //   onPressed: _checkPermissions,
+          //   icon: const Icon(Icons.security),
+          //   label: const Text('알림 권한 확인'),
+          //   style: ElevatedButton.styleFrom(
+          //     padding: const EdgeInsets.symmetric(vertical: 14),
+          //     backgroundColor: Colors.orange,
+          //     foregroundColor: Colors.white,
+          //   ),
+          // ),
 
-          const SizedBox(height: 12),
+          // const SizedBox(height: 12),
 
-          // 즉시 테스트 알림 버튼
-          OutlinedButton.icon(
-            onPressed: _testNotification,
-            icon: const Icon(Icons.notification_add),
-            label: const Text('즉시 테스트 알림 보내기'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
+          // 즉시 테스트 알림 버튼 (숨김)
+          // OutlinedButton.icon(
+          //   onPressed: _testNotification,
+          //   icon: const Icon(Icons.notification_add),
+          //   label: const Text('즉시 테스트 알림 보내기'),
+          //   style: OutlinedButton.styleFrom(
+          //     padding: const EdgeInsets.symmetric(vertical: 14),
+          //   ),
+          // ),
 
-          const SizedBox(height: 12),
+          // const SizedBox(height: 12),
 
-          // 1분 후 테스트 알림 버튼
-          OutlinedButton.icon(
-            onPressed: _scheduleTestNotification,
-            icon: const Icon(Icons.schedule),
-            label: const Text('1분 후 테스트 알림 예약'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              foregroundColor: Colors.blue,
-            ),
-          ),
+          // 1분 후 테스트 알림 버튼 (숨김)
+          // OutlinedButton.icon(
+          //   onPressed: _scheduleTestNotification,
+          //   icon: const Icon(Icons.schedule),
+          //   label: const Text('1분 후 테스트 알림 예약'),
+          //   style: OutlinedButton.styleFrom(
+          //     padding: const EdgeInsets.symmetric(vertical: 14),
+          //     foregroundColor: Colors.blue,
+          //   ),
+          // ),
 
-          const SizedBox(height: 12),
+          // const SizedBox(height: 12),
 
-          // 예약된 알림 확인 버튼
-          OutlinedButton.icon(
-            onPressed: _showPendingNotifications,
-            icon: const Icon(Icons.list_alt),
-            label: const Text('예약된 알림 목록 확인'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-          ),
+          // 예약된 알림 확인 버튼 (숨김)
+          // OutlinedButton.icon(
+          //   onPressed: _showPendingNotifications,
+          //   icon: const Icon(Icons.list_alt),
+          //   label: const Text('예약된 알림 목록 확인'),
+          //   style: OutlinedButton.styleFrom(
+          //     padding: const EdgeInsets.symmetric(vertical: 14),
+          //   ),
+          // ),
 
-          const SizedBox(height: 16),
+          // const SizedBox(height: 16),
 
           // 저장 버튼
           ElevatedButton(

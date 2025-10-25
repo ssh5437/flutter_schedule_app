@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -24,6 +25,50 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  // 에러 메시지를 유저 친화적인 한글로 변환
+  String _getErrorMessage(String error) {
+    final errorLower = error.toLowerCase();
+
+    // 이미 존재하는 사용자
+    if (errorLower.contains('already registered') ||
+        errorLower.contains('user already exists') ||
+        errorLower.contains('already been registered')) {
+      return '이미 가입된 이메일입니다';
+    }
+
+    // 이메일 형식 오류
+    if (errorLower.contains('invalid email') ||
+        errorLower.contains('email format')) {
+      return '올바른 이메일 형식이 아닙니다';
+    }
+
+    // 비밀번호 길이 오류
+    if (errorLower.contains('password') &&
+        (errorLower.contains('short') || errorLower.contains('length'))) {
+      return '비밀번호는 최소 6자 이상이어야 합니다';
+    }
+
+    // 네트워크 오류
+    if (errorLower.contains('network') ||
+        errorLower.contains('connection')) {
+      return '네트워크 연결을 확인해주세요';
+    }
+
+    // OAuth 관련 오류
+    if (errorLower.contains('oauth')) {
+      return '소셜 회원가입에 실패했습니다. 다시 시도해주세요';
+    }
+
+    // 너무 많은 시도
+    if (errorLower.contains('too many') ||
+        errorLower.contains('rate limit')) {
+      return '회원가입 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요';
+    }
+
+    // 기타 오류
+    return '회원가입 중 오류가 발생했습니다. 다시 시도해주세요';
   }
 
   Future<void> _handleSignUp() async {
@@ -61,7 +106,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('회원가입 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -86,7 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Google 회원가입 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -111,7 +156,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kakao 회원가입 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -126,9 +171,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('회원가입'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '회원가입',
       ),
       body: SafeArea(
         child: Center(

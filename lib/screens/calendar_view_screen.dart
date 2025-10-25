@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/gradient_app_bar.dart';
 import 'calendar_screen.dart';
 import 'weekly_calendar_screen.dart';
 
@@ -46,12 +47,8 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _isWeeklyView ? '주간 캘린더' : '월간 캘린더',
-          style: const TextStyle(fontSize: 18),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: GradientAppBar(
+        title: _isWeeklyView ? '주간 캘린더' : '월간 캘린더',
         toolbarHeight: 40,
         actions: [
           // 월간 캘린더일 때만 가로/세로 전환 버튼 표시

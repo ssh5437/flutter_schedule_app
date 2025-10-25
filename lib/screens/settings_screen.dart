@@ -4,6 +4,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../widgets/gradient_app_bar.dart';
 import 'notification_settings_screen.dart';
 import 'debug_screen.dart';
 
@@ -17,7 +18,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _defaultCalendar = 'monthly'; // 'monthly' 또는 'weekly'
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상 (연한 주황)
-  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상 (연한 파랑)
+  Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   @override
   void initState() {
@@ -30,7 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _defaultCalendar = prefs.getString('default_calendar') ?? 'monthly';
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
-      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
     });
   }
 
@@ -76,6 +77,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showColorPicker(String status, Color currentColor) {
+    Color selectedColor = currentColor;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -84,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: ColorPicker(
             pickerColor: currentColor,
             onColorChanged: (color) {
-              _saveStatusColor(status, color);
+              selectedColor = color;
             },
             pickerAreaHeightPercent: 0.8,
           ),
@@ -92,7 +95,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('닫기'),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              _saveStatusColor(status, selectedColor);
+              Navigator.pop(context);
+            },
+            child: const Text('적용'),
           ),
         ],
       ),
@@ -328,9 +338,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('설정', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '설정',
         toolbarHeight: 40,
       ),
       body: ListView(

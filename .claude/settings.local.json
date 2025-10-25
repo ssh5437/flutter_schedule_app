@@ -8,13 +8,14 @@
       "Bash(clip)",
       "Bash(flutter:*)",
       "Read(//c/Users/Administrator/Downloads/**)",
-      "Bash(rm \"d:\\MyApp\\flutter_schedule_app\\lib\\screens\\password_unlock_screen.dart\" \"d:\\MyApp\\flutter_schedule_app\\lib\\screens\\password_setup_screen.dart\")",
+      "Bash(rm \"d:\\MyApp\\bizPlan\\lib\\screens\\password_unlock_screen.dart\" \"d:\\MyApp\\bizPlan\\lib\\screens\\password_setup_screen.dart\")",
       "Bash(./gradlew assembleDebug:*)",
       "Bash(./gradlew clean:*)",
       "Bash(adb -s emulator-5554 install:*)",
       "Bash(./gradlew installDebug:*)",
       "Bash(adb:*)",
-      "Read(//d/**)"
+      "Read(//d/**)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []

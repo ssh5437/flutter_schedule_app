@@ -24,6 +24,55 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // 에러 메시지를 유저 친화적인 한글로 변환
+  String _getErrorMessage(String error) {
+    final errorLower = error.toLowerCase();
+
+    // 이메일/비밀번호 오류
+    if (errorLower.contains('invalid login credentials') ||
+        errorLower.contains('invalid password') ||
+        errorLower.contains('email not confirmed')) {
+      return '이메일 또는 비밀번호가 올바르지 않습니다';
+    }
+
+    // 사용자 없음
+    if (errorLower.contains('user not found') ||
+        errorLower.contains('no user found')) {
+      return '등록되지 않은 이메일입니다';
+    }
+
+    // 네트워크 오류
+    if (errorLower.contains('network') ||
+        errorLower.contains('connection')) {
+      return '네트워크 연결을 확인해주세요';
+    }
+
+    // 이메일 형식 오류
+    if (errorLower.contains('invalid email') ||
+        errorLower.contains('email format')) {
+      return '올바른 이메일 형식이 아닙니다';
+    }
+
+    // 비밀번호 길이 오류
+    if (errorLower.contains('password') && errorLower.contains('short')) {
+      return '비밀번호는 최소 6자 이상이어야 합니다';
+    }
+
+    // 너무 많은 시도
+    if (errorLower.contains('too many') ||
+        errorLower.contains('rate limit')) {
+      return '로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요';
+    }
+
+    // OAuth 관련 오류
+    if (errorLower.contains('oauth')) {
+      return '소셜 로그인에 실패했습니다. 다시 시도해주세요';
+    }
+
+    // 기타 오류
+    return '로그인 중 오류가 발생했습니다. 다시 시도해주세요';
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -41,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('로그인 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -79,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('오류: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -97,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Google 로그인 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -119,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kakao 로그인 실패: ${e.toString()}'),
+            content: Text(_getErrorMessage(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -130,6 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '스케줄 관리',
+                    '비비',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),

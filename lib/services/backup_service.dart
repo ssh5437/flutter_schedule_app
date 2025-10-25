@@ -66,7 +66,7 @@ class BackupService {
       await Share.shareXFiles(
         [XFile(file.path)],
         subject: '스케줄 백업 파일',
-        text: '스케줄 관리 앱 백업 데이터입니다.',
+        text: '비비 앱 백업 데이터입니다.',
       );
     } catch (e) {
       throw Exception('백업 파일 공유 실패: $e');

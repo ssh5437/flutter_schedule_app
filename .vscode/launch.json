@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "flutter_schedule_app (데이터 유지)",
+            "name": "bizPlan (데이터 유지)",
             "request": "launch",
             "type": "dart",
             "args": [
@@ -13,18 +13,18 @@
             ]
         },
         {
-            "name": "flutter_schedule_app",
+            "name": "bizPlan",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "flutter_schedule_app (profile mode)",
+            "name": "bizPlan (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "flutter_schedule_app (release mode)",
+            "name": "bizPlan (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"

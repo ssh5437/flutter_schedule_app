@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import 'company_edit_screen.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class CompanyManagementScreen extends StatefulWidget {
   const CompanyManagementScreen({super.key});
@@ -74,9 +75,8 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('업체 관리', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '업체 관리',
         toolbarHeight: 40,
       ),
       body: _isLoading

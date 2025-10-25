@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import 'schedule_detail_screen.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -66,9 +67,8 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('스케줄 검색', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '스케줄 검색',
         toolbarHeight: 40,
       ),
       body: Column(

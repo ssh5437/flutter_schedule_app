@@ -8,6 +8,7 @@ import '../database/database_helper.dart';
 import '../utils/gemini_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -319,23 +320,28 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         title: const Text('텍스트에서 스케줄 추출'),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '스케줄 정보가 포함된 텍스트를 붙여넣으세요.\n(이름, 전화번호, 주소, 날짜, 시간)',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: textController,
-                maxLines: 8,
-                decoration: const InputDecoration(
-                  hintText: '예시:\n홍길동\n010-1234-5678\n서울시 강남구 테헤란로 123\n2025년 10월 15일 14시',
-                  border: OutlineInputBorder(),
+          height: 300, // 고정 높이 설정
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '스케줄 정보가 포함된 텍스트를 붙여넣으세요.\n(이름, 전화번호, 주소, 날짜, 시간)',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: textController,
+                  maxLines: null, // null로 설정하여 자동 확장
+                  minLines: 8, // 최소 8줄
+                  keyboardType: TextInputType.multiline,
+                  decoration: const InputDecoration(
+                    hintText: '예시:\n홍길동\n010-1234-5678\n서울시 강남구 테헤란로 123\n2025년 10월 15일 14시',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -531,12 +537,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.schedule == null ? '스케줄 추가' : '스케줄 수정',
-          style: const TextStyle(fontSize: 18),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: GradientAppBar(
+        title: widget.schedule == null ? '스케줄 추가' : '스케줄 수정',
         toolbarHeight: 40,
         actions: [
           IconButton(
@@ -560,17 +562,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   child: Form(
                     key: _formKey,
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       child: Column(
                         children: [
                           // 업체 선택 드롭다운
                           DropdownButtonFormField<Company>(
                             initialValue: _selectedCompany,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '업체 *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              labelStyle: const TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
+                              filled: true,
+                              fillColor: Colors.grey[50],
                             ),
                             items: _companies.map((company) {
                               return DropdownMenuItem(
@@ -607,14 +614,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           TextFormField(
                             controller: _customerNameController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '고객명 *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              labelStyle: const TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
+                              filled: true,
+                              fillColor: Colors.grey[50],
                             ),
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zㄱ-ㅎ가-힣\s]')),
@@ -626,16 +638,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           InkWell(
                             onTap: _selectRequestDate,
                             child: InputDecorator(
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: '요청일자 *',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                labelStyle: const TextStyle(fontSize: 13),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                 isDense: true,
-                                suffixIcon: Icon(Icons.calendar_today, size: 20),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                                suffixIcon: const Icon(Icons.calendar_today, size: 18),
                               ),
                               child: Text(
                                 DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(_requestDate),
@@ -643,7 +660,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
                               Expanded(
@@ -652,9 +669,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                   child: InputDecorator(
                                     decoration: InputDecoration(
                                       labelText: '방문확정일자',
-                                      border: const OutlineInputBorder(),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      labelStyle: const TextStyle(fontSize: 13),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                       isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
                                       suffixIcon: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -666,32 +688,37 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                                   _visitTime = null;
                                                 });
                                               },
-                                              child: const Icon(Icons.clear, size: 20),
+                                              child: const Icon(Icons.clear, size: 18),
                                             ),
                                           const SizedBox(width: 4),
-                                          const Icon(Icons.calendar_today, size: 20),
+                                          const Icon(Icons.calendar_today, size: 18),
                                         ],
                                       ),
                                     ),
                                     child: Text(
                                       _visitDate != null
-                                          ? DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(_visitDate!)
+                                          ? DateFormat('MM-dd (E)', 'ko_KR').format(_visitDate!)
                                           : '미정',
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: InkWell(
                                   onTap: () => _showTimePickerMenu(context),
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       labelText: '방문시간',
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      labelStyle: const TextStyle(fontSize: 13),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                       isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
                                     ),
                                     child: Text(
                                       _visitTime ?? '미정',
@@ -702,16 +729,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           TextFormField(
                             controller: _phoneNumberController,
                             focusNode: _phoneNumberFocus,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '전화번호 *',
+                              labelStyle: const TextStyle(fontSize: 13),
                               hintText: '010-0000-0000',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
+                              filled: true,
+                              fillColor: Colors.grey[50],
                             ),
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
@@ -731,15 +763,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           TextFormField(
                             controller: _addressController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '주소 *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              labelStyle: const TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
+                              filled: true,
+                              fillColor: Colors.grey[50],
                             ),
+                            maxLines: 2,
+                            minLines: 1,
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(RegExp(r'[0-9ㄱ-ㅎ가-힣\s,\-]')),
                             ],
@@ -750,16 +789,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           InkWell(
                             onTap: _showWorkItemsDialog,
                             child: InputDecorator(
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: '작업 내용 *',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                labelStyle: const TextStyle(fontSize: 13),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                 isDense: true,
-                                suffixIcon: Icon(Icons.add, size: 20),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                                suffixIcon: const Icon(Icons.add, size: 18),
                               ),
                               child: Text(
                                 _workItemsWithCount.isEmpty
@@ -771,31 +815,37 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           TextFormField(
                             controller: _workCountController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '총 작업 건수',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              labelStyle: const TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
                               filled: true,
-                              fillColor: Color(0xFFF5F5F5),
+                              fillColor: Colors.grey[200],
                             ),
                             readOnly: true,
                             enabled: false,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           // 총 금액 표시
                           if (_workPrices.isNotEmpty)
                             InputDecorator(
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: '총 금액',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                labelStyle: const TextStyle(fontSize: 13),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                 isDense: true,
                                 filled: true,
-                                fillColor: Color(0xFFF5F5F5),
+                                fillColor: Colors.grey[200],
                               ),
                               child: Text(
                                 '${NumberFormat('#,###').format(_workPrices.values.fold(0, (sum, price) => sum + price))}원',
@@ -805,15 +855,22 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                 ),
                               ),
                             ),
-                          if (_workPrices.isNotEmpty) const SizedBox(height: 8),
+                          if (_workPrices.isNotEmpty) const SizedBox(height: 6),
                           TextFormField(
                             controller: _notesController,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: '비고',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              labelStyle: const TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                               isDense: true,
+                              filled: true,
+                              fillColor: Colors.grey[50],
                             ),
+                            maxLines: 2,
+                            minLines: 1,
                           ),
                         ],
                       ),

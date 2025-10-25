@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
+import '../widgets/gradient_app_bar.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -210,8 +211,8 @@ class _DebugScreenState extends State<DebugScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('디버그 정보'),
+      appBar: const GradientAppBar(
+        title: '디버그 정보',
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

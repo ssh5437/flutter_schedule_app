@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
+import '../widgets/gradient_app_bar.dart';
 import 'schedule_detail_screen.dart';
 
 class CompletedSchedulesScreen extends StatefulWidget {
@@ -49,10 +50,11 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         companyColors[company.name] = company.color;
       }
 
-      // 최근 3개월 데이터만 로드
+      // 최근 3개월 데이터만 로드 (어제까지)
       final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day - 1, 23, 59, 59);
       final startDate = DateTime(now.year, now.month - _loadedMonths, now.day);
-      final endDate = now;
+      final endDate = yesterday;
 
       final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
         userId: userId,
@@ -88,8 +90,9 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       // 추가 3개월 로드
       _loadedMonths += 3;
       final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day - 1, 23, 59, 59);
       final startDate = DateTime(now.year, now.month - _loadedMonths, now.day);
-      final endDate = now;
+      final endDate = yesterday;
 
       final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
         userId: userId,
@@ -176,9 +179,8 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('완료 내역', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: const GradientAppBar(
+        title: '완료 내역',
         toolbarHeight: 40,
       ),
       body: _isLoading

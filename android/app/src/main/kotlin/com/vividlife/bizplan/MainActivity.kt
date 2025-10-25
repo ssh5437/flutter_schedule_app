@@ -1,4 +1,4 @@
-package com.example.flutter_schedule_app
+package com.vividlife.bizplan
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -7,7 +7,7 @@ import android.content.Intent
 import android.util.Log
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.flutter_schedule_app/widget"
+    private val CHANNEL = "com.vividlife.bizPlan/widget"
     private var methodChannel: MethodChannel? = null
     private var pendingScheduleId: Int? = null
 

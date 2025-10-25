@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
+import '../widgets/gradient_app_bar.dart';
+import 'message_template_screen.dart';
 
 class CompanyEditScreen extends StatefulWidget {
   final Company? company;
@@ -18,6 +20,8 @@ class CompanyEditScreen extends StatefulWidget {
 class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _confirmMessageController;
+  late TextEditingController _absenceMessageController;
   late List<WorkItem> _workItems;
   late Color _selectedColor;
 
@@ -32,6 +36,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
+    _confirmMessageController.dispose();
+    _absenceMessageController.dispose();
     super.dispose();
   }
 
@@ -45,6 +51,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
 
   void _loadCompanyData() {
     _nameController = TextEditingController(text: widget.company?.name);
+    _confirmMessageController = TextEditingController(text: widget.company?.confirmMessage ?? '');
+    _absenceMessageController = TextEditingController(text: widget.company?.absenceMessage ?? '');
     _workItems = widget.company?.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList() ?? [];
     _selectedColor = widget.company != null ? Color(widget.company!.color) : const Color(0xFF2196F3);
   }
@@ -190,6 +198,8 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                     name: _nameController.text,
                     workItems: _workItems,
                     color: _selectedColor.toARGB32(),
+                    confirmMessage: _confirmMessageController.text,
+                    absenceMessage: _absenceMessageController.text,
                   );
 
                   try {
@@ -219,6 +229,28 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
     await _reloadCompanyData();
   }
 
+  // 메시지 템플릿 설정 화면으로 이동
+  Future<void> _navigateToMessageTemplate() async {
+    if (widget.company == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('업체를 먼저 저장해주세요')),
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MessageTemplateScreen(company: widget.company!),
+      ),
+    );
+
+    // 템플릿이 업데이트되면 화면 새로고침
+    if (result == true) {
+      await _reloadCompanyData();
+    }
+  }
+
   Future<void> _saveCompany() async {
     if (_formKey.currentState!.validate()) {
       final userId = Supabase.instance.client.auth.currentUser!.id;
@@ -228,6 +260,8 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         name: _nameController.text,
         workItems: _workItems,
         color: _selectedColor.toARGB32(),
+        confirmMessage: _confirmMessageController.text,
+        absenceMessage: _absenceMessageController.text,
       );
 
       try {
@@ -253,11 +287,8 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.company == null ? '업체 추가' : '업체 수정',
-          style: const TextStyle(fontSize: 18),
-        ),
+      appBar: GradientAppBar(
+        title: widget.company == null ? '업체 추가' : '업체 수정',
         toolbarHeight: 40,
         actions: [
           IconButton(
@@ -307,6 +338,28 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                   ),
                 ),
                 onTap: _showColorPicker,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 메시지 템플릿 설정 버튼
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.message),
+                title: const Text('메시지 템플릿'),
+                subtitle: Text(
+                  _confirmMessageController.text.isEmpty && _absenceMessageController.text.isEmpty
+                      ? '확정/부재 메시지 템플릿 미설정'
+                      : '확정/부재 메시지 템플릿 설정됨',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _confirmMessageController.text.isEmpty && _absenceMessageController.text.isEmpty
+                        ? Colors.grey
+                        : Colors.green,
+                  ),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: _navigateToMessageTemplate,
               ),
             ),
             const SizedBox(height: 24),
@@ -387,6 +440,8 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                                   name: _nameController.text,
                                   workItems: _workItems,
                                   color: _selectedColor.toARGB32(),
+                                  confirmMessage: _confirmMessageController.text,
+                                  absenceMessage: _absenceMessageController.text,
                                 );
 
                                 try {

@@ -155,7 +155,7 @@ class WidgetService {
 
   /// 위젯 클릭 이벤트 처리를 위한 초기화
   static Future<void> initialize() async {
-    await HomeWidget.setAppGroupId('group.com.example.flutter_schedule_app');
+    await HomeWidget.setAppGroupId('group.com.example.bizPlan');
   }
 
   /// 위젯에서 앱으로 이동 (위젯 클릭 시 앱 실행)

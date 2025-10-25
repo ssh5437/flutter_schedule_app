@@ -1,4 +1,4 @@
-# flutter_schedule_app
+# bizPlan
 
 A new Flutter project.
 

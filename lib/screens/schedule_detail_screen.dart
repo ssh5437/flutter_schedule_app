@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
+import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
+import '../widgets/gradient_app_bar.dart';
 import 'schedule_form_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
@@ -20,11 +22,49 @@ class ScheduleDetailScreen extends StatefulWidget {
 
 class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   late Schedule _schedule;
+  Company? _company;
 
   @override
   void initState() {
     super.initState();
     _schedule = widget.schedule;
+    _loadCompany();
+  }
+
+  Future<void> _loadCompany() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
+      final company = companies.firstWhere(
+        (c) => c.name == _schedule.companyName,
+        orElse: () => companies.first,
+      );
+      if (mounted) {
+        setState(() {
+          _company = company;
+        });
+      }
+    } catch (e) {
+      // 업체 정보를 가져오지 못한 경우 무시
+    }
+  }
+
+  // 템플릿 변수를 실제 값으로 치환
+  String _replaceTemplateVariables(String? template) {
+    if (template == null || template.isEmpty) return '';
+
+    final date = _formatDate(_schedule.visitDate ?? _schedule.requestDate);
+    final time = _schedule.visitTime ?? '미정';
+    final customerName = _schedule.customerName;
+    final companyName = _schedule.companyName ?? '';
+
+    return template
+        .replaceAll('#{일자}', date)
+        .replaceAll('#{시간}', time)
+        .replaceAll('#{고객명}', customerName)
+        .replaceAll('#{업체명}', companyName);
   }
 
   String _formatDate(DateTime? date) {
@@ -61,9 +101,17 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   }
 
   void _copyConfirmationMessage() {
-    final message = '${_schedule.customerName}님, 요청하신 ${_schedule.workItems.join(', ')} 작업이 '
-        '${_formatDate(_schedule.visitDate)} ${_schedule.visitTime ?? ''}으로 확정되었습니다. '
-        '방문 전 다시 연락드리겠습니다.';
+    String message;
+
+    // 업체에 확정 메시지 템플릿이 있으면 사용, 없으면 기본 메시지
+    if (_company != null && _company!.confirmMessage.isNotEmpty) {
+      message = _replaceTemplateVariables(_company!.confirmMessage);
+    } else {
+      // 기본 메시지
+      message = '${_schedule.customerName}님, 요청하신 ${_schedule.workItems.join(', ')} 작업이 '
+          '${_formatDate(_schedule.visitDate)} ${_schedule.visitTime ?? ''}으로 확정되었습니다. '
+          '방문 전 다시 연락드리겠습니다.';
+    }
 
     Clipboard.setData(ClipboardData(text: message));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -72,8 +120,16 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   }
 
   void _copyAbsentMessage() {
-    final message = '${_schedule.customerName}님, ${_schedule.workItems.join(', ')} 건으로 연락드렸으나 '
-        '부재중이셔서 문자 남깁니다. 확인 후 연락 부탁드립니다.';
+    String message;
+
+    // 업체에 부재 메시지 템플릿이 있으면 사용, 없으면 기본 메시지
+    if (_company != null && _company!.absenceMessage.isNotEmpty) {
+      message = _replaceTemplateVariables(_company!.absenceMessage);
+    } else {
+      // 기본 메시지
+      message = '${_schedule.customerName}님, ${_schedule.workItems.join(', ')} 건으로 연락드렸으나 '
+          '부재중이셔서 문자 남깁니다. 확인 후 연락 부탁드립니다.';
+    }
 
     Clipboard.setData(ClipboardData(text: message));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -119,9 +175,8 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('스케줄 상세', style: TextStyle(fontSize: 18)),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      appBar: GradientAppBar(
+        title: '스케줄 상세',
         toolbarHeight: 40,
         actions: [
           IconButton(
