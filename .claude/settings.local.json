@@ -15,7 +15,8 @@
       "Bash(./gradlew installDebug:*)",
       "Bash(adb:*)",
       "Read(//d/**)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
