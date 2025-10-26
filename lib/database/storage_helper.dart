@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/schedule.dart';
+import '../models/statistics_tab_config.dart';
 
 class StorageHelper {
   static const String _schedulesKey = 'schedules';
+  static const String _statisticsTabsKey = 'statistics_tabs';
   static int _nextId = 1;
 
   static Future<List<Schedule>> getAllSchedules() async {
@@ -115,5 +117,32 @@ class StorageHelper {
     final schedules = await getAllSchedules();
     schedules.removeWhere((s) => s.id == id);
     await saveSchedules(schedules);
+  }
+
+  // 통계 탭 설정 관련 메서드
+  static Future<List<StatisticsTabConfig>> getStatisticsTabConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? tabsJson = prefs.getString(_statisticsTabsKey);
+
+    if (tabsJson == null) {
+      // 저장된 설정이 없으면 기본값 반환
+      return StatisticsTabConfig.getDefaultTabs();
+    }
+
+    try {
+      final List<dynamic> tabsList = json.decode(tabsJson);
+      return tabsList.map((json) => StatisticsTabConfig.fromJson(json)).toList();
+    } catch (e) {
+      // 파싱 실패 시 기본값 반환
+      return StatisticsTabConfig.getDefaultTabs();
+    }
+  }
+
+  static Future<void> saveStatisticsTabConfig(List<StatisticsTabConfig> tabs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String tabsJson = json.encode(
+      tabs.map((tab) => tab.toJson()).toList(),
+    );
+    await prefs.setString(_statisticsTabsKey, tabsJson);
   }
 }

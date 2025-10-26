@@ -4,6 +4,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
+import '../models/statistics_tab_config.dart';
+import '../database/storage_helper.dart';
+import 'statistics_tab_settings_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -12,10 +15,11 @@ class StatisticsScreen extends StatefulWidget {
   State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _StatisticsScreenState extends State<StatisticsScreen> with TickerProviderStateMixin {
+  TabController? _tabController;
   List<Schedule> _allSchedules = [];
   bool _isLoading = true;
+  List<StatisticsTabConfig> _tabConfigs = [];
 
   // 기간 선택
   DateTime _startDate = DateTime(DateTime.now().year, 1, 1); // 올해 1월 1일
@@ -24,13 +28,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-    _loadSchedules();
+    _loadTabConfigs();
+  }
+
+  Future<void> _loadTabConfigs() async {
+    final configs = await StorageHelper.getStatisticsTabConfig();
+    final enabledTabs = configs.where((tab) => tab.isEnabled).toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    if (mounted) {
+      // 기존 TabController dispose
+      final oldController = _tabController;
+
+      // 새 TabController 생성
+      TabController? newController;
+      if (enabledTabs.isNotEmpty) {
+        newController = TabController(length: enabledTabs.length, vsync: this);
+      }
+
+      setState(() {
+        _tabConfigs = enabledTabs;
+        _tabController = newController;
+      });
+
+      // setState 이후에 이전 컨트롤러 dispose
+      oldController?.dispose();
+
+      // 탭 설정이 로드된 후에만 스케줄 로드
+      if (_allSchedules.isEmpty) {
+        _loadSchedules();
+      }
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -109,11 +142,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
     return _filteredSchedules.length;
   }
 
+  Future<void> _openTabSettings() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const StatisticsTabSettingsScreen(),
+      ),
+    );
+
+    // 설정이 저장되었으면 다시 로드
+    if (result == true && mounted) {
+      await _loadTabConfigs();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('매출 관리'),
+        toolbarHeight: 38,
+        title: const Text('매출 관리', style: TextStyle(fontSize: 18)),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -126,22 +174,33 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
             ),
           ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: '개요'),
-            Tab(text: '기간별'),
-            Tab(text: '지역별'),
-            Tab(text: '작업유형별'),
-            Tab(text: '업체별'),
-          ],
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, size: 22),
+            onPressed: _openTabSettings,
+            tooltip: '탭 설정',
+          ),
+        ],
+        bottom: _tabConfigs.isEmpty
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(40),
+                child: TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  indicatorColor: Colors.white,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  tabs: _tabConfigs.map((config) => Tab(
+                    height: 40,
+                    text: config.name,
+                  )).toList(),
+                ),
+              ),
       ),
-      body: _isLoading
+      body: _isLoading || _tabConfigs.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -150,18 +209,29 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
-                    children: [
-                      _buildOverviewTab(),
-                      _buildPeriodTab(),
-                      _buildRegionTab(),
-                      _buildWorkTypeTab(),
-                      _buildCompanyTab(),
-                    ],
+                    children: _tabConfigs.map((config) => _buildTabContent(config.id)).toList(),
                   ),
                 ),
               ],
             ),
     );
+  }
+
+  Widget _buildTabContent(String tabId) {
+    switch (tabId) {
+      case 'overview':
+        return _buildOverviewTab();
+      case 'period':
+        return _buildPeriodTab();
+      case 'region':
+        return _buildRegionTab();
+      case 'workType':
+        return _buildWorkTypeTab();
+      case 'company':
+        return _buildCompanyTab();
+      default:
+        return Center(child: Text('알 수 없는 탭: $tabId'));
+    }
   }
 
   Widget _buildPeriodSelector() {
@@ -244,7 +314,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
 
   Widget _buildSummaryCards() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
       child: Row(
         children: [
           Expanded(
@@ -255,7 +325,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
               Colors.green,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: _buildSummaryCard(
               '총 작업',
@@ -271,14 +341,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
 
   Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.2),
-            blurRadius: 8,
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -288,22 +358,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
                   color: Colors.grey[600],
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -334,7 +404,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
     }).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -416,8 +486,140 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                     ),
                   ),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            '이번 달 일별 매출 추이',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          _buildDailyTrendChart(),
         ],
       ),
+    );
+  }
+
+  Widget _buildDailyTrendChart() {
+    // 이번 달의 일별 매출 데이터 계산
+    final now = DateTime.now();
+    final currentMonth = DateTime(now.year, now.month, 1);
+    final nextMonth = DateTime(now.year, now.month + 1, 1);
+    final daysInMonth = nextMonth.difference(currentMonth).inDays;
+
+    // 일별 매출 맵 생성
+    final dailyData = <int, int>{};
+    for (var schedule in _filteredSchedules) {
+      final date = schedule.visitDate ?? schedule.requestDate;
+      if (date.year == now.year && date.month == now.month) {
+        final day = date.day;
+        dailyData[day] = (dailyData[day] ?? 0) + schedule.totalPrice;
+      }
+    }
+
+    // 차트 데이터 생성 (1일부터 말일까지)
+    final chartData = List.generate(daysInMonth, (i) {
+      final day = i + 1;
+      return dailyData[day] ?? 0;
+    });
+
+    // 최대값 계산
+    final maxValue = chartData.isEmpty || chartData.every((d) => d == 0)
+        ? 10000
+        : chartData.reduce((a, b) => a > b ? a : b);
+
+    return SizedBox(
+      height: 250,
+      child: chartData.isEmpty || chartData.every((d) => d == 0)
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    '이번 달 매출 데이터가 없습니다',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: (maxValue.toDouble() * 1.2).clamp(10000, double.infinity),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (maxValue / 4).clamp(10000, double.infinity),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 60,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 0) return const Text('');
+                        return Text(
+                          '${(value / 10000).toInt()}만',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 5,
+                      getTitlesWidget: (value, meta) {
+                        final day = value.toInt() + 1;
+                        if (day == 1 || day % 5 == 0 || day == daysInMonth) {
+                          return Text(
+                            '$day일',
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        }
+                        return const Text('');
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border(
+                    left: BorderSide(color: Colors.grey[300]!),
+                    bottom: BorderSide(color: Colors.grey[300]!),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: List.generate(
+                      chartData.length,
+                      (i) => FlSpot(i.toDouble(), chartData[i].toDouble()),
+                    ),
+                    isCurved: true,
+                    color: const Color(0xFF4ade80),
+                    barWidth: 3,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 3,
+                          color: const Color(0xFF4ade80),
+                          strokeWidth: 1,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: const Color(0xFF4ade80).withValues(alpha: 0.1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -491,38 +693,43 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
   }
 
   Widget _buildRegionTab() {
-    // 지역별 작업 건수 계산 (주소에서 시/구 추출)
+    // 지역별 작업 건수 계산 (주소에서 구/군 + 동 단위 추출)
     final regionData = <String, int>{};
 
     for (var schedule in _filteredSchedules) {
-      // 주소에서 첫 번째 공백 전까지를 지역으로 간주
       final address = schedule.address;
       String region = '기타';
 
-      if (address.contains('서울')) {
-        region = '서울';
-      } else if (address.contains('경기')) {
-        region = '경기';
-      } else if (address.contains('인천')) {
-        region = '인천';
-      } else if (address.contains('부산')) {
-        region = '부산';
-      } else if (address.contains('대구')) {
-        region = '대구';
-      } else if (address.contains('대전')) {
-        region = '대전';
-      } else if (address.contains('광주')) {
-        region = '광주';
-      } else if (address.contains('울산')) {
-        region = '울산';
-      } else if (address.contains('세종')) {
-        region = '세종';
-      } else {
-        // 더 세밀한 지역 분류
-        final parts = address.split(' ');
-        if (parts.isNotEmpty) {
-          region = parts[0];
+      // 주소를 공백으로 분리
+      final parts = address.split(' ');
+
+      // 구/군과 동 단위 추출
+      // 주소 형식: "경기 고양시 덕양구 성사동 123-45" 또는 "서울 강남구 역삼동 123-45"
+      String? district; // 구/군 (예: "덕양구", "강남구")
+      String? dong;     // 동/읍/면/리 (예: "성사동", "역삼동")
+
+      for (int i = 0; i < parts.length; i++) {
+        final part = parts[i];
+
+        // 구/군 찾기
+        if (part.endsWith('구') || part.endsWith('군')) {
+          district = part;
         }
+
+        // 동/읍/면/리 찾기
+        if (part.endsWith('동') || part.endsWith('읍') || part.endsWith('면') || part.endsWith('리')) {
+          dong = part;
+          break; // 첫 번째 동/읍/면/리를 찾으면 중단
+        }
+      }
+
+      // 구/군과 동 조합
+      if (district != null && dong != null) {
+        region = '$district $dong';
+      } else if (dong != null) {
+        region = dong;
+      } else if (district != null) {
+        region = district;
       }
 
       regionData[region] = (regionData[region] ?? 0) + 1;
@@ -531,17 +738,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
     final sortedRegions = regionData.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // Top 10만 표시
+    final top10Regions = sortedRegions.take(10).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          '지역별 작업 건수',
+          '지역별 작업 건수 (Top 10)',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SizedBox(
           height: 250,
-          child: sortedRegions.isEmpty
+          child: top10Regions.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -558,7 +768,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
               : BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: sortedRegions.first.value.toDouble() * 1.2,
+                maxY: top10Regions.first.value.toDouble() * 1.2,
                 barTouchData: BarTouchData(enabled: true),
                 titlesData: FlTitlesData(
                   leftTitles: AxisTitles(
@@ -578,9 +788,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                       showTitles: true,
                       reservedSize: 30,
                       getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 && value.toInt() < sortedRegions.length) {
+                        if (value.toInt() >= 0 && value.toInt() < top10Regions.length) {
                           return Text(
-                            sortedRegions[value.toInt()].key,
+                            top10Regions[value.toInt()].key,
                             style: const TextStyle(fontSize: 10),
                           );
                         }
@@ -593,12 +803,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: List.generate(
-                  sortedRegions.length,
+                  top10Regions.length,
                   (i) => BarChartGroupData(
                     x: i,
                     barRods: [
                       BarChartRodData(
-                        toY: sortedRegions[i].value.toDouble(),
+                        toY: top10Regions[i].value.toDouble(),
                         color: const Color(0xFF579bf2),
                         width: 20,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
@@ -610,7 +820,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
             ),
         ),
         const SizedBox(height: 24),
-        ...sortedRegions.map((entry) {
+        ...top10Regions.map((entry) {
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -647,6 +857,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
     final sortedWorkTypes = workTypeData.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // 차트용 데이터: 10개 초과 시 기타로 묶기
+    List<MapEntry<String, int>> chartData = [];
+    if (sortedWorkTypes.length <= 10) {
+      chartData = sortedWorkTypes;
+    } else {
+      // 상위 10개
+      chartData = sortedWorkTypes.take(10).toList();
+      // 나머지는 기타로 묶기
+      final etcSum = sortedWorkTypes.skip(10).fold(0, (sum, e) => sum + e.value);
+      if (etcSum > 0) {
+        chartData.add(MapEntry('기타', etcSum));
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -657,7 +881,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
         const SizedBox(height: 16),
         SizedBox(
           height: 250,
-          child: sortedWorkTypes.isEmpty
+          child: chartData.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -676,20 +900,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                 sectionsSpace: 2,
                 centerSpaceRadius: 40,
                 sections: List.generate(
-                  sortedWorkTypes.take(5).length,
+                  chartData.length,
                   (i) {
-                    final total = sortedWorkTypes.fold(0, (sum, e) => sum + e.value);
-                    final percentage = (sortedWorkTypes[i].value / total * 100);
+                    final total = chartData.fold(0, (sum, e) => sum + e.value);
+                    final percentage = (chartData[i].value / total * 100);
                     final colors = [
                       const Color(0xFF579bf2),
                       const Color(0xFF7eb3f5),
                       const Color(0xFFabd9ff),
                       const Color(0xFF60b0ee),
                       const Color(0xFF4a90e2),
+                      const Color(0xFF3d7ac7),
+                      const Color(0xFF93c5fd),
+                      const Color(0xFF5096e8),
+                      const Color(0xFF2563eb),
+                      const Color(0xFF1e40af),
+                      const Color(0xFF9ca3af), // 기타용 회색
                     ];
 
                     return PieChartSectionData(
-                      value: sortedWorkTypes[i].value.toDouble(),
+                      value: chartData[i].value.toDouble(),
                       title: '${percentage.toStringAsFixed(1)}%',
                       color: colors[i % colors.length],
                       radius: 80,

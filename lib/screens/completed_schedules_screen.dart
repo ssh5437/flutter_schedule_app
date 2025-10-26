@@ -15,16 +15,16 @@ class CompletedSchedulesScreen extends StatefulWidget {
 }
 
 class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
-  List<Schedule> _completedSchedules = [];
+  List<Schedule> _allSchedules = []; // 전체 스케줄
+  List<Schedule> _displayedSchedules = []; // 화면에 표시되는 스케줄
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
 
-  // 날짜 범위 관리
-  int _loadedMonths = 3; // 기본 3개월
-  bool _hasMoreData = true; // 더 불러올 데이터가 있는지
+  static const int _itemsPerPage = 30; // 한 번에 로드할 개수
+  int _currentDisplayCount = 30; // 현재 표시 중인 개수
 
   @override
   void initState() {
@@ -51,69 +51,44 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         companyColors[company.name] = company.color;
       }
 
-      // 최근 3개월 데이터만 로드 (어제까지)
-      final now = DateTime.now();
-      final yesterday = DateTime(now.year, now.month, now.day - 1, 23, 59, 59);
-      final startDate = DateTime(now.year, now.month - _loadedMonths, now.day);
-      final endDate = yesterday;
-
-      final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
-        userId: userId,
-        startDate: startDate,
-        endDate: endDate,
-      );
+      // 모든 완료된 스케줄 로드 (날짜 제한 없음)
+      final schedules = await DatabaseHelper.instance.getCompletedSchedules(userId);
 
       if (!mounted) return;
       setState(() {
-        _completedSchedules = schedules;
+        _allSchedules = schedules;
+        _currentDisplayCount = _itemsPerPage;
+        _displayedSchedules = _allSchedules.take(_currentDisplayCount).toList();
         _companyColors = companyColors;
         _isLoading = false;
-        // 불러온 데이터가 적으면 더 이상 데이터가 없을 수 있음
-        _hasMoreData = schedules.isNotEmpty;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _completedSchedules = [];
+        _allSchedules = [];
+        _displayedSchedules = [];
         _companyColors = {};
         _isLoading = false;
-        _hasMoreData = false;
       });
     }
   }
 
-  Future<void> _loadMoreSchedules() async {
-    if (_isLoadingMore || !_hasMoreData || _isSearching || !mounted) return;
+  void _loadMoreSchedules() {
+    if (_isLoadingMore) return;
 
-    setState(() => _isLoadingMore = true);
-    try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
-      // 추가 3개월 로드
-      _loadedMonths += 3;
-      final now = DateTime.now();
-      final yesterday = DateTime(now.year, now.month, now.day - 1, 23, 59, 59);
-      final startDate = DateTime(now.year, now.month - _loadedMonths, now.day);
-      final endDate = yesterday;
+    setState(() {
+      _isLoadingMore = true;
+    });
 
-      final schedules = await DatabaseHelper.instance.getCompletedSchedulesByDateRange(
-        userId: userId,
-        startDate: startDate,
-        endDate: endDate,
-      );
-
+    // 다음 30개 추가
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       setState(() {
-        _completedSchedules = schedules;
-        _isLoadingMore = false;
-        // 새로 불러온 데이터와 기존 데이터 개수가 같으면 더 이상 없음
-        _hasMoreData = schedules.length > _completedSchedules.length;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
+        _currentDisplayCount += _itemsPerPage;
+        _displayedSchedules = _allSchedules.take(_currentDisplayCount).toList();
         _isLoadingMore = false;
       });
-    }
+    });
   }
 
   Future<void> _filterSchedules(String query) async {
@@ -122,9 +97,9 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
       if (!mounted) return;
       setState(() {
         _isSearching = false;
-        _loadedMonths = 3;
+        _currentDisplayCount = _itemsPerPage;
+        _displayedSchedules = _allSchedules.take(_currentDisplayCount).toList();
       });
-      _loadCompletedSchedules();
     } else {
       // DB에서 직접 검색
       if (!mounted) return;
@@ -134,7 +109,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
         final schedules = await DatabaseHelper.instance.searchCompletedSchedules(userId, query);
         if (!mounted) return;
         setState(() {
-          _completedSchedules = schedules;
+          _displayedSchedules = schedules;
         });
       } catch (e) {
         // 에러 발생 시 무시
@@ -231,7 +206,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                 ),
                 // 스케줄 목록
                 Expanded(
-                  child: _completedSchedules.isEmpty
+                  child: _displayedSchedules.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -253,9 +228,9 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                               child: RefreshIndicator(
                                 onRefresh: _loadCompletedSchedules,
                                 child: ListView.builder(
-                                  itemCount: _completedSchedules.length,
+                                  itemCount: _displayedSchedules.length,
                                   itemBuilder: (context, index) {
-                                    final schedule = _completedSchedules[index];
+                                    final schedule = _displayedSchedules[index];
 
                               // 업체별 테두리 색상 가져오기
                               final borderColor = _companyColors[schedule.companyName] != null
@@ -370,27 +345,29 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                         ),
                       ),
                       // 더보기 버튼
-                      if (!_isSearching && _hasMoreData)
+                      if (!_isSearching && _currentDisplayCount < _allSchedules.length)
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
-                          child: OutlinedButton.icon(
+                          child: ElevatedButton.icon(
                             onPressed: _isLoadingMore ? null : _loadMoreSchedules,
                             icon: _isLoadingMore
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                   )
                                 : const Icon(Icons.expand_more),
                             label: Text(
                               _isLoadingMore
                                   ? '로딩 중...'
-                                  : '이전 3개월 더보기 (현재: $_loadedMonths개월)',
+                                  : '더보기 (${_displayedSchedules.length}/${_allSchedules.length})',
                               style: const TextStyle(fontSize: 14),
                             ),
-                            style: OutlinedButton.styleFrom(
+                            style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
+                              backgroundColor: const Color(0xFF579bf2),
+                              foregroundColor: Colors.white,
                             ),
                           ),
                         ),
