@@ -170,9 +170,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF579bf2);
+
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: const GradientAppBar(
         title: '회원가입',
+        toolbarHeight: 48,
       ),
       body: SafeArea(
         child: Center(
@@ -185,17 +189,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 아이콘
-                  Icon(
+                  const Icon(
                     Icons.person_add_rounded,
                     size: 80,
-                    color: Theme.of(context).primaryColor,
+                    color: primaryColor,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  const Text(
                     '새 계정 만들기',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
@@ -204,10 +210,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '이메일',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(),
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.email, color: primaryColor),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 2),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -227,10 +249,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: '비밀번호',
-                      prefixIcon: const Icon(Icons.lock),
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.lock, color: primaryColor),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: primaryColor,
                         ),
                         onPressed: () {
                           setState(() {
@@ -238,8 +262,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 2),
+                      ),
                       helperText: '6자 이상 입력해주세요',
+                      helperStyle: const TextStyle(color: Colors.grey),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -259,10 +299,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
                       labelText: '비밀번호 확인',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.lock_outline, color: primaryColor),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                          color: primaryColor,
                         ),
                         onPressed: () {
                           setState(() {
@@ -270,7 +312,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 2),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -288,6 +345,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleSignUp,
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -297,11 +356,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text(
                             '회원가입',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
                   const SizedBox(height: 24),
@@ -338,6 +400,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     label: const Text('Google로 시작하기'),
                     style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: primaryColor, width: 1.5),
+                      foregroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

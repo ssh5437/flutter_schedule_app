@@ -230,89 +230,83 @@ class HomeScreenState extends State<HomeScreen> {
                 ),
                 // 스케줄 목록
                 Expanded(
-                  child: _schedules.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  child: RefreshIndicator(
+                    onRefresh: _loadSchedules,
+                    child: Builder(
+                      builder: (context) {
+                        // 필터링된 스케줄 계산
+                        final filteredSchedules = _schedules.where((s) {
+                          // 오늘 이전 스케줄 필터 (오늘 포함, 이전 제외)
+                          final today = DateTime.now();
+                          final todayStart = DateTime(today.year, today.month, today.day);
+                          final displayDate = s.computedStatus == '확정' && s.visitDate != null
+                              ? s.visitDate!
+                              : s.requestDate;
+                          final displayDateStart = DateTime(displayDate.year, displayDate.month, displayDate.day);
+                          if (displayDateStart.isBefore(todayStart)) return false;
+
+                          // 요청 스케줄 필터
+                          if (!_showPendingSchedules && s.computedStatus != '확정') return false;
+
+                          // 오늘 스케줄 필터
+                          if (_showTodayOnly) {
+                            if (displayDate.year != today.year ||
+                                displayDate.month != today.month ||
+                                displayDate.day != today.day) {
+                              return false;
+                            }
+                          }
+
+                          return true;
+                        }).toList()
+                        ..sort((a, b) {
+                          // 1. 상태별 정렬: 예정(요청) 스케줄이 확정 스케줄보다 앞에
+                          if (a.computedStatus != b.computedStatus) {
+                            if (a.computedStatus == '예정') return -1;
+                            if (b.computedStatus == '예정') return 1;
+                          }
+
+                          // 2. 같은 상태 내에서 날짜별 정렬
+                          final dateA = a.computedStatus == '확정' && a.visitDate != null
+                              ? a.visitDate!
+                              : a.requestDate;
+                          final dateB = b.computedStatus == '확정' && b.visitDate != null
+                              ? b.visitDate!
+                              : b.requestDate;
+                          return dateA.compareTo(dateB);
+                        });
+
+                        // 스케줄이 없는 경우 메시지 표시
+                        if (filteredSchedules.isEmpty) {
+                          return ListView(
                             children: [
-                              Icon(Icons.calendar_today, size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                '등록된 스케줄이 없습니다',
-                                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                              SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.calendar_today, size: 64, color: Colors.grey[400]),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _schedules.isEmpty
+                                            ? '등록된 스케줄이 없습니다'
+                                            : '조건에 맞는 스케줄이 없습니다',
+                                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadSchedules,
-                          child: ListView.builder(
-                            itemCount: _schedules.where((s) {
-                              // 오늘 이전 스케줄 필터 (오늘 포함, 이전 제외)
-                              final today = DateTime.now();
-                              final todayStart = DateTime(today.year, today.month, today.day);
-                              final displayDate = s.computedStatus == '확정' && s.visitDate != null
-                                  ? s.visitDate!
-                                  : s.requestDate;
-                              final displayDateStart = DateTime(displayDate.year, displayDate.month, displayDate.day);
-                              if (displayDateStart.isBefore(todayStart)) return false;
+                          );
+                        }
 
-                              // 요청 스케줄 필터
-                              if (!_showPendingSchedules && s.computedStatus != '확정') return false;
-
-                              // 오늘 스케줄 필터
-                              if (_showTodayOnly) {
-                                if (displayDate.year != today.year ||
-                                    displayDate.month != today.month ||
-                                    displayDate.day != today.day) {
-                                  return false;
-                                }
-                              }
-
-                              return true;
-                            }).length,
-                            itemBuilder: (context, index) {
-                              final filteredSchedules = _schedules.where((s) {
-                                // 오늘 이전 스케줄 필터 (오늘 포함, 이전 제외)
-                                final today = DateTime.now();
-                                final todayStart = DateTime(today.year, today.month, today.day);
-                                final displayDate = s.computedStatus == '확정' && s.visitDate != null
-                                    ? s.visitDate!
-                                    : s.requestDate;
-                                final displayDateStart = DateTime(displayDate.year, displayDate.month, displayDate.day);
-                                if (displayDateStart.isBefore(todayStart)) return false;
-
-                                // 요청 스케줄 필터
-                                if (!_showPendingSchedules && s.computedStatus != '확정') return false;
-
-                                // 오늘 스케줄 필터
-                                if (_showTodayOnly) {
-                                  if (displayDate.year != today.year ||
-                                      displayDate.month != today.month ||
-                                      displayDate.day != today.day) {
-                                    return false;
-                                  }
-                                }
-
-                                return true;
-                              }).toList()
-                              ..sort((a, b) {
-                                // 1. 상태별 정렬: 예정(요청) 스케줄이 확정 스케줄보다 앞에
-                                if (a.computedStatus != b.computedStatus) {
-                                  if (a.computedStatus == '예정') return -1;
-                                  if (b.computedStatus == '예정') return 1;
-                                }
-
-                                // 2. 같은 상태 내에서 날짜별 정렬
-                                final dateA = a.computedStatus == '확정' && a.visitDate != null
-                                    ? a.visitDate!
-                                    : a.requestDate;
-                                final dateB = b.computedStatus == '확정' && b.visitDate != null
-                                    ? b.visitDate!
-                                    : b.requestDate;
-                                return dateA.compareTo(dateB);
-                              });
-                              final schedule = filteredSchedules[index];
+                        // 스케줄 목록 표시
+                        return ListView.builder(
+                          itemCount: filteredSchedules.length,
+                          itemBuilder: (context, index) {
+                            final schedule = filteredSchedules[index];
 
                        debugPrint(schedule.companyName);
                       // 확정 스케줄은 방문확정일자, 그 외에는 요청일자 표시
@@ -461,11 +455,13 @@ class HomeScreenState extends State<HomeScreen> {
                                 ),
                               );
                             },
-                          ),
-                        ),
-                ),
-              ],
-            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
     );
   }
 }

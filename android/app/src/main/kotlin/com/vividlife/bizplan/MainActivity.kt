@@ -7,7 +7,7 @@ import android.content.Intent
 import android.util.Log
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.vividlife.bizPlan/widget"
+    private val CHANNEL = "com.vividlife.bizplan/widget"
     private var methodChannel: MethodChannel? = null
     private var pendingScheduleId: Int? = null
 

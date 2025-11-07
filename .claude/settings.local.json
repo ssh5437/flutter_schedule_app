@@ -16,7 +16,9 @@
       "Bash(adb:*)",
       "Read(//d/**)",
       "Bash(mv:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(emulator:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

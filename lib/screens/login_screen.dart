@@ -183,7 +183,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF579bf2);
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -195,17 +198,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 로고 또는 타이틀
-                  Icon(
+                  const Icon(
                     Icons.calendar_month_rounded,
                     size: 80,
-                    color: Theme.of(context).primaryColor,
+                    color: primaryColor,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  const Text(
                     '비비',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
@@ -214,10 +219,26 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '이메일',
-                      prefixIcon: Icon(Icons.email),
-                      border: OutlineInputBorder(),
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.email, color: primaryColor),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 2),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -237,10 +258,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: '비밀번호',
-                      prefixIcon: const Icon(Icons.lock),
+                      labelStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.lock, color: primaryColor),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: primaryColor,
                         ),
                         onPressed: () {
                           setState(() {
@@ -248,7 +271,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryColor, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 2),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -267,6 +305,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: _isLoading ? null : _handleForgotPassword,
+                      style: TextButton.styleFrom(
+                        foregroundColor: primaryColor,
+                      ),
                       child: const Text('비밀번호를 잊으셨나요?'),
                     ),
                   ),
@@ -276,6 +317,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -285,11 +328,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text(
                             '로그인',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                   ),
                   const SizedBox(height: 16),
@@ -310,7 +356,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 );
                               },
-                        child: const Text('회원가입'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                        ),
+                        child: const Text('회원가입', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -348,6 +397,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     label: const Text('Google로 로그인'),
                     style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: primaryColor, width: 1.5),
+                      foregroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

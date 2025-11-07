@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -16,6 +16,7 @@ import 'screens/schedule_form_screen.dart';
 import 'screens/schedule_detail_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/statistics_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -164,7 +165,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
-  static const platform = MethodChannel('com.example.bizPlan/widget');
+  static const platform = MethodChannel('com.vividlife.bizplan/widget');
 
   late final List<Widget> _screens;
 
@@ -175,6 +176,7 @@ class _MainScreenState extends State<MainScreen> {
       HomeScreen(key: _homeKey),
       CalendarViewScreen(key: _calendarKey),
       const CompletedSchedulesScreen(),
+      const StatisticsScreen(),
       const SettingsScreen(),
     ];
     _setupMethodChannel();
@@ -272,6 +274,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.check_circle),
             label: '완료 내역',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: '매출 관리',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

@@ -185,18 +185,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             ? null
             : PreferredSize(
                 preferredSize: const Size.fromHeight(40),
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  indicatorColor: Colors.white,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  tabs: _tabConfigs.map((config) => Tab(
-                    height: 40,
-                    text: config.name,
-                  )).toList(),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    indicatorColor: Colors.white,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white70,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    indicatorSize: TabBarIndicatorSize.label,
+                    tabAlignment: TabAlignment.start,
+                    tabs: _tabConfigs.map((config) => Tab(
+                      height: 40,
+                      text: config.name,
+                    )).toList(),
+                  ),
                 ),
               ),
       ),
@@ -288,9 +292,33 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: _setThisMonth,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF579bf2),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('이번달', style: TextStyle(fontSize: 14)),
+          ),
         ],
       ),
     );
+  }
+
+  void _setThisMonth() {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    setState(() {
+      _startDate = firstDayOfMonth;
+      _endDate = lastDayOfMonth;
+    });
   }
 
   Future<void> _selectDate(bool isStart) async {
@@ -409,6 +437,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
+            '이번 달 일별 매출 추이',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          _buildDailyTrendChart(),
+          const SizedBox(height: 32),
+          const Text(
             '최근 12개월 매출 추이',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
@@ -433,13 +468,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                     LineChartData(
                       minY: 0,
                       maxY: (chartData.reduce((a, b) => a > b ? a : b).toDouble() * 1.2).clamp(10000, double.infinity),
-                      gridData: const FlGridData(show: true),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                      ),
                       titlesData: FlTitlesData(
                         leftTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 60,
                             getTitlesWidget: (value, meta) {
+                              if (value == 0) return const Text('');
                               return Text(
                                 '${(value / 10000).toInt()}만',
                                 style: const TextStyle(fontSize: 10),
@@ -466,7 +505,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                       ),
-                      borderData: FlBorderData(show: true),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border(
+                          left: BorderSide(color: Colors.grey[300]!),
+                          bottom: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
                       lineBarsData: [
                         LineChartBarData(
                           spots: List.generate(
@@ -476,7 +521,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                           isCurved: true,
                           color: const Color(0xFF579bf2),
                           barWidth: 3,
-                          dotData: const FlDotData(show: true),
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 3,
+                                color: const Color(0xFF579bf2),
+                                strokeWidth: 1,
+                                strokeColor: Colors.white,
+                              );
+                            },
+                          ),
                           belowBarData: BarAreaData(
                             show: true,
                             color: const Color(0xFF579bf2).withValues(alpha: 0.1),
@@ -486,13 +541,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                     ),
                   ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '이번 달 일별 매출 추이',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildDailyTrendChart(),
         ],
       ),
     );
@@ -711,24 +759,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       for (int i = 0; i < parts.length; i++) {
         final part = parts[i];
 
-        // 구/군 찾기
+        // 구/군 찾기 (마지막 구/군을 저장 - 고양시 덕양구의 경우 덕양구가 저장됨)
         if (part.endsWith('구') || part.endsWith('군')) {
           district = part;
         }
 
-        // 동/읍/면/리 찾기
-        if (part.endsWith('동') || part.endsWith('읍') || part.endsWith('면') || part.endsWith('리')) {
+        // 동/읍/면/리 찾기 (구/군 뒤에 나오는 첫 번째 동만 찾음)
+        if (district != null && (part.endsWith('동') || part.endsWith('읍') || part.endsWith('면') || part.endsWith('리'))) {
           dong = part;
           break; // 첫 번째 동/읍/면/리를 찾으면 중단
         }
       }
 
-      // 구/군과 동 조합
+      // 구/군과 동 조합 - 항상 구 + 동 형태로 표시
       if (district != null && dong != null) {
+        // 구 + 동 형태 (예: "강남구 역삼동", "송파구 성수동")
         region = '$district $dong';
       } else if (dong != null) {
+        // 구 정보가 없는 경우 동만 표시
         region = dong;
       } else if (district != null) {
+        // 동 정보가 없는 경우 구만 표시
         region = district;
       }
 
@@ -738,20 +789,31 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final sortedRegions = regionData.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Top 10만 표시
-    final top10Regions = sortedRegions.take(10).toList();
+    // 차트용 데이터: 5개 초과 시 기타로 묶기
+    List<MapEntry<String, int>> chartData = [];
+    if (sortedRegions.length <= 5) {
+      chartData = sortedRegions;
+    } else {
+      // 상위 5개
+      chartData = sortedRegions.take(5).toList();
+      // 나머지는 기타로 묶기
+      final etcSum = sortedRegions.skip(5).fold(0, (sum, e) => sum + e.value);
+      if (etcSum > 0) {
+        chartData.add(MapEntry('기타', etcSum));
+      }
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          '지역별 작업 건수 (Top 10)',
+          '지역별 작업 건수',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SizedBox(
           height: 250,
-          child: top10Regions.isEmpty
+          child: chartData.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -765,62 +827,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                     ],
                   ),
                 )
-              : BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: top10Regions.first.value.toDouble() * 1.2,
-                barTouchData: BarTouchData(enabled: true),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      },
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 && value.toInt() < top10Regions.length) {
-                          return Text(
-                            top10Regions[value.toInt()].key,
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        }
-                        return const Text('');
-                      },
-                    ),
-                  ),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: List.generate(
-                  top10Regions.length,
-                  (i) => BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      BarChartRodData(
-                        toY: top10Regions[i].value.toDouble(),
-                        color: const Color(0xFF579bf2),
-                        width: 20,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              : PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections: List.generate(
+                  chartData.length,
+                  (i) {
+                    final total = chartData.fold(0, (sum, e) => sum + e.value);
+                    final percentage = (chartData[i].value / total * 100);
+                    final colors = [
+                      const Color(0xFF579bf2),
+                      const Color(0xFF7eb3f5),
+                      const Color(0xFFabd9ff),
+                      const Color(0xFF60b0ee),
+                      const Color(0xFF4a90e2),
+                      const Color(0xFF9ca3af), // 기타용 회색
+                    ];
+
+                    return PieChartSectionData(
+                      value: chartData[i].value.toDouble(),
+                      title: '${percentage.toStringAsFixed(1)}%',
+                      color: colors[i % colors.length],
+                      radius: 80,
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
         ),
         const SizedBox(height: 24),
-        ...top10Regions.map((entry) {
+        ...sortedRegions.map((entry) {
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(

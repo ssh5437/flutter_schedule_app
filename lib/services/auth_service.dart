@@ -51,7 +51,7 @@ class AuthService {
       // Supabase Native Google Sign-In 사용
       await _supabase.auth.signInWithOAuth(
         supabase.OAuthProvider.google,
-        redirectTo: 'io.supabase.flutterscheduleapp://login-callback',
+        redirectTo: 'com.vividlife.bizplan://login-callback',
       );
 
       // OAuth 로그인은 브라우저에서 진행되므로
@@ -68,7 +68,7 @@ class AuthService {
       // Supabase Native Kakao Sign-In 사용
       await _supabase.auth.signInWithOAuth(
         supabase.OAuthProvider.kakao,
-        redirectTo: 'io.supabase.flutterscheduleapp://login-callback',
+        redirectTo: 'com.vividlife.bizplan://login-callback',
       );
 
       // OAuth 로그인은 브라우저에서 진행되므로
