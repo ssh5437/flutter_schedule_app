@@ -503,6 +503,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: _showWidgetColorPicker,
           ),
 
+          // 위젯 새로고침 버튼
+          ListTile(
+            leading: const Icon(Icons.refresh, color: Colors.purple),
+            title: const Text('위젯 새로고침'),
+            subtitle: const Text('홈 화면 위젯 데이터를 즉시 업데이트합니다'),
+            onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                debugPrint('====== 수동 위젯 새로고침 시작 ======');
+                await WidgetService.updateWidget();
+                debugPrint('====== 수동 위젯 새로고침 완료 ======');
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('위젯이 새로고침되었습니다. 로그를 확인하세요.'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              } catch (e) {
+                debugPrint('위젯 새로고침 에러: $e');
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('위젯 새로고침 실패: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+          ),
+
           const Divider(),
 
          

@@ -87,22 +87,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signUp(
+      debugPrint('===== 회원가입 시작 =====');
+      debugPrint('Email: ${_emailController.text.trim()}');
+
+      final response = await _authService.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
+      debugPrint('회원가입 응답: User ID = ${response.user?.id}');
+      debugPrint('Email confirmed: ${response.user?.emailConfirmedAt}');
+      debugPrint('Session: ${response.session != null ? "있음" : "없음"}');
+
+      // Supabase는 회원가입 시 자동 로그인되므로 로그아웃 처리
+      await _authService.signOut();
+      debugPrint('로그아웃 완료');
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('회원가입이 완료되었습니다'),
-            backgroundColor: Colors.green,
+        // 이메일 인증 필요 여부 확인
+        final needsEmailConfirmation = response.user?.emailConfirmedAt == null;
+
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('회원가입 완료'),
+            content: Text(
+              needsEmailConfirmation
+                  ? '회원가입이 완료되었습니다.\n\n이메일을 확인하여 인증을 완료한 후 로그인해주세요.'
+                  : '회원가입이 완료되었습니다.\n로그인해주세요.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
-        // 로그인 화면으로 돌아가기
-        Navigator.pop(context);
+
+        if (mounted) {
+          // 로그인 화면으로 돌아가기
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
+      debugPrint('회원가입 에러: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

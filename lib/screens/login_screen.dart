@@ -28,10 +28,14 @@ class _LoginScreenState extends State<LoginScreen> {
   String _getErrorMessage(String error) {
     final errorLower = error.toLowerCase();
 
+    // 이메일 인증 필요
+    if (errorLower.contains('email not confirmed')) {
+      return '이메일 인증이 필요합니다.\n받은 이메일의 인증 링크를 클릭해주세요';
+    }
+
     // 이메일/비밀번호 오류
     if (errorLower.contains('invalid login credentials') ||
-        errorLower.contains('invalid password') ||
-        errorLower.contains('email not confirmed')) {
+        errorLower.contains('invalid password')) {
       return '이메일 또는 비밀번호가 올바르지 않습니다';
     }
 
@@ -79,14 +83,21 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
+      debugPrint('===== 로그인 시도 =====');
+      debugPrint('Email: ${_emailController.text.trim()}');
+
+      final response = await _authService.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
+      debugPrint('로그인 성공: User ID = ${response.user?.id}');
+      debugPrint('Email confirmed: ${response.user?.emailConfirmedAt}');
+
       // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
       // 별도의 네비게이션이 필요 없음
     } catch (e) {
+      debugPrint('로그인 에러: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

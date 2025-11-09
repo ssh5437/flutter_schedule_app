@@ -9,6 +9,7 @@ import android.view.View
 import android.content.Intent
 import android.app.PendingIntent
 import java.util.Calendar
+import android.util.Log
 
 class ScheduleWidgetLargeProvider : AppWidgetProvider() {
     override fun onUpdate(
@@ -25,12 +26,12 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
 
                 // 배경색과 텍스트 색상 가져오기
                 val backgroundColor = try {
-                    widgetData.getLong("widget_background_color", android.graphics.Color.WHITE.toLong()).toInt()
+                    widgetData.getInt("widget_background_color", android.graphics.Color.WHITE)
                 } catch (e: Exception) {
                     android.graphics.Color.WHITE
                 }
                 val textColor = try {
-                    widgetData.getLong("widget_text_color", android.graphics.Color.BLACK.toLong()).toInt()
+                    widgetData.getInt("widget_text_color", android.graphics.Color.BLACK)
                 } catch (e: Exception) {
                     android.graphics.Color.BLACK
                 }
@@ -47,6 +48,33 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                 val selectedDate = widgetData.getString("selected_date_text", "오늘의 스케줄") ?: "오늘의 스케줄"
                 views.setTextViewText(R.id.selected_date, selectedDate)
                 views.setTextColor(R.id.selected_date, textColor)
+
+                // 요일 헤더 색상 설정 (일요일과 토요일은 다른 색상)
+                val weekdayIds = listOf(
+                    R.id.day_header_0, // 일
+                    R.id.day_header_1, // 월
+                    R.id.day_header_2, // 화
+                    R.id.day_header_3, // 수
+                    R.id.day_header_4, // 목
+                    R.id.day_header_5, // 금
+                    R.id.day_header_6  // 토
+                )
+
+                weekdayIds.forEachIndexed { index, id ->
+                    // 배경이 밝으면 어두운 색, 어두우면 밝은 색
+                    val weekdayColor = when (index) {
+                        0 -> if (textColor == android.graphics.Color.BLACK)
+                                android.graphics.Color.parseColor("#FF5252") // 밝은 배경: 빨강
+                             else
+                                android.graphics.Color.parseColor("#FF8A80") // 어두운 배경: 연한 빨강
+                        6 -> if (textColor == android.graphics.Color.BLACK)
+                                android.graphics.Color.parseColor("#2196F3") // 밝은 배경: 파랑
+                             else
+                                android.graphics.Color.parseColor("#64B5F6") // 어두운 배경: 연한 파랑
+                        else -> textColor // 평일은 기본 텍스트 색상
+                    }
+                    views.setTextColor(id, weekdayColor)
+                }
 
                 // 현재 달력 생성
                 val calendar = Calendar.getInstance()
@@ -86,8 +114,8 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                             views.setTextColor(dayId, android.graphics.Color.parseColor("#FFFFFF"))
                             views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#FF9800"))
                         } else {
-                            // 일반 날짜
-                            views.setTextColor(dayId, android.graphics.Color.parseColor("#333333"))
+                            // 일반 날짜 - 배경색에 따른 텍스트 색상 사용
+                            views.setTextColor(dayId, textColor)
                             views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#00000000"))
                         }
                     } else {
@@ -99,17 +127,25 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
 
                 // 스케줄 표시
                 val scheduleCount = try {
-                    widgetData.getLong("schedule_count", 0).toInt()
+                    val count = widgetData.getInt("schedule_count", 0)
+                    Log.d("ScheduleWidget", "Read schedule_count from widget data: $count")
+                    count
                 } catch (e: Exception) {
+                    Log.e("ScheduleWidget", "Error reading schedule_count: ${e.message}")
                     0
                 }
 
+                Log.d("ScheduleWidget", "scheduleCount = $scheduleCount")
+
                 if (scheduleCount == 0) {
+                    Log.d("ScheduleWidget", "No schedules, showing empty message")
                     views.setViewVisibility(R.id.no_schedule_text, View.VISIBLE)
+                    views.setTextColor(R.id.no_schedule_text, textColor)
                     views.setViewVisibility(R.id.schedule_1_container, View.GONE)
                     views.setViewVisibility(R.id.schedule_2_container, View.GONE)
                     views.setViewVisibility(R.id.schedule_3_container, View.GONE)
                 } else {
+                    Log.d("ScheduleWidget", "Has schedules: $scheduleCount")
                     views.setViewVisibility(R.id.no_schedule_text, View.GONE)
 
                     // 스케줄 1
@@ -117,8 +153,9 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val time1 = widgetData.getString("schedule_0_time", "미정") ?: "미정"
                         val title1 = widgetData.getString("schedule_0_title", "스케줄") ?: "스케줄"
                         val status1 = widgetData.getString("schedule_0_status", "예정") ?: "예정"
+                        Log.d("ScheduleWidget", "Schedule 1: $time1 - $title1 ($status1)")
                         val scheduleId1 = try {
-                            widgetData.getLong("schedule_0_id", 0).toInt()
+                            widgetData.getInt("schedule_0_id", 0)
                         } catch (e: Exception) {
                             0
                         }
@@ -126,6 +163,10 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         views.setViewVisibility(R.id.schedule_1_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_1_time, time1)
                         views.setTextViewText(R.id.schedule_1_title, title1)
+
+                        // 텍스트 색상 설정
+                        views.setTextColor(R.id.schedule_1_time, textColor)
+                        views.setTextColor(R.id.schedule_1_title, textColor)
 
                         val color1 = when (status1) {
                             "확정" -> android.graphics.Color.parseColor("#2196F3")
@@ -156,7 +197,7 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val title2 = widgetData.getString("schedule_1_title", "스케줄") ?: "스케줄"
                         val status2 = widgetData.getString("schedule_1_status", "예정") ?: "예정"
                         val scheduleId2 = try {
-                            widgetData.getLong("schedule_1_id", 0).toInt()
+                            widgetData.getInt("schedule_1_id", 0)
                         } catch (e: Exception) {
                             0
                         }
@@ -164,6 +205,10 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         views.setViewVisibility(R.id.schedule_2_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_2_time, time2)
                         views.setTextViewText(R.id.schedule_2_title, title2)
+
+                        // 텍스트 색상 설정
+                        views.setTextColor(R.id.schedule_2_time, textColor)
+                        views.setTextColor(R.id.schedule_2_title, textColor)
 
                         val color2 = when (status2) {
                             "확정" -> android.graphics.Color.parseColor("#2196F3")
@@ -194,7 +239,7 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val title3 = widgetData.getString("schedule_2_title", "스케줄") ?: "스케줄"
                         val status3 = widgetData.getString("schedule_2_status", "예정") ?: "예정"
                         val scheduleId3 = try {
-                            widgetData.getLong("schedule_2_id", 0).toInt()
+                            widgetData.getInt("schedule_2_id", 0)
                         } catch (e: Exception) {
                             0
                         }
@@ -202,6 +247,10 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         views.setViewVisibility(R.id.schedule_3_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_3_time, time3)
                         views.setTextViewText(R.id.schedule_3_title, title3)
+
+                        // 텍스트 색상 설정
+                        views.setTextColor(R.id.schedule_3_time, textColor)
+                        views.setTextColor(R.id.schedule_3_title, textColor)
 
                         val color3 = when (status3) {
                             "확정" -> android.graphics.Color.parseColor("#2196F3")

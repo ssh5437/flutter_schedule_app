@@ -77,9 +77,36 @@ class _MyAppState extends State<MyApp> {
     debugPrint('Deep Link received: $uri');
   }
 
-  // 사용자의 기본 업체 초기화
-  Future<void> _initializeDefaultCompanies(String userId) async {
+  // 사용자 프로필 확인 및 생성
+  Future<void> _ensureUserProfile(String userId, String? email) async {
     try {
+      // 프로필이 존재하는지 확인
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      // 프로필이 없으면 생성
+      if (response == null) {
+        await Supabase.instance.client.from('profiles').insert({
+          'id': userId,
+          'email': email ?? '',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        debugPrint('Profile created for user: $userId');
+      }
+    } catch (e) {
+      debugPrint('Error ensuring user profile: $e');
+    }
+  }
+
+  // 사용자의 기본 업체 초기화
+  Future<void> _initializeDefaultCompanies(String userId, String? email) async {
+    try {
+      // 0. 먼저 프로필이 존재하는지 확인하고 없으면 생성
+      await _ensureUserProfile(userId, email);
+
       // 1. 먼저 legacy_user 데이터를 현재 사용자에게 마이그레이션
       await DatabaseHelper.instance.migrateLegacyDataToUser(userId);
 
@@ -132,7 +159,7 @@ class _MyAppState extends State<MyApp> {
           if (session != null) {
             // 로그인 상태 - 기본 업체 초기화 후 메인 화면으로
             return FutureBuilder(
-              future: _initializeDefaultCompanies(session.user.id),
+              future: _initializeDefaultCompanies(session.user.id, session.user.email),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(

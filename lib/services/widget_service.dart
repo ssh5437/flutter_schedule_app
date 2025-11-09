@@ -52,13 +52,35 @@ class WidgetService {
       final allSchedules = await DatabaseHelper.instance.readAllSchedules(userId);
 
       // 오늘 스케줄 필터링
+      debugPrint('========== Widget Update Debug ==========');
+      debugPrint('Today: ${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}');
+      debugPrint('Total schedules in DB: ${allSchedules.length}');
+
+      for (var s in allSchedules) {
+        final displayDate = s.computedStatus == '확정' && s.visitDate != null
+            ? s.visitDate!
+            : s.requestDate;
+        debugPrint('Schedule: ${s.id} - Date: ${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}, Status: ${s.computedStatus}, Customer: ${s.customerName}');
+      }
+
       final todaySchedules = allSchedules.where((s) {
         final displayDate = s.computedStatus == '확정' && s.visitDate != null
             ? s.visitDate!
             : s.requestDate;
-        final scheduleDate = DateTime(displayDate.year, displayDate.month, displayDate.day);
-        return scheduleDate.isAtSameMomentAs(today);
+        // 날짜만 비교 (시간 제외)
+        final match = displayDate.year == today.year &&
+               displayDate.month == today.month &&
+               displayDate.day == today.day;
+
+        if (match) {
+          debugPrint('✓ Matched schedule: ${s.customerName} on ${displayDate.year}-${displayDate.month}-${displayDate.day}');
+        }
+
+        return match;
       }).toList();
+
+      debugPrint('Today\'s schedules found: ${todaySchedules.length}');
+      debugPrint('=========================================');
 
       // 상태별, 날짜별 정렬
       todaySchedules.sort((a, b) {
@@ -85,6 +107,8 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>('calendar_month', DateFormat('yyyy년 M월', 'ko_KR').format(now));
       await HomeWidget.saveWidgetData<String>('selected_date_text', DateFormat('M월 d일 (E)', 'ko_KR').format(now));
       await HomeWidget.saveWidgetData<int>('schedule_count', todaySchedules.length);
+
+      debugPrint('Saved schedule_count to widget: ${todaySchedules.length}');
 
       // 이번 달 스케줄 있는 날짜들 저장
       final scheduleDates = <int>[];
@@ -127,18 +151,23 @@ class WidgetService {
             workItemsText = schedule.workItems.toString();
           }
 
-          await HomeWidget.saveWidgetData<String>('schedule_${i}_time', schedule.visitTime ?? '시간 미정');
+          final time = schedule.visitTime ?? '시간 미정';
+          await HomeWidget.saveWidgetData<String>('schedule_${i}_time', time);
           await HomeWidget.saveWidgetData<String>('schedule_${i}_title', workItemsText);
           await HomeWidget.saveWidgetData<String>('schedule_${i}_status', schedule.computedStatus);
-          await HomeWidget.saveWidgetData<String>('schedule_${i}_company', schedule.companyName);
+          await HomeWidget.saveWidgetData<String>('schedule_${i}_company', schedule.companyName ?? '');
           await HomeWidget.saveWidgetData<int>('schedule_${i}_id', schedule.id ?? 0);
+
+          debugPrint('Saved schedule_$i: $time - $workItemsText (${schedule.computedStatus})');
         } else {
-          // 빈 슬롯은 null로 설정
+          // 빈 슬롯은 빈 문자열로 설정
           await HomeWidget.saveWidgetData<String>('schedule_${i}_time', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_title', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_status', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_company', '');
           await HomeWidget.saveWidgetData<int>('schedule_${i}_id', 0);
+
+          debugPrint('Saved schedule_$i: empty slot');
         }
       }
 
@@ -190,7 +219,7 @@ class WidgetService {
 
   /// 위젯 클릭 이벤트 처리를 위한 초기화
   static Future<void> initialize() async {
-    await HomeWidget.setAppGroupId('group.com.example.bizplan');
+    await HomeWidget.setAppGroupId('group.com.vividlife.bizplan');
   }
 
   /// 위젯에서 앱으로 이동 (위젯 클릭 시 앱 실행)

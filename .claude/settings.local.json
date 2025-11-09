@@ -20,7 +20,8 @@
       "Bash(emulator:*)",
       "Bash(git checkout:*)",
       "Bash(mkdir:*)",
-      "Bash(cd d:\\\\MyApp\\\\bizPlan && find:*)"
+      "Bash(cd d:\\\\MyApp\\\\bizPlan && find:*)",
+      "Bash(where:*)"
     ],
     "deny": [],
     "ask": []

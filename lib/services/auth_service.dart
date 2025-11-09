@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class AuthService {
@@ -21,11 +22,65 @@ class AuthService {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
+        emailRedirectTo: null, // 이메일 인증 리다이렉트 비활성화
       );
+
+      // 회원가입 성공 시 프로필 생성 (로그아웃 전에 완료)
+      if (response.user != null) {
+        debugPrint('User created successfully: ${response.user!.id}');
+
+        // 프로필 생성을 즉시 시도하고 완료될 때까지 대기
+        await _ensureProfileCreated(response.user!.id, email);
+      }
 
       return response;
     } catch (e) {
+      debugPrint('SignUp error: $e');
       rethrow;
+    }
+  }
+
+  // 프로필 생성 보장 (트리거 또는 수동)
+  Future<void> _ensureProfileCreated(String userId, String email) async {
+    try {
+      // 트리거가 프로필을 생성할 때까지 대기
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // 프로필이 생성되었는지 확인
+      final profileCheck = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (profileCheck == null) {
+        // 트리거가 실패했으므로 수동으로 프로필 생성 시도
+        debugPrint('Trigger failed, attempting manual profile creation');
+
+        final profileData = {
+          'id': userId,
+          'email': email,
+          'created_at': DateTime.now().toIso8601String(),
+        };
+
+        await _supabase.from('profiles').insert(profileData);
+        debugPrint('Manual profile creation successful');
+      } else {
+        debugPrint('Profile already exists (created by trigger)');
+      }
+    } catch (e) {
+      debugPrint('Error ensuring profile creation: $e');
+
+      // PostgrestException인 경우 상세 정보 출력
+      if (e is supabase.PostgrestException) {
+        debugPrint('Postgrest error code: ${e.code}');
+        debugPrint('Postgrest error message: ${e.message}');
+        debugPrint('Postgrest error details: ${e.details}');
+        debugPrint('Postgrest error hint: ${e.hint}');
+      }
+
+      // 프로필 생성 실패해도 계속 진행 (로그만 남김)
+      debugPrint('Profile creation failed, but user auth is successful');
     }
   }
 

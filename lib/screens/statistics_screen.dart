@@ -719,7 +719,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
             ),
           );
-        }).toList(),
+        }),
         const SizedBox(height: 24),
         const Text(
           '월별 매출',
@@ -888,7 +888,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1003,7 +1003,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1115,7 +1115,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
