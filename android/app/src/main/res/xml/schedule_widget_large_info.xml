@@ -8,5 +8,5 @@
     android:initialLayout="@layout/schedule_widget_large"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:description="@string/widget_description"
+    android:description="@string/widget_description_large"
     android:previewImage="@mipmap/ic_launcher" />

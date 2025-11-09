@@ -106,11 +106,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         });
 
         // 디버깅: 데이터 확인
-        print('총 스케줄 수: ${allSchedules.length}');
-        print('매출 데이터 스케줄 수: ${completedSchedules.length}');
-        print('필터링된 스케줄 수: ${_filteredSchedules.length}');
+        debugPrint('총 스케줄 수: ${allSchedules.length}');
+        debugPrint('매출 데이터 스케줄 수: ${completedSchedules.length}');
+        debugPrint('필터링된 스케줄 수: ${_filteredSchedules.length}');
         if (_filteredSchedules.isNotEmpty) {
-          print('첫 번째 스케줄 가격: ${_filteredSchedules.first.totalPrice}');
+          debugPrint('첫 번째 스케줄 가격: ${_filteredSchedules.first.totalPrice}');
         }
       }
     } catch (e) {
@@ -240,7 +240,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
 
   Widget _buildPeriodSelector() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       color: Colors.grey[100],
       child: Row(
         children: [
@@ -248,18 +248,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             child: InkWell(
               onTap: () => _selectDate(true),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 decoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFF579bf2)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Color(0xFF579bf2)),
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('yyyy-MM-dd').format(_startDate),
-                      style: const TextStyle(fontSize: 14),
+                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        DateFormat('yyyy-MM-dd').format(_startDate),
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -267,43 +271,49 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             ),
           ),
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text('~'),
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text('~', style: TextStyle(fontSize: 12)),
           ),
           Expanded(
             child: InkWell(
               onTap: () => _selectDate(false),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 decoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFF579bf2)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Color(0xFF579bf2)),
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('yyyy-MM-dd').format(_endDate),
-                      style: const TextStyle(fontSize: 14),
+                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        DateFormat('yyyy-MM-dd').format(_endDate),
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           ElevatedButton(
             onPressed: _setThisMonth,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF579bf2),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('이번달', style: TextStyle(fontSize: 14)),
+            child: const Text('이번달', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),

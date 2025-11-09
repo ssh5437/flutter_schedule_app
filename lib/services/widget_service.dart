@@ -1,14 +1,42 @@
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import '../database/database_helper.dart';
 
 class WidgetService {
   static const String _widgetName = 'ScheduleWidgetProvider';
+  static const _platform = MethodChannel('com.vividlife.bizplan/widget');
+
+  /// 배경색의 밝기에 따라 텍스트 색상 결정 (밝으면 검정, 어두우면 흰색)
+  static int _getTextColorForBackground(int backgroundColor) {
+    // ARGB에서 RGB 추출
+    final r = (backgroundColor >> 16) & 0xFF;
+    final g = (backgroundColor >> 8) & 0xFF;
+    final b = backgroundColor & 0xFF;
+
+    // 상대 휘도 계산 (perceived brightness)
+    final brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+    // 밝기가 128보다 크면 검정, 작으면 흰색
+    return brightness > 128 ? 0xFF000000 : 0xFFFFFFFF;
+  }
 
   /// 위젯 업데이트
   static Future<void> updateWidget() async {
     try {
+      // 배경색 로드
+      final prefs = await SharedPreferences.getInstance();
+      final backgroundColor = prefs.getInt('widget_background_color') ?? 0xFFFFFFFF;
+
+      // 텍스트 색상 계산
+      final textColor = _getTextColorForBackground(backgroundColor);
+
+      // 배경색과 텍스트 색상 저장
+      await HomeWidget.saveWidgetData<int>('widget_background_color', backgroundColor);
+      await HomeWidget.saveWidgetData<int>('widget_text_color', textColor);
       // 오늘 날짜 가져오기
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -127,8 +155,15 @@ class WidgetService {
         androidName: 'ScheduleWidgetLargeProvider',
         iOSName: 'ScheduleWidget',
       );
+
+      // Android 위젯 강제 새로고침
+      try {
+        await _platform.invokeMethod('updateWidget');
+      } catch (e) {
+        // 플랫폼 메서드 호출 실패 시 무시
+      }
     } catch (e) {
-      print('Widget update error: $e');
+      debugPrint('Widget update error: $e');
     }
   }
 
@@ -155,7 +190,7 @@ class WidgetService {
 
   /// 위젯 클릭 이벤트 처리를 위한 초기화
   static Future<void> initialize() async {
-    await HomeWidget.setAppGroupId('group.com.example.bizPlan');
+    await HomeWidget.setAppGroupId('group.com.example.bizplan');
   }
 
   /// 위젯에서 앱으로 이동 (위젯 클릭 시 앱 실행)

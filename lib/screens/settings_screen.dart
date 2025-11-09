@@ -4,9 +4,10 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/widget_service.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'notification_settings_screen.dart';
-import 'debug_screen.dart';
+// import 'debug_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -19,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _defaultCalendar = 'monthly'; // 'monthly' 또는 'weekly'
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상 (연한 주황)
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
+  Color _widgetBackgroundColor = const Color(0xFFFFFFFF); // 위젯 배경색 (흰색)
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _defaultCalendar = prefs.getString('default_calendar') ?? 'monthly';
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
       _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
+      _widgetBackgroundColor = Color(prefs.getInt('widget_background_color') ?? 0xFFFFFFFF);
     });
   }
 
@@ -74,6 +77,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _saveWidgetBackgroundColor(Color color) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('widget_background_color', color.toARGB32());
+    setState(() {
+      _widgetBackgroundColor = color;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('위젯 배경색이 변경되었습니다'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    // 위젯 업데이트
+    await WidgetService.updateWidget();
+  }
+
+  void _showWidgetColorPicker() {
+    Color selectedColor = _widgetBackgroundColor;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('위젯 배경색 선택'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: _widgetBackgroundColor,
+            onColorChanged: (color) {
+              selectedColor = color;
+            },
+            pickerAreaHeightPercent: 0.8,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              _saveWidgetBackgroundColor(selectedColor);
+              Navigator.pop(context);
+            },
+            child: const Text('적용'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showColorPicker(String status, Color currentColor) {
@@ -344,40 +400,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
-          // 스케줄 색상 설정
-          ListTile(
-            leading: Icon(Icons.palette, color: _pendingColor),
-            title: const Text('예정 스케줄 색상'),
-            trailing: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _pendingColor,
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onTap: () => _showColorPicker('pending', _pendingColor),
-          ),
 
-          ListTile(
-            leading: Icon(Icons.palette, color: _confirmedColor),
-            title: const Text('확정 스케줄 색상'),
-            trailing: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _confirmedColor,
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onTap: () => _showColorPicker('confirmed', _confirmedColor),
-          ),
-
-          const Divider(),
-
-          ListTile(
+ ListTile(
             leading: const Icon(Icons.calendar_view_month),
             title: const Text('기본 캘린더'),
             subtitle: Text(_defaultCalendar == 'monthly' ? '월간 캘린더' : '주간 캘린더'),
@@ -430,9 +454,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const Divider(),
 
+          // 스케줄 색상 설정
+          ListTile(
+            leading: Icon(Icons.palette, color: _pendingColor),
+            title: const Text('예정 스케줄 색상'),
+            trailing: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _pendingColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onTap: () => _showColorPicker('pending', _pendingColor),
+          ),
+
+          ListTile(
+            leading: Icon(Icons.palette, color: _confirmedColor),
+            title: const Text('확정 스케줄 색상'),
+            trailing: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _confirmedColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onTap: () => _showColorPicker('confirmed', _confirmedColor),
+          ),
+
+          const Divider(),
+
+          ListTile(
+            leading: Icon(Icons.widgets, color: _widgetBackgroundColor),
+            title: const Text('위젯 배경색'),
+            subtitle: const Text('홈 화면 위젯의 배경색을 변경합니다'),
+            trailing: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _widgetBackgroundColor,
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onTap: _showWidgetColorPicker,
+          ),
+
+          const Divider(),
+
+         
+
           // 데이터 관리 섹션
           const Padding(
-            padding: EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(10.0),
             child: Text(
               '데이터 관리',
               style: TextStyle(
@@ -465,7 +542,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // 보안 섹션
           const Padding(
-            padding: EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(10.0),
             child: Text(
               '보안',
               style: TextStyle(
@@ -492,21 +569,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
 
-          // 디버그 정보
-          ListTile(
-            leading: const Icon(Icons.bug_report, color: Colors.orange),
-            title: const Text('디버그 정보'),
-            subtitle: const Text('데이터베이스 상태를 확인합니다'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const DebugScreen(),
-                ),
-              );
-            },
-          ),
+          // // 디버그 정보
+          // ListTile(
+          //   leading: const Icon(Icons.bug_report, color: Colors.orange),
+          //   title: const Text('디버그 정보'),
+          //   subtitle: const Text('데이터베이스 상태를 확인합니다'),
+          //   trailing: const Icon(Icons.chevron_right),
+          //   onTap: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (context) => const DebugScreen(),
+          //       ),
+          //     );
+          //   },
+          // ),
 
           // 로그아웃
           ListTile(
@@ -514,6 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('로그아웃', style: TextStyle(color: Colors.red)),
             subtitle: const Text('현재 계정에서 로그아웃합니다'),
             onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
               // 확인 다이얼로그
               final confirmed = await showDialog<bool>(
                 context: context,
@@ -539,14 +617,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await AuthService().signOut();
                   // 로그아웃 성공 시 자동으로 로그인 화면으로 이동됨 (StreamBuilder에 의해)
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('로그아웃 실패: ${e.toString()}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('로그아웃 실패: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },

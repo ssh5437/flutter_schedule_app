@@ -6,6 +6,7 @@ import '../models/schedule.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../utils/gemini_helper.dart';
+import '../utils/text_extraction_limit_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
 import '../widgets/gradient_app_bar.dart';
@@ -326,13 +327,40 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
   }
 
-  void _showPasteDialog() {
+  Future<void> _showPasteDialog() async {
     final textController = TextEditingController();
+    final remaining = await TextExtractionLimitHelper.getRemainingCount();
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('텍스트에서 스케줄 추출'),
+        title: Row(
+          children: [
+            const Text('텍스트에서 스케줄 추출'),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: remaining > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: remaining > 0 ? Colors.green : Colors.red,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '남은 횟수: $remaining/${TextExtractionLimitHelper.monthlyLimit}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
         content: SizedBox(
           width: double.maxFinite,
           height: 400, // 고정 높이 설정
@@ -387,6 +415,37 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 
   Future<void> _extractScheduleInfo(String text) async {
+    // 사용 가능 횟수 확인
+    final canUse = await TextExtractionLimitHelper.incrementUsage();
+
+    if (!canUse) {
+      final remaining = await TextExtractionLimitHelper.getRemainingCount();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('사용 횟수 초과'),
+          content: Text(
+            '텍스트 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
+            '이번 달 남은 횟수: $remaining회\n\n'
+            '무제한으로 사용하려면 멤버십에 가입해주세요.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     // 로딩 다이얼로그 표시
     showDialog(
       context: context,
@@ -412,10 +471,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       final result = await GeminiHelper.extractScheduleInfo(text);
 
       if (!mounted) return;
-      Navigator.pop(context); // 로딩 다이얼로그 닫기
+      navigator.pop(); // 로딩 다이얼로그 닫기
 
       if (result == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('정보 추출에 실패했습니다. Gemini API 키를 확인해주세요.'),
             backgroundColor: Colors.red,
@@ -462,7 +521,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         _visitTime = null;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('정보가 추출되었습니다. 내용을 확인하고 수정해주세요.'),
           backgroundColor: Colors.green,
@@ -470,9 +529,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // 로딩 다이얼로그 닫기
+      navigator.pop(); // 로딩 다이얼로그 닫기
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text('오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,

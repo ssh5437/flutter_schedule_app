@@ -29,7 +29,7 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    print('🚀 HomeScreen initState called');
+    debugPrint('🚀 HomeScreen initState called');
     _loadSchedules();
     _loadColors();
   }

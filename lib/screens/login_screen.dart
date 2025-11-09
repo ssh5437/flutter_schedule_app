@@ -158,28 +158,27 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleKakaoLogin() async {
-    setState(() => _isLoading = true);
+  // Future<void> _handleKakaoLogin() async {
+  //   setState(() => _isLoading = true);
 
-    try {
-      await _authService.signInWithKakao();
-      // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_getErrorMessage(e.toString())),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
+  //   try {
+  //     await _authService.signInWithKakao();
+  //     // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(_getErrorMessage(e.toString())),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -198,10 +197,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 로고 또는 타이틀
-                  const Icon(
-                    Icons.calendar_month_rounded,
-                    size: 80,
-                    color: primaryColor,
+                  Image.asset(
+                    'assets/images/app_logo.png',
+                    width: 120,
+                    height: 120,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 80,
+                        color: primaryColor,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   const Text(

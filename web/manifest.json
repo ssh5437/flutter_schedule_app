@@ -1,6 +1,6 @@
 {
-    "name": "bizPlan",
-    "short_name": "bizPlan",
+    "name": "bizplan",
+    "short_name": "bizplan",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

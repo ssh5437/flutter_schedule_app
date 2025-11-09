@@ -18,7 +18,9 @@
       "Bash(mv:*)",
       "Bash(powershell:*)",
       "Bash(emulator:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd d:\\\\MyApp\\\\bizPlan && find:*)"
     ],
     "deny": [],
     "ask": []

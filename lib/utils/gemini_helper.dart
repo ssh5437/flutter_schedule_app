@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GeminiHelper {
@@ -10,7 +11,7 @@ class GeminiHelper {
       );
 
       if (response.data == null) {
-        print('Edge Function 응답 없음');
+        debugPrint('Edge Function 응답 없음');
         return null;
       }
 
@@ -18,7 +19,7 @@ class GeminiHelper {
       final data = response.data as Map<String, dynamic>;
 
       if (data.containsKey('error')) {
-        print('Edge Function 오류: ${data['error']}');
+        debugPrint('Edge Function 오류: ${data['error']}');
         return null;
       }
 
@@ -28,7 +29,7 @@ class GeminiHelper {
 
       return null;
     } catch (e) {
-      print('텍스트 추출 오류: $e');
+      debugPrint('텍스트 추출 오류: $e');
       return null;
     }
   }
