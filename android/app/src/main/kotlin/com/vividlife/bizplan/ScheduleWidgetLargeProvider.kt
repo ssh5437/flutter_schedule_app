@@ -23,13 +23,30 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                 // SharedPreferences에서 데이터 읽기
                 val widgetData = HomeWidgetPlugin.getData(context)
 
+                // 배경색과 텍스트 색상 가져오기
+                val backgroundColor = try {
+                    widgetData.getLong("widget_background_color", android.graphics.Color.WHITE.toLong()).toInt()
+                } catch (e: Exception) {
+                    android.graphics.Color.WHITE
+                }
+                val textColor = try {
+                    widgetData.getLong("widget_text_color", android.graphics.Color.BLACK.toLong()).toInt()
+                } catch (e: Exception) {
+                    android.graphics.Color.BLACK
+                }
+
+                // 위젯 배경색 설정
+                views.setInt(R.id.widget_root_large, "setBackgroundColor", backgroundColor)
+
                 // 월 표시
                 val currentMonth = widgetData.getString("calendar_month", "2025년 1월") ?: "2025년 1월"
                 views.setTextViewText(R.id.calendar_month, currentMonth)
+                views.setTextColor(R.id.calendar_month, textColor)
 
                 // 선택된 날짜 표시
                 val selectedDate = widgetData.getString("selected_date_text", "오늘의 스케줄") ?: "오늘의 스케줄"
                 views.setTextViewText(R.id.selected_date, selectedDate)
+                views.setTextColor(R.id.selected_date, textColor)
 
                 // 현재 달력 생성
                 val calendar = Calendar.getInstance()
@@ -81,7 +98,11 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                 }
 
                 // 스케줄 표시
-                val scheduleCount = widgetData.getInt("schedule_count", 0)
+                val scheduleCount = try {
+                    widgetData.getLong("schedule_count", 0).toInt()
+                } catch (e: Exception) {
+                    0
+                }
 
                 if (scheduleCount == 0) {
                     views.setViewVisibility(R.id.no_schedule_text, View.VISIBLE)
@@ -96,7 +117,11 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val time1 = widgetData.getString("schedule_0_time", "미정") ?: "미정"
                         val title1 = widgetData.getString("schedule_0_title", "스케줄") ?: "스케줄"
                         val status1 = widgetData.getString("schedule_0_status", "예정") ?: "예정"
-                        val scheduleId1 = widgetData.getInt("schedule_0_id", 0)
+                        val scheduleId1 = try {
+                            widgetData.getLong("schedule_0_id", 0).toInt()
+                        } catch (e: Exception) {
+                            0
+                        }
 
                         views.setViewVisibility(R.id.schedule_1_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_1_time, time1)
@@ -130,7 +155,11 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val time2 = widgetData.getString("schedule_1_time", "미정") ?: "미정"
                         val title2 = widgetData.getString("schedule_1_title", "스케줄") ?: "스케줄"
                         val status2 = widgetData.getString("schedule_1_status", "예정") ?: "예정"
-                        val scheduleId2 = widgetData.getInt("schedule_1_id", 0)
+                        val scheduleId2 = try {
+                            widgetData.getLong("schedule_1_id", 0).toInt()
+                        } catch (e: Exception) {
+                            0
+                        }
 
                         views.setViewVisibility(R.id.schedule_2_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_2_time, time2)
@@ -164,7 +193,11 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                         val time3 = widgetData.getString("schedule_2_time", "미정") ?: "미정"
                         val title3 = widgetData.getString("schedule_2_title", "스케줄") ?: "스케줄"
                         val status3 = widgetData.getString("schedule_2_status", "예정") ?: "예정"
-                        val scheduleId3 = widgetData.getInt("schedule_2_id", 0)
+                        val scheduleId3 = try {
+                            widgetData.getLong("schedule_2_id", 0).toInt()
+                        } catch (e: Exception) {
+                            0
+                        }
 
                         views.setViewVisibility(R.id.schedule_3_container, View.VISIBLE)
                         views.setTextViewText(R.id.schedule_3_time, time3)

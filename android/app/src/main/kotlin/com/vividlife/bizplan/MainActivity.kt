@@ -5,6 +5,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
 import android.util.Log
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.vividlife.bizplan/widget"
@@ -16,12 +18,19 @@ class MainActivity : FlutterActivity() {
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         methodChannel?.setMethodCallHandler { call, result ->
-            if (call.method == "getScheduleId") {
-                Log.d("MainActivity", "getScheduleId called, returning: $pendingScheduleId")
-                result.success(pendingScheduleId)
-                pendingScheduleId = null  // 한 번 읽은 후 초기화
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "getScheduleId" -> {
+                    Log.d("MainActivity", "getScheduleId called, returning: $pendingScheduleId")
+                    result.success(pendingScheduleId)
+                    pendingScheduleId = null  // 한 번 읽은 후 초기화
+                }
+                "updateWidget" -> {
+                    updateWidgets()
+                    result.success(true)
+                }
+                else -> {
+                    result.notImplemented()
+                }
             }
         }
 
@@ -45,6 +54,38 @@ class MainActivity : FlutterActivity() {
                 // Flutter에 알림
                 methodChannel?.invokeMethod("openSchedule", scheduleId)
             }
+        }
+    }
+
+    private fun updateWidgets() {
+        try {
+            val appWidgetManager = AppWidgetManager.getInstance(this)
+
+            // 작은 위젯 업데이트
+            val smallWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(this, ScheduleWidgetProvider::class.java)
+            )
+            if (smallWidgetIds.isNotEmpty()) {
+                val intent = Intent(this, ScheduleWidgetProvider::class.java)
+                intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, smallWidgetIds)
+                sendBroadcast(intent)
+                Log.d("MainActivity", "Updated ${smallWidgetIds.size} small widgets")
+            }
+
+            // 큰 위젯 업데이트
+            val largeWidgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(this, ScheduleWidgetLargeProvider::class.java)
+            )
+            if (largeWidgetIds.isNotEmpty()) {
+                val intent = Intent(this, ScheduleWidgetLargeProvider::class.java)
+                intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, largeWidgetIds)
+                sendBroadcast(intent)
+                Log.d("MainActivity", "Updated ${largeWidgetIds.size} large widgets")
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error updating widgets", e)
         }
     }
 }

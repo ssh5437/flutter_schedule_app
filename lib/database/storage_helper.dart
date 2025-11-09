@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/schedule.dart';
 import '../models/statistics_tab_config.dart';
@@ -47,7 +48,7 @@ class StorageHelper {
     schedules.add(newSchedule);
     await saveSchedules(schedules);
 
-    print('Schedule saved with ID: ${newSchedule.id}'); // 디버깅용
+    debugPrint('Schedule saved with ID: ${newSchedule.id}'); // 디버깅용
 
     _nextId++;
     return newSchedule.id!;

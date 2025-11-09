@@ -204,11 +204,12 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                     absenceMessage: _absenceMessageController.text,
                   );
 
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     await DatabaseHelper.instance.updateCompany(updatedCompany);
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('저장 실패: $e')),
                       );
                     }
@@ -423,14 +424,15 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                       absenceMessage: _absenceMessageController.text,
                     );
 
+                    final messenger = ScaffoldMessenger.of(context);
                     try {
                       await DatabaseHelper.instance.updateCompany(updatedCompany);
+                      if (!mounted) return;
                     } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('저장 실패: $e')),
-                        );
-                      }
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('저장 실패: $e')),
+                      );
                     }
                   }
                 },

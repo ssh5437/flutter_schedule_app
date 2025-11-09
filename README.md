@@ -1,4 +1,4 @@
-# bizPlan
+# bizplan
 
 A new Flutter project.
 

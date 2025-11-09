@@ -143,30 +143,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  Future<void> _handleKakaoSignUp() async {
-    setState(() => _isLoading = true);
+  // Future<void> _handleKakaoSignUp() async {
+  //   setState(() => _isLoading = true);
 
-    try {
-      await _authService.signInWithKakao();
-      // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_getErrorMessage(e.toString())),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+  //   try {
+  //     await _authService.signInWithKakao();
+  //     // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
+  //     if (mounted) {
+  //       Navigator.pop(context);
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(_getErrorMessage(e.toString())),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
