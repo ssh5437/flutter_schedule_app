@@ -21,7 +21,8 @@
       "Bash(git checkout:*)",
       "Bash(mkdir:*)",
       "Bash(cd d:\\\\MyApp\\\\bizPlan && find:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(keytool:*)"
     ],
     "deny": [],
     "ask": []

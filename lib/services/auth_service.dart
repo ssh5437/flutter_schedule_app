@@ -22,7 +22,7 @@ class AuthService {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: null, // 이메일 인증 리다이렉트 비활성화
+        emailRedirectTo: 'com.vividlife.bizplan://login-callback/', // 앱 딥링크로 리다이렉트
       );
 
       // 회원가입 성공 시 프로필 생성 (로그아웃 전에 완료)
@@ -146,7 +146,10 @@ class AuthService {
   // 비밀번호 재설정 이메일 보내기
   Future<void> resetPassword(String email) async {
     try {
-      await _supabase.auth.resetPasswordForEmail(email);
+      await _supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'com.vividlife.bizplan://login-callback/',
+      );
     } catch (e) {
       rethrow;
     }
