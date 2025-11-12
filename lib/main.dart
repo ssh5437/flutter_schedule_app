@@ -4,11 +4,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
+import 'package:provider/provider.dart';
 import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
 import 'services/widget_service.dart';
+import 'providers/subscription_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
@@ -123,24 +125,28 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '비비 관리',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
-      supportedLocales: const [
-        Locale('ko', 'KR'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('ko', 'KR'),
-      home: StreamBuilder<AuthState>(
+      child: MaterialApp(
+        title: '비비 관리',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ko', 'KR'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('ko', 'KR'),
+        home: StreamBuilder<AuthState>(
         stream: Supabase.instance.client.auth.onAuthStateChange,
         builder: (context, snapshot) {
           // 로딩 중
@@ -176,6 +182,7 @@ class _MyAppState extends State<MyApp> {
             return const LoginScreen();
           }
         },
+      ),
       ),
     );
   }

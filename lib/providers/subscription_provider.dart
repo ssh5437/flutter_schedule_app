@@ -1,0 +1,170 @@
+import 'package:flutter/foundation.dart';
+import '../models/subscription.dart';
+import '../services/subscription_service.dart';
+
+class SubscriptionProvider extends ChangeNotifier {
+  final SubscriptionService _subscriptionService = SubscriptionService();
+
+  Subscription _subscription = Subscription.empty();
+  Subscription get subscription => _subscription;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  String? _successMessage;
+  String? get successMessage => _successMessage;
+
+  bool get hasActiveSubscription =>
+      _subscription.isActive && !_subscription.isExpired;
+
+  bool get isExpiringSoon {
+    if (!hasActiveSubscription) return false;
+    return _subscription.remainingDays <= 7;
+  }
+
+  // 초기화
+  Future<void> initialize() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _subscriptionService.initialize();
+
+      // 구독 스트림 리스닝
+      _subscriptionService.subscriptionStream.listen((subscription) {
+        _subscription = subscription;
+        notifyListeners();
+      });
+
+      // 현재 구독 상태 로드
+      _subscription = _subscriptionService.currentSubscription;
+      _errorMessage = null;
+    } catch (e) {
+      _errorMessage = '구독 정보를 불러오는데 실패했습니다: $e';
+      debugPrint(_errorMessage);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 구독 구매
+  Future<bool> purchaseSubscription() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _subscriptionService.purchaseSubscription();
+
+      if (!success) {
+        _errorMessage = '구독 구매에 실패했습니다.';
+      }
+
+      return success;
+    } catch (e) {
+      _errorMessage = '구독 구매 중 오류가 발생했습니다: $e';
+      debugPrint(_errorMessage);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 구매 복원
+  Future<bool> restorePurchases() async {
+    _isLoading = true;
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+
+    try {
+      // 복원 전 구독 상태 저장
+      final hadSubscriptionBefore = _subscription.isActive;
+
+      await _subscriptionService.restoreSubscription();
+
+      // 복원 후 상태 확인을 위해 잠시 대기
+      await Future.delayed(const Duration(seconds: 2));
+
+      // 최신 구독 상태 다시 로드
+      _subscription = _subscriptionService.currentSubscription;
+
+      // 복원 결과 확인
+      if (_subscription.isActive && !_subscription.isExpired) {
+        _successMessage = '구독이 성공적으로 복원되었습니다!';
+        _errorMessage = null;
+        return true;
+      } else if (hadSubscriptionBefore) {
+        _errorMessage = null;
+        return true;
+      } else {
+        _errorMessage = '복원할 구독 내역이 없습니다.\n이전에 구매한 기록이 있다면 잠시 후 다시 시도해주세요.';
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = '구매 복원 중 오류가 발생했습니다.\n네트워크 연결을 확인하고 다시 시도해주세요.';
+      debugPrint('구매 복원 오류: $e');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 구독 상태 새로고침
+  Future<void> refreshSubscription() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 만료 확인을 위해 재초기화
+      await _subscriptionService.initialize();
+
+      final isActive = await _subscriptionService.hasActiveSubscription();
+      _subscription = _subscriptionService.currentSubscription;
+
+      if (!isActive && _subscription.isExpired) {
+        _errorMessage = '구독이 만료되었습니다.';
+      } else {
+        _errorMessage = null;
+      }
+    } catch (e) {
+      _errorMessage = '구독 정보 갱신 중 오류가 발생했습니다: $e';
+      debugPrint(_errorMessage);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 만료 확인 (주기적으로 호출 가능)
+  Future<void> checkExpiration() async {
+    if (_subscription.isExpired && _subscription.isActive) {
+      await refreshSubscription();
+    }
+  }
+
+  // 에러 메시지 클리어
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  // 성공 메시지 클리어
+  void clearSuccess() {
+    _successMessage = null;
+    notifyListeners();
+  }
+
+  // 모든 메시지 클리어
+  void clearMessages() {
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+  }
+}

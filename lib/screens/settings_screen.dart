@@ -7,7 +7,8 @@ import '../services/backup_service.dart';
 import '../services/widget_service.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'notification_settings_screen.dart';
-// import 'debug_screen.dart';
+import 'membership_screen.dart';
+import 'debug_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -400,8 +401,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
-
- ListTile(
+          ListTile(
+            leading: const Icon(Icons.card_membership),
+            title: const Text('멤버십 관리'),
+            subtitle: const Text('프리미엄 구독 및 혜택'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MembershipScreen()),
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.calendar_view_month),
             title: const Text('기본 캘린더'),
             subtitle: Text(_defaultCalendar == 'monthly' ? '월간 캘린더' : '주간 캘린더'),
@@ -599,20 +612,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           // // 디버그 정보
-          // ListTile(
-          //   leading: const Icon(Icons.bug_report, color: Colors.orange),
-          //   title: const Text('디버그 정보'),
-          //   subtitle: const Text('데이터베이스 상태를 확인합니다'),
-          //   trailing: const Icon(Icons.chevron_right),
-          //   onTap: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(
-          //         builder: (context) => const DebugScreen(),
-          //       ),
-          //     );
-          //   },
-          // ),
+          ListTile(
+            leading: const Icon(Icons.bug_report, color: Colors.orange),
+            title: const Text('디버그 정보'),
+            subtitle: const Text('데이터베이스 상태 및 멤버십 테스트'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DebugScreen(),
+                ),
+              );
+            },
+          ),
 
           // 로그아웃
           ListTile(

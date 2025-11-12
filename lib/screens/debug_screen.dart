@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../providers/subscription_provider.dart';
+import '../services/subscription_service.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -74,39 +77,6 @@ class _DebugScreenState extends State<DebugScreen> {
         }
         buffer.writeln('');
 
-        // 현재 사용자의 스케줄 샘플 (최대 3개)
-        if (userSchedulesCount.first['count'] as int > 0) {
-          final sampleSchedules = await db.query(
-            'schedules',
-            where: 'userId = ?',
-            whereArgs: [user.id],
-            limit: 3,
-          );
-
-          buffer.writeln('📋 현재 사용자 스케줄 샘플:');
-          for (var schedule in sampleSchedules) {
-            buffer.writeln('  - ${schedule['customerName']}');
-            buffer.writeln('    status: ${schedule['status']}');
-            buffer.writeln('    visitDate: ${schedule['visitDate']}');
-            buffer.writeln('    visitTime: ${schedule['visitTime']}');
-          }
-        } else {
-          buffer.writeln('❌ 현재 사용자의 스케줄이 없습니다.');
-
-          // 다른 userId의 스케줄이 있는지 확인
-          if (allSchedulesCount.first['count'] as int > 0) {
-            buffer.writeln('');
-            buffer.writeln('⚠️ 다른 userId로 저장된 스케줄이 있습니다.');
-            buffer.writeln('   이전에 다른 계정으로 로그인했거나,');
-            buffer.writeln('   데이터가 다른 userId로 저장되었을 수 있습니다.');
-            buffer.writeln('');
-            buffer.writeln('💡 해결 방법:');
-            buffer.writeln('   1. 설정 > 백업하기로 데이터 백업');
-            buffer.writeln('   2. 앱 재설치 또는 데이터 삭제');
-            buffer.writeln('   3. 동일한 이메일로 로그인');
-            buffer.writeln('   4. 설정 > 복원하기로 데이터 복원');
-          }
-        }
 
         // 업체 정보
         buffer.writeln('');
@@ -257,9 +227,260 @@ class _DebugScreenState extends State<DebugScreen> {
                 ),
               ),
             ],
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            _buildMembershipTestSection(),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildMembershipTestSection() {
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, child) {
+        final subscription = subscriptionProvider.subscription;
+        final hasActive = subscriptionProvider.hasActiveSubscription;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '🧪 멤버십 테스트',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: hasActive ? Colors.green[50] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: hasActive ? Colors.green : Colors.grey,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '현재 상태: ${hasActive ? "✅ 프리미엄" : "❌ 무료"}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: hasActive ? Colors.green[900] : Colors.grey[700],
+                    ),
+                  ),
+                  if (subscription.isTestMode) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[100],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '🧪 테스트 모드',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (hasActive) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '만료일: ${_formatDate(subscription.expiryDate)}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Text(
+                      '남은 기간: ${subscription.remainingDays}일',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _enableTestPremium(subscriptionProvider),
+                icon: const Icon(Icons.star),
+                label: const Text('테스트 프리미엄 활성화'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _enableTestExpired(subscriptionProvider),
+                icon: const Icon(Icons.timer_off),
+                label: const Text('테스트 만료 설정'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _clearTestSubscription(subscriptionProvider),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('테스트 구독 제거'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '테스트 모드는 실제 구글 플레이 구매 없이 프리미엄 기능을 테스트할 수 있습니다. 로컬 DB와 Supabase에 모두 동기화됩니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[900],
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '-';
+    return '${date.year}년 ${date.month}월 ${date.day}일';
+  }
+
+  Future<void> _enableTestPremium(SubscriptionProvider provider) async {
+    try {
+      await SubscriptionService().enableTestPremium(daysFromNow: 30);
+      await provider.refreshSubscription();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 테스트 프리미엄이 활성화되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 오류 발생: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _enableTestExpired(SubscriptionProvider provider) async {
+    try {
+      await SubscriptionService().enableTestExpired();
+      await provider.refreshSubscription();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 테스트 만료 구독이 설정되었습니다!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 오류 발생: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearTestSubscription(SubscriptionProvider provider) async {
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('테스트 구독 제거'),
+          content: const Text(
+            '테스트 구독을 제거하시겠습니까?\n\n'
+            '로컬 DB와 Supabase의 멤버십 정보가 모두 초기화됩니다.'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('제거'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      await SubscriptionService().clearTestSubscription();
+      await provider.refreshSubscription();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 테스트 구독이 제거되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 오류 발생: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

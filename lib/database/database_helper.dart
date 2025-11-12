@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -58,6 +58,19 @@ class DatabaseHelper {
         workItems TEXT NOT NULL,
         color INTEGER NOT NULL DEFAULT 4283215411,
         displayOrder INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id TEXT NOT NULL,
+        purchase_id TEXT,
+        purchase_date TEXT,
+        expiry_date TEXT,
+        is_active INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL,
+        is_test_mode INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -200,6 +213,28 @@ class DatabaseHelper {
 
       // 기존 데이터는 빈 문자열로 초기화 (금액 정보 없음)
       await db.execute("UPDATE schedules SET workPrices = '' WHERE workPrices IS NULL");
+    }
+    if (oldVersion < 10) {
+      // subscriptions 테이블 생성
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id TEXT NOT NULL,
+          purchase_id TEXT,
+          purchase_date TEXT,
+          expiry_date TEXT,
+          is_active INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL
+        )
+      ''');
+    }
+    if (oldVersion < 11) {
+      // is_test_mode 컬럼 추가
+      try {
+        await db.execute('ALTER TABLE subscriptions ADD COLUMN is_test_mode INTEGER NOT NULL DEFAULT 0');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
     }
   }
 

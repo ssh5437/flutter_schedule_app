@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.vividlife.bizplan"
-    compileSdk = 35  // Android 15
+    compileSdk = 36  // Android 16
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -33,9 +33,9 @@ android {
     defaultConfig {
         applicationId = "com.vividlife.bizplan"
         minSdk = 24  // Android 7.0 이상
-        targetSdk = 35  // Android 15
-        versionCode = 3
-        versionName = "1.0.2"
+        targetSdk = 36  // Android 16
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     signingConfigs {
@@ -49,8 +49,6 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
         }
     }

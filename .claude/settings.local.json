@@ -22,7 +22,15 @@
       "Bash(mkdir:*)",
       "Bash(cd d:\\\\MyApp\\\\bizPlan && find:*)",
       "Bash(where:*)",
-      "Bash(keytool:*)"
+      "Bash(keytool:*)",
+      "Bash(supabase functions list:*)",
+      "Bash(curl:*)",
+      "Bash(supabase status:*)",
+      "Bash(find:*)",
+      "Bash(supabase functions logs:*)",
+      "Bash(./gradlew assembleRelease:*)",
+      "Bash(git config:*)",
+      "Bash(chcp 65001)"
     ],
     "deny": [],
     "ask": []
