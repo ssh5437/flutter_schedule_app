@@ -220,18 +220,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
             _buildBenefitItem(
               Icons.bar_chart,
-              '매출 통계 기능 제공',
-              '월별/업체별 매출 통계 및 분석',
+              '매출 통계 기간 변경 가능',
+              '과거의 매출까지 통계 및 분석',
             ),
             _buildBenefitItem(
-              Icons.notifications_active,
-              '고급 알림 기능',
-              '더 많은 알림 옵션과 맞춤 설정',
+              Icons.block,
+              '광고 제거',
+              '텍스트 추출, 백업 기능 등에 광고 제거',
             ),
             _buildBenefitItem(
-              Icons.priority_high,
-              '우선 지원',
-              '문의사항에 대한 빠른 응답',
+              Icons.sms,
+              '자동 문자 발송 기능',
+              '확정된 스케줄, 다음날 스케줄 자동 문자 발송',
             ),
             const SizedBox(height: 16),
             Container(

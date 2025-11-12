@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import '../models/statistics_tab_config.dart';
 import '../database/storage_helper.dart';
 import 'statistics_tab_settings_screen.dart';
+import '../providers/subscription_provider.dart';
+import 'membership_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -22,12 +25,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   List<StatisticsTabConfig> _tabConfigs = [];
 
   // 기간 선택
-  DateTime _startDate = DateTime(DateTime.now().year, 1, 1); // 올해 1월 1일
-  DateTime _endDate = DateTime.now();
+  late DateTime _startDate;
+  late DateTime _endDate;
 
   @override
   void initState() {
     super.initState();
+    // 기본 기간: 이번 달 1일부터 오늘까지
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = now;
     _loadTabConfigs();
   }
 
@@ -239,104 +246,263 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   }
 
   Widget _buildPeriodSelector() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      color: Colors.grey[100],
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () => _selectDate(true),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF579bf2)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        DateFormat('yyyy-MM-dd').format(_startDate),
-                        style: const TextStyle(fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+    return Consumer<SubscriptionProvider>(
+      builder: (context, subscriptionProvider, child) {
+        final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          color: Colors.grey[100],
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: hasActiveSubscription ? () => _selectDate(true) : _showMembershipRequiredDialog,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF579bf2)),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            DateFormat('yyyy-MM-dd').format(_startDate),
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text('~', style: TextStyle(fontSize: 12)),
-          ),
-          Expanded(
-            child: InkWell(
-              onTap: () => _selectDate(false),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF579bf2)),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        DateFormat('yyyy-MM-dd').format(_endDate),
-                        style: const TextStyle(fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('~', style: TextStyle(fontSize: 12)),
+              ),
+              Expanded(
+                child: InkWell(
+                  onTap: hasActiveSubscription ? () => _selectDate(false) : _showMembershipRequiredDialog,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF579bf2)),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today, size: 14, color: Color(0xFF579bf2)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            DateFormat('yyyy-MM-dd').format(_endDate),
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(width: 4),
+              ElevatedButton(
+                onPressed: hasActiveSubscription ? _setLastMonth : _showMembershipRequiredDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7eb3f5),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('지난달', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 4),
+              ElevatedButton(
+                onPressed: hasActiveSubscription ? _setThisYear : _showMembershipRequiredDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF579bf2),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('이번년', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _setThisYear() {
+    final now = DateTime.now();
+    final firstDayOfYear = DateTime(now.year, 1, 1);
+
+    setState(() {
+      _startDate = firstDayOfYear;
+      _endDate = now;
+    });
+  }
+
+  void _setLastMonth() {
+    final now = DateTime.now();
+    final firstDayOfLastMonth = DateTime(now.year, now.month - 1, 1);
+    final lastDayOfLastMonth = DateTime(now.year, now.month, 0);
+
+    setState(() {
+      _startDate = firstDayOfLastMonth;
+      _endDate = lastDayOfLastMonth;
+    });
+  }
+
+  void _showMembershipRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.lock, color: Colors.orange[700], size: 28),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                '프리미엄 기능',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '무료 회원은 기간 변경이 제한됩니다.\n이번 달 매출만 조회 가능합니다.',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.blue[700], size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '프리미엄 회원 혜택',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildBenefitItem('업체 추가 무제한'),
+                  _buildBenefitItem('AI 텍스트 추출 무제한'),
+                  _buildBenefitItem('매출 통계 기간 변경 가능'),
+                  _buildBenefitItem('자동 문자 발송 기능 '),
+                  _buildBenefitItem('광고 제거'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              '취소',
+              style: TextStyle(fontSize: 16),
             ),
           ),
-          const SizedBox(width: 4),
           ElevatedButton(
-            onPressed: _setThisMonth,
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MembershipScreen(),
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF579bf2),
+              backgroundColor: const Color(0xFF1976D2),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('이번달', style: TextStyle(fontSize: 12)),
+            child: const Text(
+              '멤버십 보기',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _setThisMonth() {
-    final now = DateTime.now();
-    final firstDayOfMonth = DateTime(now.year, now.month, 1);
-    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
-
-    setState(() {
-      _startDate = firstDayOfMonth;
-      _endDate = lastDayOfMonth;
-    });
+  Widget _buildBenefitItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green[600], size: 16),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _selectDate(bool isStart) async {
+    final now = DateTime.now();
+    final dateToShow = isStart ? _startDate : _endDate;
+
+    // initialDate가 lastDate(now)를 초과하지 않도록 clamp
+    final initialDate = dateToShow.isAfter(now) ? now : dateToShow;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: isStart ? _startDate : _endDate,
+      initialDate: initialDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: now,
     );
 
     if (picked != null && mounted) {
