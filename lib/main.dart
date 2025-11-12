@@ -311,7 +311,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
-            label: '매출 관리',
+            label: '매출 통계',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

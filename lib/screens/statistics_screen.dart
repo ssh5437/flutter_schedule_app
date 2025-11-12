@@ -168,7 +168,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 38,
-        title: const Text('매출 관리', style: TextStyle(fontSize: 18)),
+        title: const Text('매출 통계', style: TextStyle(fontSize: 18)),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
