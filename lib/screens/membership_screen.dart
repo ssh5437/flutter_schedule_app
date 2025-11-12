@@ -209,14 +209,19 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
             const SizedBox(height: 16),
             _buildBenefitItem(
+              Icons.business_center,
+              '업체 추가 무제한',
+              '원하는 만큼 업체를 등록하고 관리',
+            ),
+            _buildBenefitItem(
               Icons.text_fields,
               'AI 텍스트 추출 무제한',
               '사진에서 텍스트를 무제한으로 추출',
             ),
             _buildBenefitItem(
-              Icons.cloud_upload,
-              '클라우드 백업',
-              '모든 데이터를 안전하게 클라우드에 백업',
+              Icons.bar_chart,
+              '매출 통계 기능 제공',
+              '월별/업체별 매출 통계 및 분석',
             ),
             _buildBenefitItem(
               Icons.notifications_active,
@@ -227,11 +232,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
               Icons.priority_high,
               '우선 지원',
               '문의사항에 대한 빠른 응답',
-            ),
-            _buildBenefitItem(
-              Icons.auto_awesome,
-              '신규 기능 우선 제공',
-              '새로운 기능을 가장 먼저 체험',
             ),
             const SizedBox(height: 16),
             Container(

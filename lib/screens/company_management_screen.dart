@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import 'company_edit_screen.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../providers/subscription_provider.dart';
+import 'membership_screen.dart';
 
 class CompanyManagementScreen extends StatefulWidget {
   const CompanyManagementScreen({super.key});
@@ -33,6 +36,18 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
   }
 
   Future<void> _navigateToEditScreen({Company? company}) async {
+    // 새 업체 추가 시 멤버십 확인
+    if (company == null) {
+      final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+      final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
+
+      // 무료 회원이고 이미 업체가 1개 이상 있으면 제한
+      if (!hasActiveSubscription && _companies.isNotEmpty) {
+        _showMembershipRequiredDialog();
+        return;
+      }
+    }
+
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -44,6 +59,127 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
     if (result == true) {
       _loadCompanies();
     }
+  }
+
+  void _showMembershipRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.lock, color: Colors.orange[700], size: 28),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                '프리미엄 기능',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '무료 회원은 업체를 1개까지만 등록할 수 있습니다.',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.blue[700], size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '프리미엄 회원 혜택',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[900],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildBenefitItem('업체 추가 무제한'),
+                  _buildBenefitItem('AI 텍스트 추출 무제한'),
+                  _buildBenefitItem('매출 통계 기능 제공'),
+                  _buildBenefitItem('우선 지원 및 고급 기능'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              '취소',
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MembershipScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1976D2),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              '멤버십 보기',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green[600], size: 16),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteCompany(Company company) async {
