@@ -116,7 +116,7 @@ class SubscriptionService {
 
   // === 테스트 모드 기능 ===
 
-  // 테스트용 프리미엄 구독 활성화
+  // 테스트용 Plus 구독 활성화
   Future<void> enableTestPremium({int daysFromNow = 30}) async {
     final testSubscription = Subscription.createTestPremium(daysFromNow: daysFromNow);
     await _saveSubscription(testSubscription);
@@ -125,7 +125,7 @@ class SubscriptionService {
     _currentSubscription = testSubscription;
     _subscriptionController.add(testSubscription);
 
-    debugPrint('테스트 프리미엄 구독 활성화: ${testSubscription.expiryDate}까지');
+    debugPrint('테스트 Plus 구독 활성화: ${testSubscription.expiryDate}까지');
   }
 
   // 테스트용 만료된 구독 설정
@@ -354,7 +354,7 @@ class SubscriptionService {
       // 멤버십 티어 결정
       String membershipTier = 'free';
       if (subscription.isActive && !subscription.isExpired) {
-        membershipTier = 'premium';
+        membershipTier = 'plus';
       }
 
       await ProfileService.instance.updateMembership(
@@ -383,7 +383,7 @@ class SubscriptionService {
       if (profile == null) return;
 
       // Supabase의 멤버십 정보가 더 최신이면 로컬에 반영
-      if (profile.membershipTier == 'premium' &&
+      if (profile.membershipTier == 'plus' &&
           profile.membershipExpiresAt != null) {
 
         // 로컬 구독과 비교

@@ -8,7 +8,7 @@ class UserProfile {
   final DateTime updatedAt;
 
   // 멤버십 정보
-  final String membershipTier; // 'free', 'basic', 'premium', 'enterprise'
+  final String membershipTier; // 'free', 'plus', 'pro'
   final DateTime? membershipExpiresAt;
   final bool isActive;
 

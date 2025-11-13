@@ -21,7 +21,38 @@ class _MembershipScreenState extends State<MembershipScreen> {
       provider.initialize();
       // 만료 확인
       provider.checkExpiration();
+
+      // 구독 상태 변경 리스닝
+      provider.addListener(_onSubscriptionChanged);
     });
+  }
+
+  @override
+  void dispose() {
+    final provider = context.read<SubscriptionProvider>();
+    provider.removeListener(_onSubscriptionChanged);
+    super.dispose();
+  }
+
+  bool _previousSubscriptionStatus = false;
+
+  void _onSubscriptionChanged() {
+    final provider = context.read<SubscriptionProvider>();
+    final currentStatus = provider.hasActiveSubscription;
+
+    // 구독 상태가 false → true로 변경되었을 때만 알림 표시
+    if (!_previousSubscriptionStatus && currentStatus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showSuccessDialog(
+            '구독이 완료되었습니다!',
+            'Plus 기능을 무제한으로 이용하실 수 있습니다.',
+          );
+        }
+      });
+    }
+
+    _previousSubscriptionStatus = currentStatus;
   }
 
   @override
@@ -81,7 +112,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  hasActive ? '프리미엄 멤버십' : '무료 플랜',
+                  hasActive ? 'Plus 멤버십' : '무료 플랜',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -152,7 +183,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
               ],
             ] else ...[
               Text(
-                '프리미엄 멤버십을 구독하고\n모든 기능을 무제한으로 이용하세요!',
+                'Plus 멤버십을 구독하고\n모든 기능을 무제한으로 이용하세요!',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[700],
@@ -201,7 +232,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '프리미엄 혜택',
+              'Plus 혜택',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -320,12 +351,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     final success = await provider.purchaseSubscription();
                     if (mounted) {
                       if (success) {
-                        _showSuccessDialog('구독이 완료되었습니다!',
-                            '프리미엄 기능을 무제한으로 이용하실 수 있습니다.');
+                        // 구매 요청이 시작됨 - 실제 완료는 백그라운드에서 처리됨
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('결제 화면으로 이동합니다...'),
+                            duration: Duration(seconds: 2),
+                            backgroundColor: Color(0xFF1976D2),
+                          ),
+                        );
                       } else {
                         _showErrorDialog(
                           '구독 실패',
-                          provider.errorMessage ?? '구독 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.',
+                          provider.errorMessage ?? '구독 상품을 불러올 수 없습니다.\n네트워크 연결을 확인하고 다시 시도해주세요.',
                         );
                       }
                     }
@@ -341,7 +378,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   )
                 : const Icon(Icons.shopping_cart),
             label: Text(
-              provider.isLoading ? '처리 중...' : '프리미엄 구독하기',
+              provider.isLoading ? '처리 중...' : 'Plus 구독하기',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(

@@ -21,11 +21,44 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
   Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
 
+  // 전체 주의 스크롤을 동기화하기 위한 컨트롤러
+  final ScrollController _masterScrollController = ScrollController();
+  final Map<int, ScrollController> _dayScrollControllers = {};
+
   @override
   void initState() {
     super.initState();
     _loadSchedules();
     _loadColors();
+    _initScrollControllers();
+  }
+
+  void _initScrollControllers() {
+    // 각 날짜별 스크롤 컨트롤러 생성 및 동기화
+    for (int i = 0; i < 7; i++) {
+      _dayScrollControllers[i] = ScrollController();
+      _dayScrollControllers[i]!.addListener(() => _syncScroll(i));
+    }
+  }
+
+  void _syncScroll(int dayIndex) {
+    final controller = _dayScrollControllers[dayIndex];
+    if (controller == null || !controller.hasClients) return;
+
+    final offset = controller.offset;
+
+    // 다른 모든 날짜의 스크롤을 동기화
+    for (int i = 0; i < 7; i++) {
+      if (i != dayIndex && _dayScrollControllers[i] != null) {
+        final otherController = _dayScrollControllers[i]!;
+        if (otherController.hasClients && otherController.offset != offset) {
+          otherController.jumpTo(offset.clamp(
+            0.0,
+            otherController.position.maxScrollExtent,
+          ));
+        }
+      }
+    }
   }
 
   Future<void> _loadColors() async {
@@ -38,6 +71,10 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
 
   @override
   void dispose() {
+    _masterScrollController.dispose();
+    for (var controller in _dayScrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -237,6 +274,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         day.month == today.month &&
         day.day == today.day;
     final schedules = _getSchedulesForDay(day);
+    final hasMoreSchedules = schedules.length > 4; // 4개 초과 시 더보기 표시
 
     return Container(
       decoration: BoxDecoration(
@@ -313,15 +351,59 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                       ),
                     ),
                   )
-                : SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: schedules.length,
-                      itemBuilder: (context, index) {
-                        return _buildScheduleCard(schedules[index]);
-                      },
-                    ),
+                : Stack(
+                    children: [
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          controller: _dayScrollControllers[dayIndex],
+                          scrollDirection: Axis.horizontal,
+                          itemCount: schedules.length,
+                          itemBuilder: (context, index) {
+                            return _buildScheduleCard(schedules[index]);
+                          },
+                        ),
+                      ),
+                      // 더보기 인디케이터 (4개 초과 시)
+                      if (hasMoreSchedules)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  Colors.transparent,
+                                  (isToday ? Colors.blue.withValues(alpha: 0.05) : Colors.white).withValues(alpha: 0.9),
+                                ],
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: Colors.blue.shade700,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '+${schedules.length - 4}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
           ),
         ],

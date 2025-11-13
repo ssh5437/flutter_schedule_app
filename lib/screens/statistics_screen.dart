@@ -433,7 +433,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
-                '프리미엄 기능',
+                'Plus 기능',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
@@ -463,7 +463,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                       Icon(Icons.star, color: Colors.blue[700], size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        '프리미엄 회원 혜택',
+                        'Plus 회원 혜택',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

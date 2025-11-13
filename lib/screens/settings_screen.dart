@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // 멤버십 상태에 따라 기간 선택 다이얼로그 표시
     if (hasActiveSubscription) {
-      // 프리미엄: 기간 선택 또는 전체 백업
+      // Plus: 기간 선택 또는 전체 백업
       final result = await _showPremiumBackupDialog();
       if (result == null) return; // 취소
 
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        '프리미엄 회원은 과거 데이터까지 기간을 선택하거나 전체 백업이 가능합니다.',
+                        'Plus 회원은 과거 데이터까지 기간을 선택하거나 전체 백업이 가능합니다.',
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -320,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // 프리미엄 사용자 백업 다이얼로그
+  // Plus 사용자 백업 다이얼로그
   Future<Map<String, dynamic>?> _showPremiumBackupDialog() async {
     DateTime? startDate;
     DateTime? endDate;
@@ -348,7 +348,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    '프리미엄 백업',
+                    'Plus 백업',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -643,7 +643,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.card_membership),
             title: const Text('멤버십 관리'),
-            subtitle: const Text('프리미엄 구독 및 혜택'),
+            subtitle: const Text('Plus 구독 및 혜택'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
               Navigator.push(

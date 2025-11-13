@@ -267,7 +267,7 @@ class _DebugScreenState extends State<DebugScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '현재 상태: ${hasActive ? "✅ 프리미엄" : "❌ 무료"}',
+                    '현재 상태: ${hasActive ? "✅ Plus" : "❌ 무료"}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -315,7 +315,7 @@ class _DebugScreenState extends State<DebugScreen> {
               child: ElevatedButton.icon(
                 onPressed: () => _enableTestPremium(subscriptionProvider),
                 icon: const Icon(Icons.star),
-                label: const Text('테스트 프리미엄 활성화'),
+                label: const Text('테스트 Plus 활성화'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -363,7 +363,7 @@ class _DebugScreenState extends State<DebugScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '테스트 모드는 실제 구글 플레이 구매 없이 프리미엄 기능을 테스트할 수 있습니다. 로컬 DB와 Supabase에 모두 동기화됩니다.',
+                      '테스트 모드는 실제 구글 플레이 구매 없이 Plus 기능을 테스트할 수 있습니다. 로컬 DB와 Supabase에 모두 동기화됩니다.',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.blue[900],
@@ -393,7 +393,7 @@ class _DebugScreenState extends State<DebugScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ 테스트 프리미엄이 활성화되었습니다!'),
+            content: Text('✅ 테스트 Plus가 활성화되었습니다!'),
             backgroundColor: Colors.green,
           ),
         );

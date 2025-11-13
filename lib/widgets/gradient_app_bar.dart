@@ -71,7 +71,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                         Icon(Icons.workspace_premium, color: Color(0xFF579bf2), size: 14),
                         SizedBox(width: 4),
                         Text(
-                          'Premium',
+                          'Plus',
                           style: TextStyle(
                             fontSize: 11,
                             color: Color(0xFF579bf2),
