@@ -230,8 +230,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
             _buildBenefitItem(
               Icons.sms,
-              '자동 문자 발송 기능',
-              '확정된 스케줄, 다음날 스케줄 자동 문자 발송',
+              '백업 기간 지정 가능',
+              '과거의 스케줄까지 백업 가능',
             ),
             const SizedBox(height: 16),
             Container(

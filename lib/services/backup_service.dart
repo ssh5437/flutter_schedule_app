@@ -10,13 +10,38 @@ import '../models/schedule.dart';
 import '../models/company.dart';
 
 class BackupService {
-  // 백업 데이터 생성
-  Future<Map<String, dynamic>> createBackupData() async {
+  // 백업 데이터 생성 (기간 필터 추가)
+  Future<Map<String, dynamic>> createBackupData({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     final db = DatabaseHelper.instance;
     final userId = Supabase.instance.client.auth.currentUser!.id;
 
     // 모든 스케줄 조회
-    final schedules = await db.readAllSchedules(userId);
+    var schedules = await db.readAllSchedules(userId);
+
+    // 기간 필터링 (startDate와 endDate가 제공된 경우)
+    if (startDate != null || endDate != null) {
+      schedules = schedules.where((schedule) {
+        final scheduleDate = schedule.visitDate ?? schedule.requestDate;
+
+        // startDate 체크
+        if (startDate != null && scheduleDate.isBefore(startDate)) {
+          return false;
+        }
+
+        // endDate 체크 (endDate의 23:59:59까지 포함)
+        if (endDate != null) {
+          final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+          if (scheduleDate.isAfter(endOfDay)) {
+            return false;
+          }
+        }
+
+        return true;
+      }).toList();
+    }
 
     // 모든 업체 조회
     final companies = await db.readAllCompanies(userId);
@@ -33,10 +58,10 @@ class BackupService {
   }
 
   // 백업 파일 생성 및 공유
-  Future<File> exportBackup() async {
+  Future<File> exportBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
       // 백업 데이터 생성
-      final backupData = await createBackupData();
+      final backupData = await createBackupData(startDate: startDate, endDate: endDate);
 
       // JSON 문자열로 변환
       final jsonString = const JsonEncoder.withIndent('  ').convert(backupData);
@@ -58,9 +83,9 @@ class BackupService {
   }
 
   // 백업 파일 공유하기
-  Future<void> shareBackup() async {
+  Future<void> shareBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
-      final file = await exportBackup();
+      final file = await exportBackup(startDate: startDate, endDate: endDate);
 
       // 파일 공유
       await Share.shareXFiles(
@@ -74,9 +99,9 @@ class BackupService {
   }
 
   // 백업 파일 다운로드 (Downloads 폴더에 저장)
-  Future<String> downloadBackup() async {
+  Future<String> downloadBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
-      final file = await exportBackup();
+      final file = await exportBackup(startDate: startDate, endDate: endDate);
 
       // 다운로드 디렉토리 가져오기
       Directory? downloadDir;

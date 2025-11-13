@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/widget_service.dart';
@@ -9,6 +10,7 @@ import '../widgets/gradient_app_bar.dart';
 import 'notification_settings_screen.dart';
 import 'membership_screen.dart';
 import 'debug_screen.dart';
+import '../providers/subscription_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -168,7 +170,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 백업 실행
   Future<void> _performBackup() async {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
+
+    DateTime? startDate;
+    DateTime? endDate;
+
+    // 멤버십 상태에 따라 기간 선택 다이얼로그 표시
+    if (hasActiveSubscription) {
+      // 프리미엄: 기간 선택 또는 전체 백업
+      final result = await _showPremiumBackupDialog();
+      if (result == null) return; // 취소
+
+      startDate = result['startDate'] as DateTime?;
+      endDate = result['endDate'] as DateTime?;
+    } else {
+      // 무료: 이번 달 1일 이후 데이터 백업 가능
+      final now = DateTime.now();
+      startDate = DateTime(now.year, now.month, 1); // 이번 달 1일
+      endDate = DateTime(now.year, 12, 31); // 올해 12월 31일
+
+      // 무료 사용자에게 제한 안내
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.lock, color: Colors.orange[700], size: 28),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '무료 회원 백업',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '무료 회원은 이번 달 1일 이후의 데이터만 백업할 수 있습니다.\n\n기간: ${DateFormat('yyyy-MM-dd').format(startDate!)} ~ ${DateFormat('yyyy-MM-dd').format(endDate!)}',
+                style: const TextStyle(fontSize: 16, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.blue[700], size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        '프리미엄 회원은 과거 데이터까지 기간을 선택하거나 전체 백업이 가능합니다.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1976D2),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('백업 시작'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+    }
+
     try {
+      if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -178,7 +277,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       final backupService = BackupService();
-      final filePath = await backupService.downloadBackup();
+      final filePath = await backupService.downloadBackup(
+        startDate: startDate,
+        endDate: endDate,
+      );
 
       if (!mounted) return;
       Navigator.pop(context); // 로딩 닫기
@@ -203,7 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       if (shouldShare == true) {
-        await backupService.shareBackup();
+        await backupService.shareBackup(startDate: startDate, endDate: endDate);
       }
     } catch (e) {
       if (!mounted) return;
@@ -216,6 +318,144 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
+  }
+
+  // 프리미엄 사용자 백업 다이얼로그
+  Future<Map<String, dynamic>?> _showPremiumBackupDialog() async {
+    DateTime? startDate;
+    DateTime? endDate;
+    bool isAllData = false;
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.workspace_premium, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '프리미엄 백업',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  title: const Text('전체 데이터 백업'),
+                  subtitle: const Text('모든 기간의 데이터를 백업합니다'),
+                  value: isAllData,
+                  onChanged: (value) {
+                    setState(() {
+                      isAllData = value;
+                      if (value) {
+                        startDate = null;
+                        endDate = null;
+                      }
+                    });
+                  },
+                ),
+                if (!isAllData) ...[
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '기간 선택',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: startDate ?? DateTime.now(),
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null) {
+                              setState(() => startDate = picked);
+                            }
+                          },
+                          child: Text(
+                            startDate != null
+                                ? DateFormat('yyyy-MM-dd').format(startDate!)
+                                : '시작일',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('~'),
+                      ),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: endDate ?? DateTime.now(),
+                              firstDate: startDate ?? DateTime(2020),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null) {
+                              setState(() => endDate = picked);
+                            }
+                          },
+                          child: Text(
+                            endDate != null
+                                ? DateFormat('yyyy-MM-dd').format(endDate!)
+                                : '종료일',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, {
+                    'startDate': startDate,
+                    'endDate': endDate,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text('백업 시작'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // 백업 복구

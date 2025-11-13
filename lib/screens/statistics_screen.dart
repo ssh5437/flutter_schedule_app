@@ -168,7 +168,52 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 38,
-        title: const Text('매출 통계', style: TextStyle(fontSize: 18)),
+        title: Consumer<SubscriptionProvider>(
+          builder: (context, subscriptionProvider, child) {
+            final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
+
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('매출 통계', style: TextStyle(fontSize: 18)),
+                if (hasActiveSubscription) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.workspace_premium, color: Colors.white, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'Premium',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -432,7 +477,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   _buildBenefitItem('업체 추가 무제한'),
                   _buildBenefitItem('AI 텍스트 추출 무제한'),
                   _buildBenefitItem('매출 통계 기간 변경 가능'),
-                  _buildBenefitItem('자동 문자 발송 기능 '),
+                  _buildBenefitItem('과거 스케줄 백업 기능 '),
                   _buildBenefitItem('광고 제거'),
                 ],
               ),
