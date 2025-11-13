@@ -30,7 +30,8 @@
       "Bash(supabase functions logs:*)",
       "Bash(./gradlew assembleRelease:*)",
       "Bash(git config:*)",
-      "Bash(chcp 65001)"
+      "Bash(chcp 65001)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

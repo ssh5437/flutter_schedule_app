@@ -445,8 +445,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: const Color(0xFF579bf2),
-                  backgroundColor: Colors.white,                  
+                  backgroundColor: const Color(0xFF1976D2),
+                  foregroundColor: Colors.white,       
                 ),
                 child: const Text('백업 시작'),
               ),
