@@ -55,13 +55,11 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.orange.withValues(alpha: 0.3),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -70,13 +68,13 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.workspace_premium, color: Colors.white, size: 14),
+                        Icon(Icons.workspace_premium, color: Color(0xFF579bf2), size: 14),
                         SizedBox(width: 4),
                         Text(
                           'Premium',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white,
+                            color: Color(0xFF579bf2),
                             fontWeight: FontWeight.bold,
                           ),
                         ),

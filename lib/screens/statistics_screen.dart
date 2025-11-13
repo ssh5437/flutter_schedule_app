@@ -31,10 +31,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   @override
   void initState() {
     super.initState();
-    // 기본 기간: 이번 달 1일부터 오늘까지
+    // 기본 기간: 이번 달 1일부터 어제까지
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
-    _endDate = now;
+    _endDate = now.subtract(const Duration(days: 1));
     _loadTabConfigs();
   }
 
@@ -181,13 +181,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                      ),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.orange.withValues(alpha: 0.3),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -196,13 +194,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.workspace_premium, color: Colors.white, size: 14),
+                        Icon(Icons.workspace_premium, color: Color(0xFF579bf2), size: 14),
                         SizedBox(width: 4),
                         Text(
                           'Premium',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white,
+                            color: Color(0xFF579bf2),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -358,7 +356,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
               const SizedBox(width: 4),
               ElevatedButton(
-                onPressed: hasActiveSubscription ? _setLastMonth : _showMembershipRequiredDialog,
+                onPressed: hasActiveSubscription ? _setThisMonth : _showMembershipRequiredDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7eb3f5),
                   foregroundColor: Colors.white,
@@ -369,7 +367,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text('지난달', style: TextStyle(fontSize: 12)),
+                child: const Text('이번달', style: TextStyle(fontSize: 12)),
               ),
               const SizedBox(width: 4),
               ElevatedButton(
@@ -384,7 +382,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text('이번년', style: TextStyle(fontSize: 12)),
+                child: Text('${DateTime.now().year}년', style: const TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -395,22 +393,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
 
   void _setThisYear() {
     final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
     final firstDayOfYear = DateTime(now.year, 1, 1);
 
     setState(() {
       _startDate = firstDayOfYear;
-      _endDate = now;
+      _endDate = yesterday;
     });
   }
 
-  void _setLastMonth() {
+  void _setThisMonth() {
     final now = DateTime.now();
-    final firstDayOfLastMonth = DateTime(now.year, now.month - 1, 1);
-    final lastDayOfLastMonth = DateTime(now.year, now.month, 0);
+    final yesterday = now.subtract(const Duration(days: 1));
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
 
     setState(() {
-      _startDate = firstDayOfLastMonth;
-      _endDate = lastDayOfLastMonth;
+      _startDate = firstDayOfMonth;
+      _endDate = yesterday;
     });
   }
 

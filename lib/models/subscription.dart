@@ -183,7 +183,7 @@ class SubscriptionProduct {
     id: monthlySubscriptionId,
     title: '월간 멤버십',
     description: 'BizPlan 프리미엄 기능 무제한 사용',
-    price: '9,900',
+    price: '5,900',
     currency: 'KRW',
     durationMonths: 1,
   );

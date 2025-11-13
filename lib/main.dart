@@ -295,7 +295,7 @@ class _MainScreenState extends State<MainScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
+        selectedItemColor: const Color(0xFF579bf2),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.list),

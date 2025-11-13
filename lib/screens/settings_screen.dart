@@ -339,12 +339,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                    ),
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF579bf2), width: 2),
                   ),
-                  child: const Icon(Icons.workspace_premium, color: Colors.white, size: 24),
+                  child: const Icon(Icons.workspace_premium, color: Color(0xFF579bf2), size: 24),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -414,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               context: context,
                               initialDate: endDate ?? DateTime.now(),
                               firstDate: startDate ?? DateTime(2020),
-                              lastDate: DateTime.now(),
+                              lastDate: DateTime(2100),
                             );
                             if (picked != null) {
                               setState(() => endDate = picked);
@@ -446,8 +445,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFD700),
-                  foregroundColor: Colors.black,
+                  foregroundColor: const Color(0xFF579bf2),
+                  backgroundColor: Colors.white,                  
                 ),
                 child: const Text('백업 시작'),
               ),

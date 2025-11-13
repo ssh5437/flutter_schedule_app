@@ -95,7 +95,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
@@ -132,7 +132,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: Colors.orange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.orange),
                   ),
@@ -174,7 +174,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           label,
           style: TextStyle(
             fontSize: 14,
-            color: valueColor.withOpacity(0.8),
+            color: valueColor.withValues(alpha: 0.8),
           ),
         ),
         Text(
@@ -224,14 +224,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
               '과거의 매출까지 통계 및 분석',
             ),
             _buildBenefitItem(
-              Icons.block,
-              '광고 제거',
-              '텍스트 추출, 백업 기능 등에 광고 제거',
-            ),
-            _buildBenefitItem(
               Icons.sms,
               '백업 기간 지정 가능',
               '과거의 스케줄까지 백업 가능',
+            ),
+            _buildBenefitItem(
+              Icons.block,
+              '광고 제거',
+              '텍스트 추출, 백업 기능 등에 광고 제거',
             ),
             const SizedBox(height: 16),
             Container(
