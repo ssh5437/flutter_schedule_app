@@ -303,7 +303,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
             // 업체명
             TextFormField(

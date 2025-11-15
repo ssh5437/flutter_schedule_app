@@ -84,7 +84,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveWidgetBackgroundColor(Color color) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('widget_background_color', color.toARGB32());
+    final colorValue = color.toARGB32();
+    await prefs.setInt('widget_background_color', colorValue);
+
+    // 디버그: 저장된 값 확인
+    debugPrint('위젯 배경색 저장: $colorValue (0x${colorValue.toRadixString(16)})');
+
     setState(() {
       _widgetBackgroundColor = color;
     });

@@ -238,7 +238,7 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
                   ),
                 )
               : ReorderableListView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                   itemCount: _companies.length,
                   onReorder: (oldIndex, newIndex) async {
                     setState(() {

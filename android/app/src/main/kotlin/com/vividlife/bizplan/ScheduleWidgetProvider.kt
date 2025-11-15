@@ -22,27 +22,41 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                 // SharedPreferences에서 데이터 읽기
                 val widgetData = HomeWidgetPlugin.getData(context)
 
-                // 배경색과 텍스트 색상 가져오기
+                // 디버그: 모든 위젯 데이터 키 출력
+                android.util.Log.d("ScheduleWidget", "=== All Widget Data Keys ===")
+                widgetData.all.forEach { (key, value) ->
+                    android.util.Log.d("ScheduleWidget", "Key: $key, Value: $value, Type: ${value?.javaClass?.simpleName}")
+                }
+                android.util.Log.d("ScheduleWidget", "===========================")
+
+                // 배경색과 텍스트 색상 가져오기 (home_widget는 Long 타입으로 저장함)
                 val backgroundColor = try {
-                    widgetData.getLong("widget_background_color", android.graphics.Color.WHITE.toLong()).toInt()
+                    val color = widgetData.getLong("widget_background_color", android.graphics.Color.WHITE.toLong()).toInt()
+                    android.util.Log.d("ScheduleWidget", "배경색 읽기: $color (0x${Integer.toHexString(color)})")
+                    color
                 } catch (e: Exception) {
+                    android.util.Log.e("ScheduleWidget", "배경색 읽기 실패: ${e.message}")
                     android.graphics.Color.WHITE
                 }
                 val textColor = try {
-                    widgetData.getLong("widget_text_color", android.graphics.Color.BLACK.toLong()).toInt()
+                    val color = widgetData.getLong("widget_text_color", android.graphics.Color.BLACK.toLong()).toInt()
+                    android.util.Log.d("ScheduleWidget", "텍스트색 읽기: $color (0x${Integer.toHexString(color)})")
+                    color
                 } catch (e: Exception) {
+                    android.util.Log.e("ScheduleWidget", "텍스트색 읽기 실패: ${e.message}")
                     android.graphics.Color.BLACK
                 }
 
                 // 위젯 배경색 설정
                 views.setInt(R.id.widget_root, "setBackgroundColor", backgroundColor)
+                android.util.Log.d("ScheduleWidget", "배경색 적용 완료: 0x${Integer.toHexString(backgroundColor)}")
 
                 // 날짜 정보 설정 (기본값 제공)
                 val currentMonth = widgetData.getString("current_month", "월")
                 val currentDate = widgetData.getString("current_date", "0")
                 val currentDay = widgetData.getString("current_day", "요일")
                 val scheduleCount = try {
-                    widgetData.getLong("schedule_count", 0).toInt()
+                    widgetData.getInt("schedule_count", 0)
                 } catch (e: Exception) {
                     0
                 }
@@ -72,7 +86,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     val title1 = widgetData.getString("schedule_0_title", "스케줄") ?: "스케줄"
                     val status1 = widgetData.getString("schedule_0_status", "예정") ?: "예정"
                     val scheduleId1 = try {
-                        widgetData.getLong("schedule_0_id", 0).toInt()
+                        widgetData.getInt("schedule_0_id", 0)
                     } catch (e: Exception) {
                         0
                     }
@@ -115,7 +129,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     val title2 = widgetData.getString("schedule_1_title", "스케줄") ?: "스케줄"
                     val status2 = widgetData.getString("schedule_1_status", "예정") ?: "예정"
                     val scheduleId2 = try {
-                        widgetData.getLong("schedule_1_id", 0).toInt()
+                        widgetData.getInt("schedule_1_id", 0)
                     } catch (e: Exception) {
                         0
                     }
@@ -157,7 +171,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     val title3 = widgetData.getString("schedule_2_title", "스케줄") ?: "스케줄"
                     val status3 = widgetData.getString("schedule_2_status", "예정") ?: "예정"
                     val scheduleId3 = try {
-                        widgetData.getLong("schedule_2_id", 0).toInt()
+                        widgetData.getInt("schedule_2_id", 0)
                     } catch (e: Exception) {
                         0
                     }

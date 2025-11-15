@@ -31,7 +31,8 @@
       "Bash(./gradlew assembleRelease:*)",
       "Bash(git config:*)",
       "Bash(chcp 65001)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": [],
     "ask": []

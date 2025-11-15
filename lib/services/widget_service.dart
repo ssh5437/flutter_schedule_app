@@ -31,12 +31,17 @@ class WidgetService {
       final prefs = await SharedPreferences.getInstance();
       final backgroundColor = prefs.getInt('widget_background_color') ?? 0xFFFFFFFF;
 
+      // 디버그: 로드된 값 확인
+      debugPrint('위젯 배경색 로드: $backgroundColor (0x${backgroundColor.toRadixString(16)})');
+
       // 텍스트 색상 계산
       final textColor = _getTextColorForBackground(backgroundColor);
 
       // 배경색과 텍스트 색상 저장
       await HomeWidget.saveWidgetData<int>('widget_background_color', backgroundColor);
       await HomeWidget.saveWidgetData<int>('widget_text_color', textColor);
+
+      debugPrint('HomeWidget에 저장 완료 - 배경색: $backgroundColor, 텍스트색: $textColor');
       // 오늘 날짜 가져오기
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);

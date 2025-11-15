@@ -655,6 +655,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               filled: true,
                               fillColor: Colors.grey[50],
                             ),
+                            menuMaxHeight: 300, // 드롭다운 최대 높이 제한
                             items: _companies.map((company) {
                               return DropdownMenuItem(
                                 value: company,

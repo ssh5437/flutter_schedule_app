@@ -13,32 +13,33 @@ class MembershipScreen extends StatefulWidget {
 }
 
 class _MembershipScreenState extends State<MembershipScreen> {
+  bool _previousSubscriptionStatus = false;
+  SubscriptionProvider? _subscriptionProvider;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<SubscriptionProvider>();
-      provider.initialize();
+      _subscriptionProvider = context.read<SubscriptionProvider>();
+      _subscriptionProvider!.initialize();
       // 만료 확인
-      provider.checkExpiration();
+      _subscriptionProvider!.checkExpiration();
 
       // 구독 상태 변경 리스닝
-      provider.addListener(_onSubscriptionChanged);
+      _subscriptionProvider!.addListener(_onSubscriptionChanged);
     });
   }
 
   @override
   void dispose() {
-    final provider = context.read<SubscriptionProvider>();
-    provider.removeListener(_onSubscriptionChanged);
+    _subscriptionProvider?.removeListener(_onSubscriptionChanged);
     super.dispose();
   }
 
-  bool _previousSubscriptionStatus = false;
-
   void _onSubscriptionChanged() {
-    final provider = context.read<SubscriptionProvider>();
-    final currentStatus = provider.hasActiveSubscription;
+    if (_subscriptionProvider == null) return;
+
+    final currentStatus = _subscriptionProvider!.hasActiveSubscription;
 
     // 구독 상태가 false → true로 변경되었을 때만 알림 표시
     if (!_previousSubscriptionStatus && currentStatus) {

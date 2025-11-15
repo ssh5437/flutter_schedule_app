@@ -24,20 +24,34 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                 // SharedPreferences에서 데이터 읽기
                 val widgetData = HomeWidgetPlugin.getData(context)
 
-                // 배경색과 텍스트 색상 가져오기
+                // 디버그: 모든 위젯 데이터 키 출력
+                Log.d("ScheduleWidgetLarge", "=== All Widget Data Keys ===")
+                widgetData.all.forEach { (key, value) ->
+                    Log.d("ScheduleWidgetLarge", "Key: $key, Value: $value, Type: ${value?.javaClass?.simpleName}")
+                }
+                Log.d("ScheduleWidgetLarge", "===========================")
+
+                // 배경색과 텍스트 색상 가져오기 (home_widget는 Long 타입으로 저장함)
                 val backgroundColor = try {
-                    widgetData.getInt("widget_background_color", android.graphics.Color.WHITE)
+                    val color = widgetData.getLong("widget_background_color", android.graphics.Color.WHITE.toLong()).toInt()
+                    Log.d("ScheduleWidgetLarge", "배경색 읽기: $color (0x${Integer.toHexString(color)})")
+                    color
                 } catch (e: Exception) {
+                    Log.e("ScheduleWidgetLarge", "배경색 읽기 실패: ${e.message}")
                     android.graphics.Color.WHITE
                 }
                 val textColor = try {
-                    widgetData.getInt("widget_text_color", android.graphics.Color.BLACK)
+                    val color = widgetData.getLong("widget_text_color", android.graphics.Color.BLACK.toLong()).toInt()
+                    Log.d("ScheduleWidgetLarge", "텍스트색 읽기: $color (0x${Integer.toHexString(color)})")
+                    color
                 } catch (e: Exception) {
+                    Log.e("ScheduleWidgetLarge", "텍스트색 읽기 실패: ${e.message}")
                     android.graphics.Color.BLACK
                 }
 
                 // 위젯 배경색 설정
                 views.setInt(R.id.widget_root_large, "setBackgroundColor", backgroundColor)
+                Log.d("ScheduleWidgetLarge", "배경색 적용 완료: 0x${Integer.toHexString(backgroundColor)}")
 
                 // 월 표시
                 val currentMonth = widgetData.getString("calendar_month", "2025년 1월") ?: "2025년 1월"
