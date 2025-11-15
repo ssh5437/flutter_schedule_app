@@ -195,6 +195,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       startDate = DateTime(now.year, now.month, 1); // 이번 달 1일
       endDate = DateTime(now.year, 12, 31); // 올해 12월 31일
 
+      // 백업 제한 확인
+      final backupService = BackupService();
+      final limitCheck = await backupService.checkBackupLimit();
+
+      if (!mounted) return;
+
       // 무료 사용자에게 제한 안내
       final confirmed = await showDialog<bool>(
         context: context,
@@ -229,6 +235,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: const TextStyle(fontSize: 16, height: 1.5),
               ),
               const SizedBox(height: 16),
+              // 백업 횟수 제한 안내
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '백업 횟수 제한',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '오늘: ${limitCheck['dailyCount']}/${limitCheck['dailyLimit']}회 사용\n이번 달: ${limitCheck['monthlyCount']}/${limitCheck['monthlyLimit']}회 사용',
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -242,7 +278,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Plus 회원은 과거 데이터까지 기간을 선택하거나 전체 백업이 가능합니다.',
+                        'Plus 회원은 과거 데이터까지 기간을 선택하거나 전체 백업 및 무제한 백업이 가능합니다.',
                         style: TextStyle(fontSize: 12),
                       ),
                     ),

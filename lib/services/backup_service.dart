@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
@@ -13,6 +14,10 @@ import '../models/company.dart';
 class BackupService {
   // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
   static const String _secretKey = 'bizplan_backup_secret_key_v1_2025';
+
+  // 무료 사용자 백업 제한
+  static const int _maxDailyBackups = 3;  // 하루 최대 3회
+  static const int _maxMonthlyBackups = 10; // 한 달 최대 10회
 
   // 백업 데이터에 서명 생성
   String _generateSignature(Map<String, dynamic> data) {
@@ -48,6 +53,112 @@ class BackupService {
     final calculatedSignature = _generateSignature(data);
 
     return providedSignature == calculatedSignature;
+  }
+
+  // 사용자의 구독 상태 확인
+  Future<bool> _isPremiumUser() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final response = await Supabase.instance.client
+          .from('user_profiles')
+          .select('membership_tier, membership_expires_at')
+          .eq('id', userId)
+          .single();
+
+      final membershipTier = response['membership_tier'] as String?;
+      final expiresAtStr = response['membership_expires_at'] as String?;
+
+      // plus 사용자인지 확인
+      if (membershipTier != 'plus') return false;
+
+      // 만료일 확인
+      if (expiresAtStr != null) {
+        final expiresAt = DateTime.parse(expiresAtStr);
+        return expiresAt.isAfter(DateTime.now());
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('구독 상태 확인 실패: $e');
+      return false;
+    }
+  }
+
+  // 오늘 백업 횟수 확인
+  Future<int> _getTodayBackupCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final todayKey = '${today.year}-${today.month}-${today.day}';
+
+    // 저장된 날짜와 비교
+    final savedDate = prefs.getString('last_backup_date');
+    if (savedDate != todayKey) {
+      // 날짜가 다르면 카운트 초기화
+      await prefs.setString('last_backup_date', todayKey);
+      await prefs.setInt('daily_backup_count', 0);
+      return 0;
+    }
+
+    return prefs.getInt('daily_backup_count') ?? 0;
+  }
+
+  // 이번 달 백업 횟수 확인
+  Future<int> _getMonthlyBackupCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final monthKey = '${today.year}-${today.month}';
+
+    // 저장된 월과 비교
+    final savedMonth = prefs.getString('last_backup_month');
+    if (savedMonth != monthKey) {
+      // 월이 다르면 카운트 초기화
+      await prefs.setString('last_backup_month', monthKey);
+      await prefs.setInt('monthly_backup_count', 0);
+      return 0;
+    }
+
+    return prefs.getInt('monthly_backup_count') ?? 0;
+  }
+
+  // 백업 횟수 증가
+  Future<void> _incrementBackupCount() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 일일 카운트 증가
+    final dailyCount = await _getTodayBackupCount();
+    await prefs.setInt('daily_backup_count', dailyCount + 1);
+
+    // 월간 카운트 증가
+    final monthlyCount = await _getMonthlyBackupCount();
+    await prefs.setInt('monthly_backup_count', monthlyCount + 1);
+  }
+
+  // 백업 가능 여부 확인 (무료 사용자 제한)
+  Future<Map<String, dynamic>> checkBackupLimit() async {
+    // 프리미엄 사용자는 제한 없음
+    if (await _isPremiumUser()) {
+      return {
+        'canBackup': true,
+        'isPremium': true,
+      };
+    }
+
+    // 무료 사용자: 제한 확인
+    final dailyCount = await _getTodayBackupCount();
+    final monthlyCount = await _getMonthlyBackupCount();
+
+    final canBackup = dailyCount < _maxDailyBackups && monthlyCount < _maxMonthlyBackups;
+
+    return {
+      'canBackup': canBackup,
+      'isPremium': false,
+      'dailyCount': dailyCount,
+      'dailyLimit': _maxDailyBackups,
+      'monthlyCount': monthlyCount,
+      'monthlyLimit': _maxMonthlyBackups,
+    };
   }
 
   // 백업 데이터 생성 (기간 필터 추가)
@@ -103,6 +214,22 @@ class BackupService {
   // 백업 파일 생성 및 공유
   Future<File> exportBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
+      // 백업 제한 확인
+      final limitCheck = await checkBackupLimit();
+
+      if (!limitCheck['canBackup']) {
+        if (limitCheck['isPremium'] == false) {
+          final dailyCount = limitCheck['dailyCount'];
+          final monthlyCount = limitCheck['monthlyCount'];
+
+          if (dailyCount >= _maxDailyBackups) {
+            throw Exception('오늘의 백업 횟수를 모두 사용했습니다. ($dailyCount/$_maxDailyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
+          } else if (monthlyCount >= _maxMonthlyBackups) {
+            throw Exception('이번 달 백업 횟수를 모두 사용했습니다. ($monthlyCount/$_maxMonthlyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
+          }
+        }
+      }
+
       // 백업 데이터 생성
       final backupData = await createBackupData(startDate: startDate, endDate: endDate);
 
@@ -118,6 +245,11 @@ class BackupService {
 
       // 파일 저장
       await file.writeAsString(jsonString);
+
+      // 백업 성공 후 카운트 증가 (무료 사용자만)
+      if (limitCheck['isPremium'] == false) {
+        await _incrementBackupCount();
+      }
 
       return file;
     } catch (e) {
