@@ -5,11 +5,51 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:crypto/crypto.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 
 class BackupService {
+  // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
+  static const String _secretKey = 'bizplan_backup_secret_key_v1_2025';
+
+  // 백업 데이터에 서명 생성
+  String _generateSignature(Map<String, dynamic> data) {
+    // signature 필드를 제외한 데이터를 정렬된 JSON 문자열로 변환
+    final dataWithoutSignature = Map<String, dynamic>.from(data);
+    dataWithoutSignature.remove('signature');
+
+    // 정렬된 JSON 문자열 생성 (일관성을 위해)
+    final sortedKeys = dataWithoutSignature.keys.toList()..sort();
+    final sortedData = <String, dynamic>{};
+    for (final key in sortedKeys) {
+      sortedData[key] = dataWithoutSignature[key];
+    }
+
+    final jsonString = jsonEncode(sortedData);
+
+    // HMAC-SHA256으로 서명 생성
+    final key = utf8.encode(_secretKey);
+    final bytes = utf8.encode(jsonString);
+    final hmac = Hmac(sha256, key);
+    final digest = hmac.convert(bytes);
+
+    return digest.toString();
+  }
+
+  // 백업 파일 서명 검증
+  bool _verifySignature(Map<String, dynamic> data) {
+    if (!data.containsKey('signature')) {
+      return false;
+    }
+
+    final providedSignature = data['signature'] as String;
+    final calculatedSignature = _generateSignature(data);
+
+    return providedSignature == calculatedSignature;
+  }
+
   // 백업 데이터 생성 (기간 필터 추가)
   Future<Map<String, dynamic>> createBackupData({
     DateTime? startDate,
@@ -53,6 +93,9 @@ class BackupService {
       'schedules': schedules.map((s) => s.toMap()).toList(),
       'companies': companies.map((c) => c.toMap()).toList(),
     };
+
+    // 서명 추가
+    backupData['signature'] = _generateSignature(backupData);
 
     return backupData;
   }
@@ -141,8 +184,16 @@ class BackupService {
         throw Exception('유효하지 않은 백업 파일입니다');
       }
 
+      // 서명 검증
+      if (!_verifySignature(backupData)) {
+        throw Exception('유효하지 않은 백업 파일입니다.\n앱에서 생성된 정식 백업 파일만 복원할 수 있습니다.');
+      }
+
       return backupData;
     } catch (e) {
+      if (e.toString().contains('유효하지 않은 백업 파일')) {
+        rethrow;
+      }
       throw Exception('백업 파일 읽기 실패: $e');
     }
   }
