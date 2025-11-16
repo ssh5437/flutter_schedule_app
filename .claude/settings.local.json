@@ -34,7 +34,8 @@
       "Bash(git push:*)",
       "Bash(./gradlew:*)",
       "Bash(nul)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(flutterfire configure:*)"
     ],
     "deny": [],
     "ask": []
