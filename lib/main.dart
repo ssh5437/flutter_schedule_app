@@ -73,10 +73,19 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void _handleAuthCallback(Uri uri) {
-    // Supabase가 인증 콜백을 자동으로 처리합니다
-    // uri를 통해 전달된 토큰을 Supabase가 자동으로 세션에 저장합니다
+  Future<void> _handleAuthCallback(Uri uri) async {
     debugPrint('Deep Link received: $uri');
+
+    // OAuth 콜백 처리
+    if (uri.host == 'login-callback') {
+      try {
+        // Supabase가 URL의 토큰을 파싱하고 세션을 생성합니다
+        // supabase_flutter 2.x에서는 자동으로 처리됨
+        debugPrint('OAuth callback processed successfully');
+      } catch (e) {
+        debugPrint('Error processing OAuth callback: $e');
+      }
+    }
   }
 
   // 사용자 프로필 확인 및 생성

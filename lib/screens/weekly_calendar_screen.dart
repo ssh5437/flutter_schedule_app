@@ -242,30 +242,36 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Widget _buildScheduleList(List<DateTime> weekDays, double dayHeight) {
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        controller: _horizontalScrollController,
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 왼쪽: 날짜 헤더 (고정)
-            Column(
-              children: weekDays.asMap().entries.map((entry) {
-                final index = entry.key;
-                final day = entry.value;
-                return _buildDateHeader(day, index, dayHeight);
-              }).toList(),
-            ),
-            // 오른쪽: 모든 요일의 스케줄 (가로 스크롤)
-            Column(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          controller: _horizontalScrollController,
+          scrollDirection: Axis.horizontal,
+          child: IntrinsicWidth(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: weekDays.asMap().entries.map((entry) {
-                final index = entry.key;
-                final day = entry.value;
-                return _buildScheduleRow(day, index, dayHeight);
-              }).toList(),
+              children: [
+                // 왼쪽: 날짜 헤더 (고정)
+                Column(
+                  children: weekDays.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final day = entry.value;
+                    return _buildDateHeader(day, index, dayHeight);
+                  }).toList(),
+                ),
+                // 오른쪽: 모든 요일의 스케줄 (가로 스크롤)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: weekDays.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final day = entry.value;
+                    return _buildScheduleRow(day, index, dayHeight);
+                  }).toList(),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -351,21 +357,51 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         color: isToday ? Colors.blue.withValues(alpha: 0.05) : null,
       ),
       child: schedules.isEmpty
-          ? Container(
-              width: 100,
-              alignment: Alignment.center,
-              child: Text(
-                '일정 없음',
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 12,
-                ),
-              ),
-            )
+          ? _buildEmptyScheduleCard()
           : Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: schedules.map((schedule) => _buildScheduleCard(schedule)).toList(),
             ),
+    );
+  }
+
+  // 일정 없음 카드 (스케줄 카드와 동일한 형태)
+  Widget _buildEmptyScheduleCard() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        width: 70,
+        height: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          border: Border(
+            left: BorderSide(
+              color: Colors.grey.shade300,
+              width: 3,
+            ),
+            right: BorderSide(
+              color: Colors.grey.shade300,
+              width: 1,
+            ),
+            bottom: BorderSide(
+              color: Colors.grey.shade100,
+              width: 1,
+            ),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '일정\n없음',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade400,
+              fontSize: 11,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

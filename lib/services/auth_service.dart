@@ -104,14 +104,20 @@ class AuthService {
   Future<bool> signInWithGoogle() async {
     try {
       // Supabase Native Google Sign-In 사용
-      await _supabase.auth.signInWithOAuth(
+      // queryParams에 prompt=select_account 추가하여 항상 계정 선택 화면 표시
+      final result = await _supabase.auth.signInWithOAuth(
         supabase.OAuthProvider.google,
         redirectTo: 'com.vividlife.bizplan://login-callback',
+        authScreenLaunchMode: supabase.LaunchMode.externalApplication,
+        queryParams: {
+          'prompt': 'select_account', // 항상 계정 선택 화면 표시
+          'access_type': 'offline', // 오프라인 액세스 (선택사항)
+        },
       );
 
       // OAuth 로그인은 브라우저에서 진행되므로
       // 실제 인증은 Deep Link 콜백에서 처리됨
-      return true;
+      return result;
     } catch (e) {
       rethrow;
     }

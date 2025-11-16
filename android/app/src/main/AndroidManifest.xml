@@ -44,13 +44,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep Link for Supabase Auth -->
-            <intent-filter android:autoVerify="true">
+            <!-- Deep Link for Supabase Auth (Custom Scheme) -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <!-- Your app's custom scheme -->
                 <data android:scheme="com.vividlife.bizplan" android:host="login-callback" />
+            </intent-filter>
+            <!-- Deep Link for Supabase Auth (HTTPS Universal Link) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Supabase callback URL -->
+                <data android:scheme="https" android:host="bsofmuvuvhjpcrkygwjz.supabase.co" android:pathPrefix="/auth/v1/callback" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
