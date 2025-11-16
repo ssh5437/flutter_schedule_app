@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/subscription.dart';
 import '../services/subscription_service.dart';
@@ -11,11 +12,17 @@ class SubscriptionProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _isProcessingPurchase = false;
+  bool get isProcessingPurchase => _isProcessingPurchase;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
   String? _successMessage;
   String? get successMessage => _successMessage;
+
+  bool _isInitialized = false;
+  StreamSubscription? _subscriptionStreamSubscription;
 
   bool get hasActiveSubscription =>
       _subscription.isActive && !_subscription.isExpired;
@@ -27,6 +34,11 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // 초기화
   Future<void> initialize() async {
+    if (_isInitialized) {
+      debugPrint('Provider already initialized, skipping');
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -34,16 +46,33 @@ class SubscriptionProvider extends ChangeNotifier {
       await _subscriptionService.initialize();
 
       // 구독 스트림 리스닝 - 구독 변경 시 자동 업데이트
-      _subscriptionService.subscriptionStream.listen((subscription) {
-        debugPrint('구독 상태 변경 감지: ${subscription.isActive}');
+      _subscriptionStreamSubscription = _subscriptionService.subscriptionStream.listen((subscription) {
+        debugPrint('🔔 구독 상태 변경 감지: isActive=${subscription.isActive}, isExpired=${subscription.isExpired}, status=${subscription.status}');
         _subscription = subscription;
         _isLoading = false;
+
+        // 구독이 활성화되면 처리 중 상태 해제
+        if (subscription.isActive && !subscription.isExpired) {
+          _isProcessingPurchase = false;
+          debugPrint('✅ 구독 처리 완료 - 로딩 해제');
+        }
+
+        // 에러 상태면 처리 중 상태 해제
+        if (subscription.status == SubscriptionStatus.error) {
+          _isProcessingPurchase = false;
+          _errorMessage = '구독 검증에 실패했습니다. 다시 시도해주세요.';
+          debugPrint('❌ 구독 검증 오류 - 로딩 해제');
+        }
+
         notifyListeners();
       });
 
       // 현재 구독 상태 로드
       _subscription = _subscriptionService.currentSubscription;
       _errorMessage = null;
+      _isInitialized = true;
+
+      debugPrint('✅ SubscriptionProvider initialized: hasActive=$hasActiveSubscription');
     } catch (e) {
       _errorMessage = '구독 정보를 불러오는데 실패했습니다: $e';
       debugPrint(_errorMessage);
@@ -51,6 +80,12 @@ class SubscriptionProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _subscriptionStreamSubscription?.cancel();
+    super.dispose();
   }
 
   // 구독 구매
@@ -64,11 +99,19 @@ class SubscriptionProvider extends ChangeNotifier {
 
       if (!success) {
         _errorMessage = '구독 구매에 실패했습니다.';
+        _isProcessingPurchase = false;
+        return false;
       }
 
-      return success;
+      // 구매 시작 성공 - 처리 중 상태로 전환
+      _isProcessingPurchase = true;
+      debugPrint('💳 구매 처리 시작 - 로딩 표시');
+      notifyListeners();
+
+      return true;
     } catch (e) {
       _errorMessage = '구독 구매 중 오류가 발생했습니다: $e';
+      _isProcessingPurchase = false;
       debugPrint(_errorMessage);
       return false;
     } finally {
@@ -120,26 +163,29 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // 구독 상태 새로고침
   Future<void> refreshSubscription() async {
-    _isLoading = true;
-    notifyListeners();
+    debugPrint('🔄 구독 상태 새로고침 중...');
 
     try {
-      // 만료 확인을 위해 재초기화
-      await _subscriptionService.initialize();
+      // DB에서 최신 구독 정보 로드
+      await _subscriptionService.loadSubscription();
 
-      final isActive = await _subscriptionService.hasActiveSubscription();
+      // 현재 구독 정보 가져오기
       _subscription = _subscriptionService.currentSubscription;
 
-      if (!isActive && _subscription.isExpired) {
-        _errorMessage = '구독이 만료되었습니다.';
-      } else {
+      debugPrint('📊 새로고침 결과: isActive=${_subscription.isActive}, isExpired=${_subscription.isExpired}');
+
+      if (_subscription.isActive && !_subscription.isExpired) {
+        debugPrint('✅ 활성 구독 확인됨!');
+        _successMessage = '구독이 활성화되었습니다!';
         _errorMessage = null;
+      } else if (!_subscription.isActive && _subscription.isExpired) {
+        _errorMessage = '구독이 만료되었습니다.';
       }
+
+      notifyListeners();
     } catch (e) {
       _errorMessage = '구독 정보 갱신 중 오류가 발생했습니다: $e';
-      debugPrint(_errorMessage);
-    } finally {
-      _isLoading = false;
+      debugPrint('❌ 새로고침 오류: $_errorMessage');
       notifyListeners();
     }
   }

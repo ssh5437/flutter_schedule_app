@@ -236,9 +236,13 @@ class SubscriptionService {
       await _syncToSupabase(subscription);
 
       _currentSubscription = subscription;
+
+      debugPrint('✅ 구독 저장 완료 (서버 검증됨): $purchaseDate ~ $expiryDate');
+      debugPrint('🔔 스트림으로 구독 정보 전송 중...');
+
       _subscriptionController.add(subscription);
 
-      debugPrint('구독 저장 완료 (서버 검증됨): $purchaseDate ~ $expiryDate');
+      debugPrint('✅ 구독 활성화 완료! isActive=${subscription.isActive}');
     } catch (e) {
       debugPrint('구매 저장 오류: $e');
       _updateSubscriptionStatus(SubscriptionStatus.error);
@@ -291,7 +295,12 @@ class SubscriptionService {
     await db.insert('subscriptions', subscription.toMap());
   }
 
-  // 구독 정보 로드
+  // 구독 정보 로드 (public - Provider에서 호출 가능)
+  Future<void> loadSubscription() async {
+    await _loadSubscription();
+  }
+
+  // 구독 정보 로드 (private)
   Future<void> _loadSubscription() async {
     try {
       final db = await DatabaseHelper.instance.database;
@@ -308,6 +317,9 @@ class SubscriptionService {
         await _checkAndUpdateExpiredSubscription();
 
         _subscriptionController.add(_currentSubscription);
+        debugPrint('📥 구독 정보 로드됨: isActive=${_currentSubscription.isActive}, expiryDate=${_currentSubscription.expiryDate}');
+      } else {
+        debugPrint('📥 저장된 구독 정보 없음');
       }
     } catch (e) {
       debugPrint('구독 정보 로드 오류: $e');

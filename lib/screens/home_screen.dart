@@ -24,7 +24,7 @@ class HomeScreenState extends State<HomeScreen> {
   bool _showPendingSchedules = true; // 요청 스케줄 표시 여부
   bool _showTodayOnly = false; // 오늘 스케줄만 표시 여부
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
-  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
+  Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   @override
   void initState() {
@@ -39,7 +39,7 @@ class HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
-      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
     });
   }
 

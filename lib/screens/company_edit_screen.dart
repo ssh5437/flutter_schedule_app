@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../providers/subscription_provider.dart';
 import 'message_template_screen.dart';
+import 'membership_screen.dart';
 
 class CompanyEditScreen extends StatefulWidget {
   final Company? company;
@@ -103,6 +106,64 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 작업 항목 추가 핸들러 (무료 사용자 제한 적용)
+  void _handleAddWorkItem() {
+    final subscriptionProvider = context.read<SubscriptionProvider>();
+    final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
+
+    // 무료 사용자는 작업 항목 10개 제한
+    const freeUserLimit = 10;
+
+    if (!hasActiveSubscription && _workItems.length >= freeUserLimit) {
+      _showUpgradeDialog();
+      return;
+    }
+
+    _showWorkItemDialog();
+  }
+
+  // Plus 멤버십 업그레이드 안내 다이얼로그
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.workspace_premium, color: Colors.amber[700]),
+            const SizedBox(width: 8),
+            const Text('Plus 기능'),
+          ],
+        ),
+        content: const Text(
+          '작업 항목은 최대 10개까지만 추가할 수 있습니다.\n\n'
+          'Plus 멤버십으로 업그레이드하면 무제한으로 추가할 수 있습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MembershipScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF579bf2),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('멤버십 보기'),
           ),
         ],
       ),
@@ -376,7 +437,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _showWorkItemDialog(),
+                  onPressed: () => _handleAddWorkItem(),
                   icon: const Icon(Icons.add),
                   label: const Text('추가'),
                 ),

@@ -5,12 +5,15 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
 import 'services/widget_service.dart';
+import 'services/analytics_service.dart';
 import 'providers/subscription_provider.dart';
+import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/calendar_view_screen.dart';
 import 'screens/completed_schedules_screen.dart';
@@ -23,6 +26,17 @@ import 'screens/statistics_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ko_KR', null);
+
+  // Firebase 초기화 (Analytics 사용)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('✅ Firebase initialized');
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization failed: $e');
+    debugPrint('Analytics will not be available. Please configure Firebase.');
+  }
 
   // Supabase 초기화
   await Supabase.initialize(

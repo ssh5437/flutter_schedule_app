@@ -58,3 +58,6 @@ app.*.map.json
 .env
 .env.local
 *.env
+
+# Windows reserved device names
+nul

@@ -32,7 +32,10 @@
       "Bash(git config:*)",
       "Bash(chcp 65001)",
       "Bash(git push:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(nul)",
+      "Bash(git add:*)",
+      "Bash(flutterfire configure:*)"
     ],
     "deny": [],
     "ask": []
