@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/subscription_provider.dart';
 import '../models/subscription.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../widgets/subscription_processing_overlay.dart';
 
 class MembershipScreen extends StatefulWidget {
   const MembershipScreen({super.key});
@@ -41,8 +42,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
     final currentStatus = _subscriptionProvider!.hasActiveSubscription;
 
+    debugPrint('📢 구독 상태 변경 감지: 이전=$_previousSubscriptionStatus, 현재=$currentStatus');
+
     // 구독 상태가 false → true로 변경되었을 때만 알림 표시
     if (!_previousSubscriptionStatus && currentStatus) {
+      debugPrint('🎉 구독 활성화 확인! 성공 다이얼로그 표시');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showSuccessDialog(
@@ -62,22 +66,32 @@ class _MembershipScreenState extends State<MembershipScreen> {
       appBar: const GradientAppBar(title: '멤버십 관리'),
       body: Consumer<SubscriptionProvider>(
         builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          return Stack(
+            children: [
+              // 메인 컨텐츠
+              if (provider.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSubscriptionCard(provider),
+                      const SizedBox(height: 24),
+                      _buildBenefitsSection(),
+                      const SizedBox(height: 24),
+                      _buildActionButtons(provider),
+                    ],
+                  ),
+                ),
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildSubscriptionCard(provider),
-                const SizedBox(height: 24),
-                _buildBenefitsSection(),
-                const SizedBox(height: 24),
-                _buildActionButtons(provider),
-              ],
-            ),
+              // 구독 처리 중 오버레이
+              if (provider.isProcessingPurchase)
+                const Positioned.fill(
+                  child: SubscriptionProcessingOverlay(),
+                ),
+            ],
           );
         },
       ),
@@ -349,33 +363,20 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 ? null
                 : () async {
                     provider.clearMessages();
-                    final success = await provider.purchaseSubscription();
-                    if (mounted) {
-                      if (success) {
-                        // 구매 요청이 시작됨
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('결제를 신청했습니다.\n잠시 후 구독이 활성화됩니다.'),
-                            duration: Duration(seconds: 3),
-                            backgroundColor: Color(0xFF1976D2),
-                          ),
-                        );
+                    debugPrint('💳 구독 구매 시작...');
 
-                        // 구매 완료 대기 및 새로고침 (최대 10초)
-                        for (int i = 0; i < 10; i++) {
-                          await Future.delayed(const Duration(seconds: 1));
-                          await provider.refreshSubscription();
-                          if (provider.hasActiveSubscription) {
-                            debugPrint('구독 활성화 확인됨 (${i + 1}초 후)');
-                            break;
-                          }
-                        }
-                      } else {
+                    final success = await provider.purchaseSubscription();
+
+                    if (mounted) {
+                      if (!success) {
+                        // 구매 시작 실패 시에만 에러 표시
                         _showErrorDialog(
                           '구독 실패',
                           provider.errorMessage ?? '구독 상품을 불러올 수 없습니다.\n네트워크 연결을 확인하고 다시 시도해주세요.',
                         );
                       }
+                      // 구매가 시작되면 결제 화면으로 이동
+                      // 결제 완료 후 스트림을 통해 자동으로 UI 업데이트됨
                     }
                   },
             icon: provider.isLoading
