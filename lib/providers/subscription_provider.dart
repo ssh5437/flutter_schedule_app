@@ -33,9 +33,11 @@ class SubscriptionProvider extends ChangeNotifier {
     try {
       await _subscriptionService.initialize();
 
-      // 구독 스트림 리스닝
+      // 구독 스트림 리스닝 - 구독 변경 시 자동 업데이트
       _subscriptionService.subscriptionStream.listen((subscription) {
+        debugPrint('구독 상태 변경 감지: ${subscription.isActive}');
         _subscription = subscription;
+        _isLoading = false;
         notifyListeners();
       });
 

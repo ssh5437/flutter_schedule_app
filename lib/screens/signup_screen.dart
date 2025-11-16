@@ -172,30 +172,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // Future<void> _handleKakaoSignUp() async {
-  //   setState(() => _isLoading = true);
+  Future<void> _handleKakaoSignUp() async {
+    setState(() => _isLoading = true);
 
-  //   try {
-  //     await _authService.signInWithKakao();
-  //     // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
-  //     if (mounted) {
-  //       Navigator.pop(context);
-  //     }
-  //   } catch (e) {
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(_getErrorMessage(e.toString())),
-  //           backgroundColor: Colors.red,
-  //         ),
-  //       );
-  //     }
-  //   } finally {
-  //     if (mounted) {
-  //       setState(() => _isLoading = false);
-  //     }
-  //   }
-  // }
+    try {
+      await _authService.signInWithKakao();
+      // 로그인 성공 시 자동으로 메인 화면으로 이동됨 (StreamBuilder에 의해)
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getErrorMessage(e.toString())),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -439,27 +439,27 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Kakao 회원가입 버튼 (비활성화)
-                  // ElevatedButton.icon(
-                  //   onPressed: _isLoading ? null : _handleKakaoSignUp,
-                  //   icon: Image.asset(
-                  //     'assets/images/kakao_logo.png',
-                  //     height: 24,
-                  //     width: 24,
-                  //     errorBuilder: (context, error, stackTrace) {
-                  //       return const Icon(Icons.chat_bubble, size: 24);
-                  //     },
-                  //   ),
-                  //   label: const Text('Kakao로 시작하기'),
-                  //   style: ElevatedButton.styleFrom(
-                  //     backgroundColor: const Color(0xFFFEE500),
-                  //     foregroundColor: Colors.black87,
-                  //     padding: const EdgeInsets.symmetric(vertical: 12),
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(8),
-                  //     ),
-                  //   ),
-                  // ),
+                  // Kakao 회원가입 버튼
+                  ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _handleKakaoSignUp,
+                    icon: Image.asset(
+                      'assets/images/kakao_logo.png',
+                      height: 24,
+                      width: 24,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.chat_bubble, size: 24);
+                      },
+                    ),
+                    label: const Text('Kakao로 시작하기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFEE500),
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

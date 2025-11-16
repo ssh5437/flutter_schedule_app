@@ -173,20 +173,27 @@ class SubscriptionService {
 
     if (purchaseDetails.status == PurchaseStatus.purchased ||
         purchaseDetails.status == PurchaseStatus.restored) {
-      // 구매 완료 또는 복원됨
+      // 구매 완료 또는 복원됨 - 검증 먼저 완료
       await _verifyAndSavePurchase(purchaseDetails);
+
+      // 검증 완료 후 구매 완료 처리
+      if (purchaseDetails.pendingCompletePurchase) {
+        await _inAppPurchase.completePurchase(purchaseDetails);
+        debugPrint('구매 완료 처리됨');
+      }
     } else if (purchaseDetails.status == PurchaseStatus.error) {
       // 구매 오류
       debugPrint('구매 오류: ${purchaseDetails.error}');
       _updateSubscriptionStatus(SubscriptionStatus.error);
+
+      // 에러 상태도 완료 처리
+      if (purchaseDetails.pendingCompletePurchase) {
+        await _inAppPurchase.completePurchase(purchaseDetails);
+      }
     } else if (purchaseDetails.status == PurchaseStatus.pending) {
       // 구매 대기중
+      debugPrint('구매 대기중...');
       _updateSubscriptionStatus(SubscriptionStatus.pending);
-    }
-
-    // 구매 완료 처리
-    if (purchaseDetails.pendingCompletePurchase) {
-      await _inAppPurchase.completePurchase(purchaseDetails);
     }
   }
 

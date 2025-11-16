@@ -352,14 +352,24 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     final success = await provider.purchaseSubscription();
                     if (mounted) {
                       if (success) {
-                        // 구매 요청이 시작됨 - 실제 완료는 백그라운드에서 처리됨
+                        // 구매 요청이 시작됨
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('결제 화면으로 이동합니다...'),
-                            duration: Duration(seconds: 2),
+                            content: Text('결제를 신청했습니다.\n잠시 후 구독이 활성화됩니다.'),
+                            duration: Duration(seconds: 3),
                             backgroundColor: Color(0xFF1976D2),
                           ),
                         );
+
+                        // 구매 완료 대기 및 새로고침 (최대 10초)
+                        for (int i = 0; i < 10; i++) {
+                          await Future.delayed(const Duration(seconds: 1));
+                          await provider.refreshSubscription();
+                          if (provider.hasActiveSubscription) {
+                            debugPrint('구독 활성화 확인됨 (${i + 1}초 후)');
+                            break;
+                          }
+                        }
                       } else {
                         _showErrorDialog(
                           '구독 실패',
