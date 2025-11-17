@@ -118,7 +118,7 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
     final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
 
     // 무료 사용자는 작업 항목 10개 제한
-    const freeUserLimit = 10;
+    const freeUserLimit = 15;
 
     if (!hasActiveSubscription && _workItems.length >= freeUserLimit) {
       _showUpgradeDialog();
@@ -141,7 +141,7 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
           ],
         ),
         content: const Text(
-          '작업 항목은 최대 10개까지만 추가할 수 있습니다.\n\n'
+          '작업 항목은 최대 15개까지만 추가할 수 있습니다.\n\n'
           'Plus 멤버십으로 업그레이드하면 무제한으로 추가할 수 있습니다.',
         ),
         actions: [
