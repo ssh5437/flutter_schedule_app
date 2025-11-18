@@ -279,6 +279,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         return _buildPeriodTab();
       case 'region':
         return _buildRegionTab();
+      case 'customer':
+        return _buildCustomerTab();
       case 'workType':
         return _buildWorkTypeTab();
       case 'company':
@@ -1090,6 +1092,174 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               title: Text(entry.key),
               trailing: Text(
                 '${entry.value}건',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildCustomerTab() {
+    // 고객별 매출 계산 (같은 이름 + 전화번호 = 동일 고객)
+    final customerData = <String, Map<String, dynamic>>{};
+
+    for (var schedule in _filteredSchedules) {
+      // 고객 키: "이름|전화번호" 형식으로 동일 고객 판별
+      final customerKey = '${schedule.customerName}|${schedule.phoneNumber}';
+
+      if (customerData.containsKey(customerKey)) {
+        // 기존 고객: 매출 누적
+        customerData[customerKey]!['revenue'] += schedule.totalPrice;
+        customerData[customerKey]!['count'] += 1;
+      } else {
+        // 신규 고객: 초기 데이터 생성
+        customerData[customerKey] = {
+          'name': schedule.customerName,
+          'phone': schedule.phoneNumber,
+          'revenue': schedule.totalPrice,
+          'count': 1,
+        };
+      }
+    }
+
+    // 매출 높은 순으로 정렬하고 상위 10명만 표시
+    // 같은 매출일 경우 이름 가나다순으로 정렬
+    final sortedCustomers = customerData.entries.toList()
+      ..sort((a, b) {
+        final revenueCompare = (b.value['revenue'] as int).compareTo(a.value['revenue'] as int);
+        if (revenueCompare != 0) return revenueCompare;
+        // 매출이 같으면 이름순 정렬
+        return (a.value['name'] as String).compareTo(b.value['name'] as String);
+      });
+
+    final top10Customers = sortedCustomers.take(10).toList();
+
+    // 차트용 데이터: 상위 5개 고객
+    List<MapEntry<String, Map<String, dynamic>>> chartData = [];
+    if (top10Customers.length <= 5) {
+      chartData = top10Customers;
+    } else {
+      chartData = top10Customers.take(5).toList();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text(
+          '고객별 매출 통계',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '같은 이름 + 전화번호 고객은 자동으로 합산됩니다',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 250,
+          child: chartData.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        '선택한 기간에 데이터가 없습니다',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                )
+              : PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 40,
+                sections: List.generate(
+                  chartData.length,
+                  (i) {
+                    final total = chartData.fold(0, (sum, e) => sum + (e.value['revenue'] as int));
+                    final percentage = ((chartData[i].value['revenue'] as int) / total * 100);
+                    final colors = [
+                      const Color(0xFF579bf2),
+                      const Color(0xFF7eb3f5),
+                      const Color(0xFFabd9ff),
+                      const Color(0xFF60b0ee),
+                      const Color(0xFF4a90e2),
+                      const Color(0xFF9ca3af), // 기타용 회색
+                    ];
+
+                    return PieChartSectionData(
+                      value: (chartData[i].value['revenue'] as int).toDouble(),
+                      title: '${percentage.toStringAsFixed(1)}%',
+                      color: colors[i % colors.length],
+                      radius: 80,
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          '매출 상위 10명',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ...top10Customers.asMap().entries.map((entry) {
+          final index = entry.key;
+          final customer = entry.value.value;
+          final revenue = customer['revenue'] as int;
+          final count = customer['count'] as int;
+          final name = customer['name'] as String;
+          final phone = customer['phone'] as String;
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: index < 3
+                  ? (index == 0 ? Colors.amber : index == 1 ? Colors.grey[400] : Colors.brown[300])
+                  : const Color(0xFF579bf2),
+                child: index < 3
+                  ? Icon(
+                      index == 0 ? Icons.emoji_events : index == 1 ? Icons.emoji_events : Icons.emoji_events,
+                      color: Colors.white,
+                      size: 20,
+                    )
+                  : Text(
+                      '${index + 1}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+              ),
+              title: Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (phone.isNotEmpty) Text(phone, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$count건',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              trailing: Text(
+                NumberFormat('#,###원').format(revenue),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

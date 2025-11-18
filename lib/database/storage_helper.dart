@@ -132,8 +132,31 @@ class StorageHelper {
 
     try {
       final List<dynamic> tabsList = json.decode(tabsJson);
-      return tabsList.map((json) => StatisticsTabConfig.fromJson(json)).toList();
+      final existingTabs = tabsList.map((json) => StatisticsTabConfig.fromJson(json)).toList();
+
+      // 마이그레이션: 새로운 탭(고객별) 추가
+      final existingIds = existingTabs.map((tab) => tab.id).toSet();
+      final defaultTabs = StatisticsTabConfig.getDefaultTabs();
+
+      // 기본 탭 중 없는 탭이 있으면 추가
+      final newTabs = <StatisticsTabConfig>[];
+      for (final defaultTab in defaultTabs) {
+        if (!existingIds.contains(defaultTab.id)) {
+          newTabs.add(defaultTab);
+          debugPrint('새 탭 추가: ${defaultTab.name} (${defaultTab.id})');
+        }
+      }
+
+      if (newTabs.isNotEmpty) {
+        // 새 탭이 추가되었으면 병합하고 저장
+        final mergedTabs = [...existingTabs, ...newTabs];
+        await saveStatisticsTabConfig(mergedTabs);
+        return mergedTabs;
+      }
+
+      return existingTabs;
     } catch (e) {
+      debugPrint('탭 설정 로드 실패: $e');
       // 파싱 실패 시 기본값 반환
       return StatisticsTabConfig.getDefaultTabs();
     }

@@ -25,35 +25,64 @@ import 'screens/statistics_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 앱 시작 시간 측정
+  final startTime = DateTime.now();
+  debugPrint('🚀 App initialization started');
+
+  // 날짜 포맷 초기화 (동기)
   await initializeDateFormatting('ko_KR', null);
 
-  // Firebase 초기화 (Analytics 사용)
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // Firebase 초기화 (Analytics 사용) - 비차단
+  Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ).then((_) {
     debugPrint('✅ Firebase initialized');
-  } catch (e) {
+  }).catchError((e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
-    debugPrint('Analytics will not be available. Please configure Firebase.');
-  }
+  });
 
-  // Supabase 초기화
+  // Supabase 초기화 (필수)
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
-  // 알림 서비스 초기화
-  await NotificationService.instance.initialize();
+  // 나머지 서비스들은 백그라운드에서 초기화
+  _initializeServicesInBackground();
 
-  // 백그라운드 서비스 초기화
-  await BackgroundService.initialize();
-
-  // 위젯 서비스 초기화
-  await WidgetService.initialize();
+  final duration = DateTime.now().difference(startTime);
+  debugPrint('✅ App initialization completed in ${duration.inMilliseconds}ms');
 
   runApp(const MyApp());
+}
+
+/// 백그라운드에서 서비스 초기화 (앱 로딩 차단 방지)
+void _initializeServicesInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint('📦 Initializing background services...');
+
+      // 알림 서비스 초기화
+      await NotificationService.instance.initialize();
+
+      // 알림 설정 (로그인된 사용자에 대해서만 실행됨)
+      await NotificationService.instance.setupDailyNotifications();
+
+      // 백그라운드 서비스 초기화
+      await BackgroundService.initialize();
+
+      // 백그라운드 작업 등록
+      await BackgroundService.registerDailyTask();
+
+      // 위젯 서비스 초기화
+      await WidgetService.initialize();
+
+      debugPrint('✅ All background services initialized');
+    } catch (e) {
+      debugPrint('⚠️ Background service initialization error: $e');
+    }
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -138,9 +167,7 @@ class _MyAppState extends State<MyApp> {
       // 2. 기본 업체 초기화 (새 사용자인 경우에만)
       await DatabaseHelper.instance.initializeDefaultCompaniesForUser(userId);
 
-      // 3. 알림 설정 및 백그라운드 작업 등록
-      await NotificationService.instance.setupDailyNotifications();
-      await BackgroundService.registerDailyTask();
+      // Note: 알림 설정 및 백그라운드 작업은 _initializeServicesInBackground()에서 처리됨
     } catch (e) {
       debugPrint('Failed to initialize default companies: $e');
     }

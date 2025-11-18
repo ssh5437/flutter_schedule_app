@@ -49,8 +49,9 @@ class StatisticsTabConfig {
       StatisticsTabConfig(id: 'overview', name: '개요', isEnabled: true, order: 0),
       StatisticsTabConfig(id: 'period', name: '기간별', isEnabled: true, order: 1),
       StatisticsTabConfig(id: 'region', name: '지역별', isEnabled: true, order: 2),
-      StatisticsTabConfig(id: 'workType', name: '작업유형별', isEnabled: true, order: 3),
-      StatisticsTabConfig(id: 'company', name: '업체별', isEnabled: true, order: 4),
+      StatisticsTabConfig(id: 'customer', name: '고객별', isEnabled: true, order: 3),
+      StatisticsTabConfig(id: 'workType', name: '작업유형별', isEnabled: true, order: 4),
+      StatisticsTabConfig(id: 'company', name: '업체별', isEnabled: true, order: 5),
     ];
   }
 }

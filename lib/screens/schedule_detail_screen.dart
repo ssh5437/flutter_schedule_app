@@ -5,10 +5,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import '../models/repeat_config.dart';
 import '../database/database_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
+import '../services/analytics_service.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../widgets/repeat_schedule_dialog.dart';
 import 'schedule_form_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
@@ -242,6 +245,11 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
               _buildInfoCard(),
               const SizedBox(height: 16),
               _buildActionButtons(),
+              // 방문확정일자와 시간이 있는 경우에만 반복 등록 버튼 표시
+              if (_schedule.visitDate != null && _schedule.visitTime != null) ...[
+                const SizedBox(height: 12),
+                _buildRepeatButton(),
+              ],
             ],
           ),
         ),
@@ -443,6 +451,114 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildRepeatButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _showRepeatDialog,
+        icon: const Icon(Icons.repeat),
+        label: const Text('스케줄 반복 등록'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF579bf2),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: const BorderSide(color: Color(0xFF579bf2)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showRepeatDialog() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // 초기 날짜는 visitDate가 있으면 visitDate, 없으면 requestDate 사용
+    final initialDate = _schedule.visitDate ?? _schedule.requestDate;
+
+    final result = await showDialog<RepeatConfig>(
+      context: context,
+      builder: (context) => RepeatScheduleDialog(
+        initialDate: initialDate,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    // 로딩 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final dates = result.generateDates();
+      int successCount = 0;
+
+      for (final date in dates) {
+        // 원본 스케줄을 복사하여 새로운 날짜로 생성
+        final newSchedule = Schedule(
+          userId: userId,
+          customerName: _schedule.customerName,
+          requestDate: DateTime.now(), // 요청일은 현재
+          visitDate: date, // 방문 예정일을 반복 날짜로 설정
+          visitTime: _schedule.visitTime, // 원본의 시간 사용
+          phoneNumber: _schedule.phoneNumber,
+          address: _schedule.address,
+          companyName: _schedule.companyName,
+          workItems: _schedule.workItems,
+          workPrices: _schedule.workPrices,
+          workCount: _schedule.workCount,
+          notes: _schedule.notes,
+          status: '예정', // 반복 등록된 스케줄은 기본적으로 '예정' 상태
+        );
+
+        await DatabaseHelper.instance.createSchedule(newSchedule);
+        successCount++;
+      }
+
+      // 위젯 업데이트
+      await WidgetService.updateWidget();
+
+      // 알림 재설정
+      await NotificationService.instance.setupDailyNotifications();
+
+      // Analytics 로그
+      await AnalyticsService().logFeatureUsed(
+        featureName: 'repeat_schedule',
+        parameters: {
+          'repeat_type': result.type.toString(),
+          'count': dates.length,
+        },
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+        // 성공 메시지
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$successCount개의 스케줄이 등록되었습니다.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('스케줄 등록 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
 }
