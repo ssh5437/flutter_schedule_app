@@ -973,35 +973,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       // 주소를 공백으로 분리
       final parts = address.split(' ');
 
-      // 구/군과 동 단위 추출
+      // 구/군 단위 추출
       // 주소 형식: "경기 고양시 덕양구 성사동 123-45" 또는 "서울 강남구 역삼동 123-45"
-      String? district; // 구/군 (예: "덕양구", "강남구")
-      String? dong;     // 동/읍/면/리 (예: "성사동", "역삼동")
+      String? district; // 구/군 (예: "덕양구", "강남구", "수성구")
 
-      for (int i = 0; i < parts.length; i++) {
-        final part = parts[i];
-
+      for (final part in parts) {
         // 구/군 찾기 (마지막 구/군을 저장 - 고양시 덕양구의 경우 덕양구가 저장됨)
         if (part.endsWith('구') || part.endsWith('군')) {
           district = part;
         }
-
-        // 동/읍/면/리 찾기 (구/군 뒤에 나오는 첫 번째 동만 찾음)
-        if (district != null && (part.endsWith('동') || part.endsWith('읍') || part.endsWith('면') || part.endsWith('리'))) {
-          dong = part;
-          break; // 첫 번째 동/읍/면/리를 찾으면 중단
-        }
       }
 
-      // 구/군과 동 조합 - 항상 구 + 동 형태로 표시
-      if (district != null && dong != null) {
-        // 구 + 동 형태 (예: "강남구 역삼동", "송파구 성수동")
-        region = '$district $dong';
-      } else if (dong != null) {
-        // 구 정보가 없는 경우 동만 표시
-        region = dong;
-      } else if (district != null) {
-        // 동 정보가 없는 경우 구만 표시
+      // 구/군만 표시 (동 정보는 제외)
+      if (district != null) {
+        // 구/군만 표시 (예: "강남구", "송파구", "수성구")
         region = district;
       }
 
@@ -1011,19 +996,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final sortedRegions = regionData.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // 차트용 데이터: 5개 초과 시 기타로 묶기
-    List<MapEntry<String, int>> chartData = [];
-    if (sortedRegions.length <= 5) {
-      chartData = sortedRegions;
-    } else {
-      // 상위 5개
-      chartData = sortedRegions.take(5).toList();
-      // 나머지는 기타로 묶기
-      final etcSum = sortedRegions.skip(5).fold(0, (sum, e) => sum + e.value);
-      if (etcSum > 0) {
-        chartData.add(MapEntry('기타', etcSum));
-      }
-    }
+    // 상위 8개 지역만 선택
+    final top8Regions = sortedRegions.take(8).toList();
+
+    // 차트용 데이터: 상위 5개만 표시
+    List<MapEntry<String, int>> chartData = top8Regions.take(5).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1084,7 +1061,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             ),
         ),
         const SizedBox(height: 24),
-        ...sortedRegions.map((entry) {
+        ...top8Regions.map((entry) {
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -1289,19 +1266,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final sortedWorkTypes = workTypeData.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // 차트용 데이터: 10개 초과 시 기타로 묶기
-    List<MapEntry<String, int>> chartData = [];
-    if (sortedWorkTypes.length <= 10) {
-      chartData = sortedWorkTypes;
-    } else {
-      // 상위 10개
-      chartData = sortedWorkTypes.take(10).toList();
-      // 나머지는 기타로 묶기
-      final etcSum = sortedWorkTypes.skip(10).fold(0, (sum, e) => sum + e.value);
-      if (etcSum > 0) {
-        chartData.add(MapEntry('기타', etcSum));
-      }
-    }
+    // 상위 8개 작업 유형만 선택
+    final top8WorkTypes = sortedWorkTypes.take(8).toList();
+
+    // 차트용 데이터: 상위 5개만 표시
+    List<MapEntry<String, int>> chartData = top8WorkTypes.take(5).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1367,7 +1336,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             ),
         ),
         const SizedBox(height: 24),
-        ...sortedWorkTypes.map((entry) {
+        ...top8WorkTypes.map((entry) {
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(

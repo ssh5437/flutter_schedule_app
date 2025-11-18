@@ -1,7 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/database_helper.dart';
+import '../models/schedule.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../providers/subscription_provider.dart';
 import '../services/subscription_service.dart';
@@ -16,6 +18,7 @@ class DebugScreen extends StatefulWidget {
 class _DebugScreenState extends State<DebugScreen> {
   String _debugInfo = '로딩 중...';
   bool _hasLegacyData = false;
+  bool _isGeneratingTestData = false;
 
   @override
   void initState() {
@@ -107,6 +110,183 @@ class _DebugScreenState extends State<DebugScreen> {
         _debugInfo = '❌ 에러 발생: $e';
         _hasLegacyData = false;
       });
+    }
+  }
+
+  Future<void> _generateTestSchedules() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ 로그인이 필요합니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 기존 스케줄 확인
+      final existingSchedules = await DatabaseHelper.instance.readAllSchedules(user.id);
+      if (existingSchedules.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ 최소 1개 이상의 스케줄이 필요합니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('테스트 데이터 생성'),
+          content: const Text(
+            '3000개의 테스트 스케줄을 생성합니다.\n'
+            '(2023년 1월 ~ 2025년 9월, 하루 0~8개 랜덤)\n\n'
+            '이 작업은 시간이 걸릴 수 있습니다.\n계속하시겠습니까?'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.blue),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      setState(() {
+        _isGeneratingTestData = true;
+      });
+
+      // 로딩 다이얼로그 표시
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('테스트 데이터 생성 중...\n잠시만 기다려주세요.'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final random = Random();
+      const targetCount = 3000;
+      int createdCount = 0;
+
+      // 2023년 1월 1일부터 2025년 9월 30일까지
+      final startDate = DateTime(2023, 1, 1);
+      final endDate = DateTime(2025, 9, 30);
+      final totalDays = endDate.difference(startDate).inDays + 1;
+
+      // 샘플 데이터
+      final customerNames = ['김철수', '이영희', '박민수', '정수진', '최동욱', '강미경', '윤서준', '임지원', '조현우', '송지은'];
+      final workTypes = [
+        ['문짝교체', '방충망교체'],
+        ['문짝교체'],
+        ['방충망교체'],
+        ['창틀보수', '방충망교체'],
+        ['유리교체', '창틀보수'],
+        ['유리교체'],
+        ['문짝수리'],
+        ['손잡이교체'],
+      ];
+      final companies = ['메인업체', '서브업체A', '서브업체B', '협력업체'];
+      final regions = ['서울', '경기', '인천', '부산', '대전', '대구', '광주', '울산'];
+
+      for (int dayOffset = 0; dayOffset < totalDays && createdCount < targetCount; dayOffset++) {
+        final currentDate = startDate.add(Duration(days: dayOffset));
+
+        // 하루에 0~8개 랜덤 생성
+        final schedulesForDay = random.nextInt(9);
+
+        for (int i = 0; i < schedulesForDay && createdCount < targetCount; i++) {
+          // 랜덤 시간 생성 (09:00 ~ 18:00)
+          final hour = 9 + random.nextInt(10);
+          final minute = random.nextInt(60);
+          final visitTime = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+
+          // 랜덤 가격 (50000 ~ 200000)
+          final basePrice = 50000 + random.nextInt(150000);
+          final workItemsList = workTypes[random.nextInt(workTypes.length)];
+          final prices = <String, int>{};
+          for (var item in workItemsList) {
+            prices[item] = basePrice + random.nextInt(50000);
+          }
+
+          final newSchedule = Schedule(
+            userId: user.id,
+            customerName: customerNames[random.nextInt(customerNames.length)],
+            requestDate: currentDate.subtract(Duration(days: random.nextInt(5) + 1)),
+            visitDate: currentDate,
+            visitTime: visitTime,
+            phoneNumber: '010-${1000 + random.nextInt(9000)}-${1000 + random.nextInt(9000)}',
+            address: '${regions[random.nextInt(regions.length)]} ${random.nextInt(100) + 1}번지 ${random.nextInt(50) + 1}호',
+            companyName: companies[random.nextInt(companies.length)],
+            workItems: workItemsList,
+            workPrices: prices,
+            workCount: workItemsList.length,
+            notes: random.nextBool() ? '테스트 데이터' : null,
+            status: '완료',
+          );
+
+          await DatabaseHelper.instance.createSchedule(newSchedule);
+          createdCount++;
+        }
+      }
+
+      setState(() {
+        _isGeneratingTestData = false;
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ $createdCount개의 테스트 스케줄이 생성되었습니다!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // 정보 새로고침
+      await _loadDebugInfo();
+    } catch (e) {
+      setState(() {
+        _isGeneratingTestData = false;
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ 생성 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -230,10 +410,75 @@ class _DebugScreenState extends State<DebugScreen> {
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
+            _buildTestDataSection(),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
             _buildMembershipTestSection(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTestDataSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '🧪 테스트 데이터',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isGeneratingTestData ? null : _generateTestSchedules,
+            icon: _isGeneratingTestData
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_circle_outline),
+            label: Text(_isGeneratingTestData ? '생성 중...' : '테스트 스케줄 3000개 생성'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.purple[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.purple[200]!),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, color: Colors.purple[700], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '2023년 1월 ~ 2025년 9월 데이터를 생성합니다. 하루에 0~8개씩 랜덤으로 생성되며, 매출 통계 성능 테스트에 사용됩니다.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.purple[900],
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
