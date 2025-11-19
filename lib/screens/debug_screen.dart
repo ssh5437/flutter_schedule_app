@@ -148,7 +148,7 @@ class _DebugScreenState extends State<DebugScreen> {
           title: const Text('테스트 데이터 생성'),
           content: const Text(
             '3000개의 테스트 스케줄을 생성합니다.\n'
-            '(2023년 1월 ~ 2025년 9월, 하루 0~8개 랜덤)\n\n'
+            '(2023년 11월 ~ 2025년 9월, 하루 0~8개 랜덤)\n\n'
             '이 작업은 시간이 걸릴 수 있습니다.\n계속하시겠습니까?'
           ),
           actions: [
@@ -193,8 +193,8 @@ class _DebugScreenState extends State<DebugScreen> {
       const targetCount = 3000;
       int createdCount = 0;
 
-      // 2023년 1월 1일부터 2025년 9월 30일까지
-      final startDate = DateTime(2023, 1, 1);
+      // 2023년 11월 1일부터 2025년 9월 30일까지
+      final startDate = DateTime(2023, 11, 1);
       final endDate = DateTime(2025, 9, 30);
       final totalDays = endDate.difference(startDate).inDays + 1;
 
@@ -467,7 +467,7 @@ class _DebugScreenState extends State<DebugScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '2023년 1월 ~ 2025년 9월 데이터를 생성합니다. 하루에 0~8개씩 랜덤으로 생성되며, 매출 통계 성능 테스트에 사용됩니다.',
+                  '2023년 11월 ~ 2025년 9월 데이터를 생성합니다. 하루에 0~8개씩 랜덤으로 생성되며, 매출 통계 성능 테스트에 사용됩니다.',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.purple[900],

@@ -940,7 +940,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         const SizedBox(height: 12),
         ...(monthlyData.entries.toList()
           ..sort((a, b) => b.key.compareTo(a.key)))
-          .take(12)
           .map((entry) {
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
