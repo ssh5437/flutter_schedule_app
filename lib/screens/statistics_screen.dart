@@ -51,6 +51,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       TabController? newController;
       if (enabledTabs.isNotEmpty) {
         newController = TabController(length: enabledTabs.length, vsync: this);
+        newController.addListener(() {
+          if (mounted) setState(() {});
+        });
       }
 
       setState(() {
@@ -258,8 +261,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildPeriodSelector(),
-                _buildSummaryCards(),
+                // 개요 탭이 아닐 때만 기간 선택기와 요약 카드 표시
+                if (_tabController != null &&
+                    _tabConfigs.isNotEmpty &&
+                    _tabConfigs[_tabController!.index].id != 'overview') ...[
+                  _buildPeriodSelector(),
+                  _buildSummaryCards(),
+                ],
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -633,17 +641,103 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     );
   }
 
+  Widget _buildOverviewSummaryCards(int revenue, int count) {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.monetization_on, color: Colors.green[700], size: 18),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${NumberFormat('#,###').format(revenue)}원',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[800],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.work, color: Colors.blue[700], size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  '$count건',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[800],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOverviewTab() {
+    // 개요 탭은 고정 기간 사용
+    final now = DateTime.now();
+    final yesterday = now.subtract(const Duration(days: 1));
+    final twelveMonthsAgo = DateTime(now.year - 1, now.month, now.day);
+    final thisMonthStart = DateTime(now.year, now.month, 1);
+
+    // 이번 달 1일 ~ 어제까지의 스케줄 필터링
+    final thisMonthSchedules = _allSchedules.where((schedule) {
+      final date = schedule.visitDate ?? schedule.requestDate;
+      return date.isAfter(thisMonthStart.subtract(const Duration(days: 1))) &&
+             date.isBefore(yesterday.add(const Duration(days: 1)));
+    }).toList();
+
+    // 12개월 전 ~ 어제까지의 스케줄 필터링
+    final overviewSchedules = _allSchedules.where((schedule) {
+      final date = schedule.visitDate ?? schedule.requestDate;
+      return date.isAfter(twelveMonthsAgo.subtract(const Duration(days: 1))) &&
+             date.isBefore(yesterday.add(const Duration(days: 1)));
+    }).toList();
+
+    // 이번 달 총 매출/작업
+    final thisMonthRevenue = thisMonthSchedules.fold(0, (sum, s) => sum + s.totalPrice);
+    final thisMonthCount = thisMonthSchedules.length;
+
+    // 12개월 총 매출/작업
+    final yearRevenue = overviewSchedules.fold(0, (sum, s) => sum + s.totalPrice);
+    final yearCount = overviewSchedules.length;
+
     // 월별 매출 데이터 계산
     final monthlyData = <String, int>{};
-    for (var schedule in _filteredSchedules) {
+    for (var schedule in overviewSchedules) {
       final date = schedule.visitDate ?? schedule.requestDate;
       final monthKey = DateFormat('yyyy-MM').format(date);
       monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + schedule.totalPrice;
     }
 
     // 최근 12개월 데이터 준비
-    final now = DateTime.now();
     final months = List.generate(12, (i) {
       final month = DateTime(now.year, now.month - i, 1);
       return DateFormat('yyyy-MM').format(month);
@@ -662,14 +756,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             '이번 달 일별 매출 추이',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildOverviewSummaryCards(thisMonthRevenue, thisMonthCount),
+          const SizedBox(height: 12),
           _buildDailyTrendChart(),
           const SizedBox(height: 32),
           const Text(
             '최근 12개월 매출 추이',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildOverviewSummaryCards(yearRevenue, yearCount),
+          const SizedBox(height: 12),
           SizedBox(
             height: 250,
             child: chartData.isEmpty || chartData.every((d) => d == 0)
@@ -769,24 +867,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   }
 
   Widget _buildDailyTrendChart() {
-    // 이번 달의 일별 매출 데이터 계산
+    // 이번 달 1일부터 어제까지의 일별 매출 데이터 계산
     final now = DateTime.now();
-    final currentMonth = DateTime(now.year, now.month, 1);
-    final nextMonth = DateTime(now.year, now.month + 1, 1);
-    final daysInMonth = nextMonth.difference(currentMonth).inDays;
+    final yesterday = now.subtract(const Duration(days: 1));
 
-    // 일별 매출 맵 생성
+    // 어제까지의 일수 (1일이면 0, 2일이면 1, ...)
+    final daysToShow = yesterday.day;
+
+    // 일별 매출 맵 생성 (전체 스케줄에서 이번 달 데이터만 추출)
     final dailyData = <int, int>{};
-    for (var schedule in _filteredSchedules) {
+    for (var schedule in _allSchedules) {
       final date = schedule.visitDate ?? schedule.requestDate;
-      if (date.year == now.year && date.month == now.month) {
+      // 이번 달 1일 ~ 어제까지만
+      if (date.year == now.year && date.month == now.month && date.day <= yesterday.day) {
         final day = date.day;
         dailyData[day] = (dailyData[day] ?? 0) + schedule.totalPrice;
       }
     }
 
-    // 차트 데이터 생성 (1일부터 말일까지)
-    final chartData = List.generate(daysInMonth, (i) {
+    // 차트 데이터 생성 (1일부터 어제까지)
+    final chartData = List.generate(daysToShow, (i) {
       final day = i + 1;
       return dailyData[day] ?? 0;
     });
@@ -842,7 +942,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                       interval: 5,
                       getTitlesWidget: (value, meta) {
                         final day = value.toInt() + 1;
-                        if (day == 1 || day % 5 == 0 || day == daysInMonth) {
+                        if (day == 1 || day % 5 == 0 || day == daysToShow) {
                           return Text(
                             '$day일',
                             style: const TextStyle(fontSize: 10),
@@ -905,6 +1005,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
 
       yearlyData[year] = (yearlyData[year] ?? 0) + schedule.totalPrice;
       monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + schedule.totalPrice;
+    }
+
+    // 데이터가 없는 경우
+    if (yearlyData.isEmpty && monthlyData.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              '선택한 기간에 데이터가 없습니다',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
     }
 
     return ListView(
@@ -1115,6 +1232,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       });
 
     final top10Customers = sortedCustomers.take(10).toList();
+
+    // 데이터가 없는 경우
+    if (top10Customers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              '선택한 기간에 데이터가 없습니다',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
 
     // 차트용 데이터: 상위 5개 고객
     List<MapEntry<String, Map<String, dynamic>>> chartData = [];

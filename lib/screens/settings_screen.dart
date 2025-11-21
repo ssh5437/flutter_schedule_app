@@ -586,8 +586,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                '데이터를 복구중입니다...\n잠시만 기다려주세요.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
 

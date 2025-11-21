@@ -78,6 +78,11 @@
             android:name="firebase_crashlytics_collection_enabled"
             android:value="@bool/firebase_analytics_enabled" />
 
+        <!-- 광고 ID 수집 비활성화 (현재 광고 기능 미사용) -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="true" />
+
         <!-- 부팅 후 알림 재설정을 위한 리시버 -->
         <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
             android:exported="false">

@@ -322,27 +322,6 @@ class DatabaseHelper {
     final defaultCompanies = [
       Company(
         userId: userId,
-        name: '삼성케어플러스',
-        color: 0xFF1976D2, // 파란색
-        workItems: [
-          WorkItem(name: 'TV AS', price: 66000),
-          WorkItem(name: '냉장고 AS', price: 88000),
-          WorkItem(name: '세탁기 AS', price: 77000),
-          WorkItem(name: '에어컨 AS', price: 99000),
-        ],
-      ),
-      Company(
-        userId: userId,
-        name: '케어원',
-        color: 0xFFF57C00, // 오렌지색
-        workItems: [
-          WorkItem(name: 'TV 설치', price: 55000),
-          WorkItem(name: '냉장고 설치', price: 66000),
-          WorkItem(name: '세탁기 설치', price: 55000),
-        ],
-      ),
-      Company(
-        userId: userId,
         name: '개인',
         color: 0xFF388E3C, // 초록색
         workItems: [], // 작업 항목 없음
