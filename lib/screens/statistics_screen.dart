@@ -578,7 +578,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
           Expanded(
             child: _buildSummaryCard(
               '총 매출',
-              NumberFormat('#,###').format(_totalRevenue) + '원',
+              '${NumberFormat('#,###').format(_totalRevenue)}원',
               Icons.monetization_on,
               Colors.green,
             ),

@@ -11,7 +11,6 @@ import 'database/database_helper.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
 import 'services/widget_service.dart';
-import 'services/analytics_service.dart';
 import 'providers/subscription_provider.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';

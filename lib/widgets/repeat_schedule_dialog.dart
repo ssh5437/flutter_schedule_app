@@ -294,16 +294,25 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
       ),
       child: Column(
         children: [
-          RadioListTile<MonthlyRepeatType>(
+          ListTile(
             title: const Text('날짜'),
-            value: MonthlyRepeatType.dayOfMonth,
-            groupValue: _monthlyType,
-            onChanged: (value) {
+            leading: Radio<MonthlyRepeatType>(
+              value: MonthlyRepeatType.dayOfMonth,
+              groupValue: _monthlyType,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _monthlyType = value;
+                  });
+                }
+              },
+              activeColor: const Color(0xFF579bf2),
+            ),
+            onTap: () {
               setState(() {
-                _monthlyType = value!;
+                _monthlyType = MonthlyRepeatType.dayOfMonth;
               });
             },
-            activeColor: const Color(0xFF579bf2),
           ),
           if (_monthlyType == MonthlyRepeatType.dayOfMonth)
             Padding(
@@ -332,16 +341,25 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
               ),
             ),
           const Divider(height: 1),
-          RadioListTile<MonthlyRepeatType>(
+          ListTile(
             title: const Text('요일'),
-            value: MonthlyRepeatType.weekOfMonth,
-            groupValue: _monthlyType,
-            onChanged: (value) {
+            leading: Radio<MonthlyRepeatType>(
+              value: MonthlyRepeatType.weekOfMonth,
+              groupValue: _monthlyType,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _monthlyType = value;
+                  });
+                }
+              },
+              activeColor: const Color(0xFF579bf2),
+            ),
+            onTap: () {
               setState(() {
-                _monthlyType = value!;
+                _monthlyType = MonthlyRepeatType.weekOfMonth;
               });
             },
-            activeColor: const Color(0xFF579bf2),
           ),
           if (_monthlyType == MonthlyRepeatType.weekOfMonth)
             Padding(
@@ -405,16 +423,25 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
       ),
       child: Column(
         children: [
-          RadioListTile<EndType>(
+          ListTile(
             title: const Text('날짜'),
-            value: EndType.date,
-            groupValue: _endType,
-            onChanged: (value) {
+            leading: Radio<EndType>(
+              value: EndType.date,
+              groupValue: _endType,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _endType = value;
+                  });
+                }
+              },
+              activeColor: const Color(0xFF579bf2),
+            ),
+            onTap: () {
               setState(() {
-                _endType = value!;
+                _endType = EndType.date;
               });
             },
-            activeColor: const Color(0xFF579bf2),
           ),
           if (_endType == EndType.date)
             Padding(
@@ -441,16 +468,25 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
               ),
             ),
           const Divider(height: 1),
-          RadioListTile<EndType>(
+          ListTile(
             title: const Text('횟수'),
-            value: EndType.count,
-            groupValue: _endType,
-            onChanged: (value) {
+            leading: Radio<EndType>(
+              value: EndType.count,
+              groupValue: _endType,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _endType = value;
+                  });
+                }
+              },
+              activeColor: const Color(0xFF579bf2),
+            ),
+            onTap: () {
               setState(() {
-                _endType = value!;
+                _endType = EndType.count;
               });
             },
-            activeColor: const Color(0xFF579bf2),
           ),
           if (_endType == EndType.count)
             Padding(

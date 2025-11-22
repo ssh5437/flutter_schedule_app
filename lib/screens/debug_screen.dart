@@ -142,6 +142,8 @@ class _DebugScreenState extends State<DebugScreen> {
         return;
       }
 
+      if (!mounted) return;
+
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
