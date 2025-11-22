@@ -278,6 +278,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildAddressRow('주소', _schedule.address),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
+            // 테스트: 지번 주소 표시 (값이 없으면 '없음' 표시)
+            _buildInfoRow('지번주소(테스트)', _schedule.jibunAddress ?? '없음'),
+            const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('업체명', _schedule.companyName ?? '-'),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildInfoRow('작업내용', _formatWorkItemsWithPrices(_schedule.workItems, _schedule.workPrices)),

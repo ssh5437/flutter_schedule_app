@@ -19,7 +19,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
-  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
+  Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   // 통합된 가로 스크롤 컨트롤러
   final ScrollController _horizontalScrollController = ScrollController();
@@ -35,7 +35,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
-      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
     });
   }
 

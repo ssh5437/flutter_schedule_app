@@ -7,6 +7,7 @@ class Schedule {
   final String? visitTime;
   final String phoneNumber;
   final String address;
+  final String? jibunAddress; // 지번 주소 (통계용)
   final String? companyName;
   final List<String> workItems;
   final Map<String, int> workPrices; // 작업명: 금액 매핑
@@ -23,6 +24,7 @@ class Schedule {
     this.visitTime,
     required this.phoneNumber,
     required this.address,
+    this.jibunAddress,
     this.companyName,
     required this.workItems,
     required this.workPrices,
@@ -75,6 +77,7 @@ class Schedule {
       'visitTime': visitTime,
       'phoneNumber': phoneNumber,
       'address': address,
+      'jibunAddress': jibunAddress,
       'companyName': companyName,
       'workItems': workItems.join(','),
       'workPrices': workPrices.entries.map((e) => '${e.key}:${e.value}').join('|'),
@@ -108,6 +111,7 @@ class Schedule {
       visitTime: map['visitTime'],
       phoneNumber: map['phoneNumber'],
       address: map['address'],
+      jibunAddress: map['jibunAddress'],
       companyName: map['companyName'],
       workItems: map['workItems'].toString().split(',').where((s) => s.isNotEmpty).toList(),
       workPrices: parsedWorkPrices,
@@ -126,6 +130,7 @@ class Schedule {
     String? visitTime,
     String? phoneNumber,
     String? address,
+    String? jibunAddress,
     String? companyName,
     List<String>? workItems,
     Map<String, int>? workPrices,
@@ -142,6 +147,7 @@ class Schedule {
       visitTime: visitTime ?? this.visitTime,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       address: address ?? this.address,
+      jibunAddress: jibunAddress ?? this.jibunAddress,
       companyName: companyName ?? this.companyName,
       workItems: workItems ?? this.workItems,
       workPrices: workPrices ?? this.workPrices,

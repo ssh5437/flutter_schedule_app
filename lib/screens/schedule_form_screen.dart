@@ -9,6 +9,7 @@ import '../utils/gemini_helper.dart';
 import '../utils/text_extraction_limit_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
+import '../services/address_service.dart';
 import '../widgets/gradient_app_bar.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
@@ -571,6 +572,21 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
     final userId = Supabase.instance.client.auth.currentUser!.id;
 
+    // 주소를 지번 주소로 변환 (주소가 변경된 경우에만)
+    String? jibunAddress = widget.schedule?.jibunAddress; // 기존 값 유지
+
+    // 신규 등록이거나, 주소가 변경된 경우에만 API 호출
+    final addressChanged = widget.schedule == null || widget.schedule!.address != _addressController.text;
+
+    if (addressChanged) {
+      try {
+        jibunAddress = await AddressService.convertToJibunAddress(_addressController.text);
+      } catch (e) {
+        // 변환 실패 시 무시
+        jibunAddress = null;
+      }
+    }
+
     final schedule = Schedule(
       id: widget.schedule?.id,
       userId: userId,
@@ -580,6 +596,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       visitTime: _visitTime,
       phoneNumber: phoneNumberDigitsOnly,
       address: _addressController.text,
+      jibunAddress: jibunAddress,
       companyName: _selectedCompany!.name,
       workItems: workItemsList,
       workPrices: _workPrices,

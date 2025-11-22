@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -41,6 +41,7 @@ class DatabaseHelper {
         visitTime TEXT,
         phoneNumber TEXT NOT NULL,
         address TEXT NOT NULL,
+        jibunAddress TEXT,
         companyName TEXT,
         workItems TEXT NOT NULL,
         workPrices TEXT NOT NULL,
@@ -232,6 +233,14 @@ class DatabaseHelper {
       // is_test_mode 컬럼 추가
       try {
         await db.execute('ALTER TABLE subscriptions ADD COLUMN is_test_mode INTEGER NOT NULL DEFAULT 0');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+      }
+    }
+    if (oldVersion < 12) {
+      // jibunAddress 컬럼 추가 (지번 주소 - 통계용)
+      try {
+        await db.execute('ALTER TABLE schedules ADD COLUMN jibunAddress TEXT');
       } catch (e) {
         // 컬럼이 이미 존재하는 경우 무시
       }

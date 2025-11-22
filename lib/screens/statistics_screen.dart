@@ -1079,31 +1079,51 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   }
 
   Widget _buildRegionTab() {
-    // 지역별 작업 건수 계산 (주소에서 구/군 + 동 단위 추출)
+    // 지역별 작업 건수 계산 (지번 주소 우선 사용)
     final regionData = <String, int>{};
 
     for (var schedule in _filteredSchedules) {
-      final address = schedule.address;
+      // 지번 주소가 있으면 우선 사용, 없으면 도로명 주소 사용
+      final address = schedule.jibunAddress ?? schedule.address;
       String region = '기타';
 
       // 주소를 공백으로 분리
       final parts = address.split(' ');
 
-      // 구/군 단위 추출
+      // 구/군 + 동 추출
       // 주소 형식: "경기 고양시 덕양구 성사동 123-45" 또는 "서울 강남구 역삼동 123-45"
       String? district; // 구/군 (예: "덕양구", "강남구", "수성구")
+      String? neighborhood; // 동/읍/면/리
 
-      for (final part in parts) {
+      for (int i = 0; i < parts.length; i++) {
+        final part = parts[i];
+
         // 구/군 찾기 (마지막 구/군을 저장 - 고양시 덕양구의 경우 덕양구가 저장됨)
         if (part.endsWith('구') || part.endsWith('군')) {
           district = part;
+
+          // 구/군 다음에 동/읍/면/리가 있는지 확인
+          if (i + 1 < parts.length) {
+            final nextPart = parts[i + 1];
+            // 동/읍/면/리 단위 확인 (숫자나 번지가 아닌 경우)
+            if (nextPart.endsWith('동') ||
+                nextPart.endsWith('읍') ||
+                nextPart.endsWith('면') ||
+                nextPart.endsWith('리')) {
+              neighborhood = nextPart;
+            }
+          }
         }
       }
 
-      // 구/군만 표시 (동 정보는 제외)
+      // 구/군 + 동 형식으로 표시 (예: "강남구 역삼동", "덕양구 성사동")
       if (district != null) {
-        // 구/군만 표시 (예: "강남구", "송파구", "수성구")
-        region = district;
+        if (neighborhood != null) {
+          region = '$district $neighborhood';
+        } else {
+          // 동 정보가 없으면 구/군만 표시
+          region = district;
+        }
       }
 
       regionData[region] = (regionData[region] ?? 0) + 1;

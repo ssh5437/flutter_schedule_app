@@ -22,7 +22,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   bool _isPortrait = true; // true: 세로보기, false: 가로보기
   final ScrollController _scrollController = ScrollController();
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
-  Color _confirmedColor = const Color(0xFFC7EAFA); // 확정 스케줄 색상
+  Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   // 외부에서 호출 가능한 새로고침 메서드
   void refresh() {
@@ -52,7 +52,7 @@ class CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
     setState(() {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
-      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFC7EAFA);
+      _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
     });
   }
 
