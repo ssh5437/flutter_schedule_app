@@ -39,6 +39,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   List<Company> _companies = [];
   Company? _selectedCompany;
   bool _isLoadingCompanies = true;
+  bool _addressConversionFailed = false; // 지번 주소 변환 실패 여부
 
   // 입력 필드 스타일 상수
   static const _primaryColor = Color(0xFF579bf2);
@@ -140,6 +141,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _requestDate = schedule.requestDate;
     _visitDate = schedule.visitDate;
     _visitTime = schedule.visitTime;
+
+    // 기존 스케줄의 지번 주소가 없으면 변환 실패로 표시
+    _addressConversionFailed = schedule.jibunAddress == null;
 
     // 업체명으로 업체 찾기
     if (schedule.companyName != null && _companies.isNotEmpty) {
@@ -560,69 +564,114 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
-    // 작업 항목을 건수만큼 중복하여 리스트로 변환
-    final workItemsList = <String>[];
-    for (var entry in _workItemsWithCount.entries) {
-      for (int i = 0; i < entry.value; i++) {
-        workItemsList.add(entry.key);
-      }
-    }
-
-    // 전화번호는 숫자만 저장
-    final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-
-    // 주소를 지번 주소로 변환 (주소가 변경된 경우에만)
-    String? jibunAddress = widget.schedule?.jibunAddress; // 기존 값 유지
-
-    // 신규 등록이거나, 주소가 변경된 경우에만 API 호출
-    final addressChanged = widget.schedule == null || widget.schedule!.address != _addressController.text;
-
-    if (addressChanged) {
-      try {
-        jibunAddress = await AddressService.convertToJibunAddress(_addressController.text);
-      } catch (e) {
-        // 변환 실패 시 무시
-        jibunAddress = null;
-      }
-    }
-
-    final schedule = Schedule(
-      id: widget.schedule?.id,
-      userId: userId,
-      customerName: _customerNameController.text,
-      requestDate: _requestDate,
-      visitDate: _visitDate,
-      visitTime: _visitTime,
-      phoneNumber: phoneNumberDigitsOnly,
-      address: _addressController.text,
-      jibunAddress: jibunAddress,
-      companyName: _selectedCompany!.name,
-      workItems: workItemsList,
-      workPrices: _workPrices,
-      workCount: int.parse(_workCountController.text),
-      notes: _notesController.text.isEmpty ? null : _notesController.text,
-      status: '예정', // status 필드는 유지하지만 computedStatus로 판단함
-    );
-
-    int savedId;
-    if (widget.schedule == null) {
-      savedId = await DatabaseHelper.instance.createSchedule(schedule);
-    } else {
-      savedId = await DatabaseHelper.instance.updateSchedule(schedule);
-    }
-
-    // 저장된 ID로 스케줄 객체 업데이트
-    final savedSchedule = schedule.copyWith(id: savedId);
-
-    // 스케줄이 변경되었으므로 알림 다시 설정
-    await NotificationService.instance.setupDailyNotifications();
-
-    // 위젯 업데이트
-    await WidgetService.updateWidget();
-
+    // 로딩 다이얼로그 표시
     if (mounted) {
-      Navigator.pop(context, savedSchedule);
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    try {
+      // 작업 항목을 건수만큼 중복하여 리스트로 변환
+      final workItemsList = <String>[];
+      for (var entry in _workItemsWithCount.entries) {
+        for (int i = 0; i < entry.value; i++) {
+          workItemsList.add(entry.key);
+        }
+      }
+
+      // 전화번호는 숫자만 저장
+      final phoneNumberDigitsOnly = _getDigitsOnly(_phoneNumberController.text);
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+
+      // 주소를 지번 주소로 변환 (주소가 변경된 경우에만)
+      String? jibunAddress = widget.schedule?.jibunAddress; // 기존 값 유지
+
+      // 신규 등록이거나, 주소가 변경된 경우에만 API 호출
+      final addressChanged = widget.schedule == null || widget.schedule!.address != _addressController.text;
+
+      if (addressChanged) {
+        try {
+          jibunAddress = await AddressService.convertToJibunAddress(_addressController.text);
+          // 변환 성공 시 플래그 초기화
+          if (mounted) {
+            setState(() {
+              _addressConversionFailed = jibunAddress == null;
+            });
+          }
+        } catch (e) {
+          // 변환 실패 시 플래그 설정
+          debugPrint('지번 주소 변환 실패: $e');
+          jibunAddress = null;
+          if (mounted) {
+            setState(() {
+              _addressConversionFailed = true;
+            });
+          }
+        }
+      }
+
+      final schedule = Schedule(
+        id: widget.schedule?.id,
+        userId: userId,
+        customerName: _customerNameController.text,
+        requestDate: _requestDate,
+        visitDate: _visitDate,
+        visitTime: _visitTime,
+        phoneNumber: phoneNumberDigitsOnly,
+        address: _addressController.text,
+        jibunAddress: jibunAddress,
+        companyName: _selectedCompany!.name,
+        workItems: workItemsList,
+        workPrices: _workPrices,
+        workCount: int.parse(_workCountController.text),
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+        status: '예정', // status 필드는 유지하지만 computedStatus로 판단함
+      );
+
+      int savedId;
+      if (widget.schedule == null) {
+        savedId = await DatabaseHelper.instance.createSchedule(schedule);
+      } else {
+        savedId = await DatabaseHelper.instance.updateSchedule(schedule);
+      }
+
+      // 저장된 ID로 스케줄 객체 업데이트
+      final savedSchedule = schedule.copyWith(id: savedId);
+
+      // 스케줄이 변경되었으므로 알림 다시 설정
+      await NotificationService.instance.setupDailyNotifications();
+
+      // 위젯 업데이트
+      await WidgetService.updateWidget();
+
+      // 로딩 다이얼로그 닫기
+      if (mounted) {
+        Navigator.pop(context); // 로딩 다이얼로그 닫기
+      }
+
+      if (mounted) {
+        Navigator.pop(context, savedSchedule);
+      }
+    } catch (e) {
+      // 로딩 다이얼로그 닫기
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 에러 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('저장 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -870,6 +919,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               isDense: true,
                               filled: true,
                               fillColor: Colors.grey[50],
+                              suffixIcon: _addressConversionFailed
+                                  ? const Tooltip(
+                                      message: '지번 주소 변환 실패',
+                                      child: Icon(
+                                        Icons.error,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                    )
+                                  : null,
                             ),
                             maxLines: 2,
                             minLines: 1,

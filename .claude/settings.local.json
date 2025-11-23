@@ -36,7 +36,8 @@
       "Bash(nul)",
       "Bash(git add:*)",
       "Bash(flutterfire configure:*)",
-      "Bash(nc:*)"
+      "Bash(nc:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

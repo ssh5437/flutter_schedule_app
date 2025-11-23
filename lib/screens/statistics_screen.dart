@@ -1235,6 +1235,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         customerData[customerKey] = {
           'name': schedule.customerName,
           'phone': schedule.phoneNumber,
+          'address': schedule.address,
           'revenue': schedule.totalPrice,
           'count': 1,
         };
@@ -1354,6 +1355,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
           final count = customer['count'] as int;
           final name = customer['name'] as String;
           final phone = customer['phone'] as String;
+          final address = customer['address'] as String;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
@@ -1373,19 +1375,35 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
               ),
-              title: Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              title: Row(
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '($count건)',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (phone.isNotEmpty) Text(phone, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$count건',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
+                  if (phone.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(phone, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ],
+                  if (address.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      address,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
               trailing: Text(
