@@ -391,6 +391,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   }
 
   Widget _buildAddressRow(String label, String value) {
+    // 지번 주소가 없으면 경고 표시
+    final hasJibunAddress = _schedule.jibunAddress != null && _schedule.jibunAddress!.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
@@ -398,12 +401,27 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
+            child: Row(
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                if (!hasJibunAddress) ...[
+                  const SizedBox(width: 4),
+                  const Tooltip(
+                    message: '지번 주소 변환 실패',
+                    child: Icon(
+                      Icons.error,
+                      color: Colors.red,
+                      size: 16,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Expanded(

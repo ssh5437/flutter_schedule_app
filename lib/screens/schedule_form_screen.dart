@@ -39,7 +39,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   List<Company> _companies = [];
   Company? _selectedCompany;
   bool _isLoadingCompanies = true;
-  bool _addressConversionFailed = false; // 지번 주소 변환 실패 여부
 
   // 입력 필드 스타일 상수
   static const _primaryColor = Color(0xFF579bf2);
@@ -141,9 +140,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _requestDate = schedule.requestDate;
     _visitDate = schedule.visitDate;
     _visitTime = schedule.visitTime;
-
-    // 기존 스케줄의 지번 주소가 없으면 변환 실패로 표시
-    _addressConversionFailed = schedule.jibunAddress == null;
 
     // 업체명으로 업체 찾기
     if (schedule.companyName != null && _companies.isNotEmpty) {
@@ -597,21 +593,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       if (addressChanged) {
         try {
           jibunAddress = await AddressService.convertToJibunAddress(_addressController.text);
-          // 변환 성공 시 플래그 초기화
-          if (mounted) {
-            setState(() {
-              _addressConversionFailed = jibunAddress == null;
-            });
-          }
         } catch (e) {
-          // 변환 실패 시 플래그 설정
+          // 변환 실패 시 무시
           debugPrint('지번 주소 변환 실패: $e');
           jibunAddress = null;
-          if (mounted) {
-            setState(() {
-              _addressConversionFailed = true;
-            });
-          }
         }
       }
 
@@ -919,16 +904,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               isDense: true,
                               filled: true,
                               fillColor: Colors.grey[50],
-                              suffixIcon: _addressConversionFailed
-                                  ? const Tooltip(
-                                      message: '지번 주소 변환 실패',
-                                      child: Icon(
-                                        Icons.error,
-                                        color: Colors.red,
-                                        size: 20,
-                                      ),
-                                    )
-                                  : null,
                             ),
                             maxLines: 2,
                             minLines: 1,
