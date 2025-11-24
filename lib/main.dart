@@ -11,6 +11,7 @@ import 'database/database_helper.dart';
 import 'services/notification_service.dart';
 import 'services/background_service.dart';
 import 'services/widget_service.dart';
+import 'services/analytics_service.dart';
 import 'providers/subscription_provider.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -37,6 +38,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   ).then((_) {
     debugPrint('✅ Firebase initialized');
+    // Analytics 초기 이벤트 로깅 (Firebase 연결 확인용)
+    _logAppStart();
   }).catchError((e) {
     debugPrint('⚠️ Firebase initialization failed: $e');
   });
@@ -54,6 +57,23 @@ void main() async {
   debugPrint('✅ App initialization completed in ${duration.inMilliseconds}ms');
 
   runApp(const MyApp());
+}
+
+/// 앱 시작 이벤트 로깅 (Firebase Analytics 연결 확인)
+void _logAppStart() {
+  Future.microtask(() async {
+    try {
+      final analytics = AnalyticsService();
+      await analytics.logScreenView(screenName: 'app_start');
+      await analytics.logFeatureUsed(
+        featureName: 'app_opened',
+        parameters: {'timestamp': DateTime.now().toIso8601String()},
+      );
+      debugPrint('📊 Analytics: App start event logged');
+    } catch (e) {
+      debugPrint('⚠️ Analytics logging error: $e');
+    }
+  });
 }
 
 /// 백그라운드에서 서비스 초기화 (앱 로딩 차단 방지)
