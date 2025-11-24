@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/widget_service.dart';
@@ -901,21 +902,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
 
-          // // 디버그 정보
-          ListTile(
-            leading: const Icon(Icons.bug_report, color: Colors.orange),
-            title: const Text('디버그 정보'),
-            subtitle: const Text('데이터베이스 상태 및 멤버십 테스트'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const DebugScreen(),
-                ),
-              );
-            },
-          ),
+          // 디버그 정보 (ssh5437@gmail.com만 접근 가능)
+          if (Supabase.instance.client.auth.currentUser?.email == 'ssh5437@gmail.com')
+            ListTile(
+              leading: const Icon(Icons.bug_report, color: Colors.orange),
+              title: const Text('디버그 정보'),
+              subtitle: const Text('데이터베이스 상태 및 멤버십 테스트'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DebugScreen(),
+                  ),
+                );
+              },
+            ),
 
           // 로그아웃
           ListTile(
