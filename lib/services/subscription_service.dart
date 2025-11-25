@@ -232,17 +232,20 @@ class SubscriptionService {
 
       await _saveSubscription(subscription);
 
-      // Supabase는 서버 검증 시 이미 업데이트되었지만, 로컬과 동기화 확인
-      await _syncToSupabase(subscription);
+      // Supabase는 서버 검증 시 이미 업데이트되었으므로, 최신 정보 다시 로드
+      debugPrint('🔄 Supabase에서 최신 멤버십 정보 다시 로드 중...');
+      await Future.delayed(const Duration(milliseconds: 500)); // 서버 업데이트 완료 대기
+      await loadFromSupabase();
 
+      // 최신 정보로 업데이트된 _currentSubscription 사용
       _currentSubscription = subscription;
 
       debugPrint('✅ 구독 저장 완료 (서버 검증됨): $purchaseDate ~ $expiryDate');
       debugPrint('🔔 스트림으로 구독 정보 전송 중...');
 
-      _subscriptionController.add(subscription);
+      _subscriptionController.add(_currentSubscription);
 
-      debugPrint('✅ 구독 활성화 완료! isActive=${subscription.isActive}');
+      debugPrint('✅ 구독 활성화 완료! isActive=${_currentSubscription.isActive}');
     } catch (e) {
       debugPrint('구매 저장 오류: $e');
       _updateSubscriptionStatus(SubscriptionStatus.error);

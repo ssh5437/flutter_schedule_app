@@ -166,6 +166,9 @@ class SubscriptionProvider extends ChangeNotifier {
     debugPrint('🔄 구독 상태 새로고침 중...');
 
     try {
+      // Supabase에서 최신 멤버십 정보 먼저 확인
+      await _subscriptionService.loadFromSupabase();
+
       // DB에서 최신 구독 정보 로드
       await _subscriptionService.loadSubscription();
 

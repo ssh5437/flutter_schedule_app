@@ -118,7 +118,7 @@ serve(async (req) => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          membership_tier: 'premium',
+          membership_tier: 'plus',
           membership_expires_at: expiryDate.toISOString(),
           updated_at: new Date().toISOString(),
         })

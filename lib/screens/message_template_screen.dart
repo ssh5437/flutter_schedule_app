@@ -52,7 +52,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
       if (userId == null) return false;
 
       final response = await Supabase.instance.client
-          .from('user_profiles')
+          .from('profiles')
           .select('membership_tier, membership_expires_at')
           .eq('id', userId)
           .single();

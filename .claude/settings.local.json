@@ -38,7 +38,8 @@
       "Bash(flutterfire configure:*)",
       "Bash(nc:*)",
       "Bash(timeout:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(supabase functions deploy:*)"
     ],
     "deny": [],
     "ask": []
