@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import '../models/message_template.dart';
 import '../models/repeat_config.dart';
 import '../database/database_helper.dart';
 import '../services/notification_service.dart';
@@ -54,22 +55,6 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     }
   }
 
-  // 템플릿 변수를 실제 값으로 치환
-  String _replaceTemplateVariables(String? template) {
-    if (template == null || template.isEmpty) return '';
-
-    final date = _formatDate(_schedule.visitDate ?? _schedule.requestDate);
-    final time = _schedule.visitTime ?? '미정';
-    final customerName = _schedule.customerName;
-    final companyName = _schedule.companyName ?? '';
-
-    return template
-        .replaceAll('#{일자}', date)
-        .replaceAll('#{시간}', time)
-        .replaceAll('#{고객명}', customerName)
-        .replaceAll('#{업체명}', companyName);
-  }
-
   String _formatDate(DateTime? date) {
     if (date == null) return '미정';
     return DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(date);
@@ -103,40 +88,104 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     }
   }
 
-  void _copyConfirmationMessage() {
-    String message;
-
-    // 업체에 확정 메시지 템플릿이 있으면 사용, 없으면 기본 메시지
-    if (_company != null && _company!.confirmMessage.isNotEmpty) {
-      message = _replaceTemplateVariables(_company!.confirmMessage);
-    } else {
-      // 기본 메시지
-      message = '${_schedule.customerName}님, 요청하신 ${_schedule.workItems.join(', ')} 작업이 '
-          '${_formatDate(_schedule.visitDate)} ${_schedule.visitTime ?? ''}으로 확정되었습니다. '
-          '방문 전 다시 연락드리겠습니다.';
+  // 메시지 템플릿 선택 및 복사
+  Future<void> _showTemplateSelector() async {
+    if (_company == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('업체 정보를 불러오는 중입니다')),
+      );
+      return;
     }
 
-    Clipboard.setData(ClipboardData(text: message));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('확정 메시지가 클립보드에 복사되었습니다')),
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // 해당 업체의 모든 템플릿 가져오기
+    final templates = await DatabaseHelper.instance.readAllMessageTemplates(userId, _company!.id!);
+
+    if (!mounted) return;
+
+    if (templates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('등록된 메시지 템플릿이 없습니다')),
+      );
+      return;
+    }
+
+    // 템플릿 선택 Bottom Sheet 표시
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => _buildTemplateBottomSheet(templates),
     );
   }
 
-  void _copyAbsentMessage() {
-    String message;
+  Widget _buildTemplateBottomSheet(List<MessageTemplate> templates) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '메시지 템플릿 선택',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const Divider(),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: templates.length,
+              itemBuilder: (context, index) {
+                final template = templates[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(
+                      template.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      template.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    trailing: const Icon(Icons.content_copy, color: Colors.blue),
+                    onTap: () {
+                      _copyTemplateMessage(template);
+                      Navigator.pop(context);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // 업체에 부재 메시지 템플릿이 있으면 사용, 없으면 기본 메시지
-    if (_company != null && _company!.absenceMessage.isNotEmpty) {
-      message = _replaceTemplateVariables(_company!.absenceMessage);
-    } else {
-      // 기본 메시지
-      message = '${_schedule.customerName}님, ${_schedule.workItems.join(', ')} 건으로 연락드렸으나 '
-          '부재중이셔서 문자 남깁니다. 확인 후 연락 부탁드립니다.';
-    }
+  void _copyTemplateMessage(MessageTemplate template) {
+    // 템플릿 변수를 실제 값으로 치환
+    final message = template.replaceVariables(
+      visitDate: _formatDate(_schedule.visitDate ?? _schedule.requestDate),
+      visitTime: _schedule.visitTime ?? '미정',
+      customerName: _schedule.customerName,
+      companyName: _schedule.companyName ?? '',
+    );
 
     Clipboard.setData(ClipboardData(text: message));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('부재시 메시지가 클립보드에 복사되었습니다')),
+      SnackBar(content: Text('"${template.name}" 메시지가 복사되었습니다')),
     );
   }
 
@@ -443,34 +492,18 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _copyConfirmationMessage,
-            icon: const Icon(Icons.check_circle, size: 18),
-            label: const Text('확정 메시지', style: TextStyle(fontSize: 13)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            ),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _showTemplateSelector,
+        icon: const Icon(Icons.message),
+        label: const Text('메시지 복사'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _copyAbsentMessage,
-            icon: const Icon(Icons.message, size: 18),
-            label: const Text('부재시 메시지', style: TextStyle(fontSize: 13)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

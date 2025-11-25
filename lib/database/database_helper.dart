@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import '../models/message_template.dart';
 import '../utils/encryption_helper.dart';
 
 class DatabaseHelper {
@@ -24,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -72,6 +73,18 @@ class DatabaseHelper {
         is_active INTEGER NOT NULL DEFAULT 0,
         status TEXT NOT NULL,
         is_test_mode INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE message_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        company_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
       )
     ''');
 
@@ -245,6 +258,23 @@ class DatabaseHelper {
         // 컬럼이 이미 존재하는 경우 무시
       }
     }
+    if (oldVersion < 13) {
+      // message_templates 테이블 생성
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS message_templates (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          company_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          content TEXT NOT NULL,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
+
+      // 기존 Company의 confirmMessage와 absenceMessage를 message_templates로 마이그레이션
+      await _migrateCompanyMessagesToTemplates(db);
+    }
   }
 
   Future<void> _migrateToEncryptedData(Database db) async {
@@ -271,6 +301,61 @@ class DatabaseHelper {
           whereArgs: [id],
         );
       }
+    }
+  }
+
+  // Company의 confirmMessage와 absenceMessage를 message_templates로 마이그레이션
+  Future<void> _migrateCompanyMessagesToTemplates(Database db) async {
+    try {
+      // companies 테이블에서 confirmMessage, absenceMessage 컬럼이 있는지 확인
+      final tableInfo = await db.rawQuery('PRAGMA table_info(companies)');
+      final hasConfirmMessage = tableInfo.any((col) => col['name'] == 'confirmMessage');
+      final hasAbsenceMessage = tableInfo.any((col) => col['name'] == 'absenceMessage');
+
+      if (!hasConfirmMessage && !hasAbsenceMessage) {
+        // 이미 마이그레이션이 완료되었거나 해당 컬럼이 없음
+        return;
+      }
+
+      // 모든 업체 데이터 가져오기
+      final companies = await db.query('companies');
+
+      for (var company in companies) {
+        final companyId = company['id'] as int;
+        final userId = company['userId'] as String;
+        final confirmMessage = company['confirmMessage'] as String?;
+        final absenceMessage = company['absenceMessage'] as String?;
+
+        int order = 0;
+
+        // 확정 메시지가 있으면 템플릿으로 추가
+        if (confirmMessage != null && confirmMessage.isNotEmpty) {
+          await db.insert('message_templates', {
+            'user_id': userId,
+            'company_id': companyId,
+            'name': '확정 메시지',
+            'content': confirmMessage,
+            'display_order': order++,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        }
+
+        // 부재 메시지가 있으면 템플릿으로 추가
+        if (absenceMessage != null && absenceMessage.isNotEmpty) {
+          await db.insert('message_templates', {
+            'user_id': userId,
+            'company_id': companyId,
+            'name': '부재 메시지',
+            'content': absenceMessage,
+            'display_order': order++,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        }
+      }
+
+      debugPrint('✅ Migrated company messages to templates');
+    } catch (e) {
+      debugPrint('⚠️ Error migrating company messages: $e');
     }
   }
 
@@ -667,6 +752,88 @@ class DatabaseHelper {
     return await db.delete(
       'companies',
       where: 'id = ? AND userId = ?',
+      whereArgs: [id, userId],
+    );
+  }
+
+  // MessageTemplate CRUD operations
+  Future<List<MessageTemplate>> readAllMessageTemplates(String userId, int companyId) async {
+    final db = await database;
+    final result = await db.query(
+      'message_templates',
+      where: 'user_id = ? AND company_id = ?',
+      whereArgs: [userId, companyId],
+      orderBy: 'display_order ASC, id ASC',
+    );
+    return result.map((map) => MessageTemplate.fromMap(map)).toList();
+  }
+
+  Future<MessageTemplate?> readMessageTemplate(String userId, int id) async {
+    final db = await database;
+    final result = await db.query(
+      'message_templates',
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [id, userId],
+    );
+
+    if (result.isNotEmpty) {
+      return MessageTemplate.fromMap(result.first);
+    }
+    return null;
+  }
+
+  Future<int> createMessageTemplate(MessageTemplate template) async {
+    final db = await database;
+
+    // 새 템플릿은 해당 업체의 맨 마지막 순서로 추가
+    final result = await db.rawQuery(
+      'SELECT MAX(display_order) as maxOrder FROM message_templates WHERE user_id = ? AND company_id = ?',
+      [template.userId, template.companyId],
+    );
+    final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
+
+    return await db.insert('message_templates', {
+      'user_id': template.userId,
+      'company_id': template.companyId,
+      'name': template.name,
+      'content': template.content,
+      'display_order': maxOrder + 1,
+      'created_at': template.createdAt.toIso8601String(),
+    });
+  }
+
+  Future<int> updateMessageTemplate(MessageTemplate template) async {
+    final db = await database;
+    return await db.update(
+      'message_templates',
+      template.toMap(),
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [template.id, template.userId],
+    );
+  }
+
+  // 메시지 템플릿 순서 일괄 업데이트
+  Future<void> updateMessageTemplatesOrder(String userId, int companyId, List<MessageTemplate> templates) async {
+    final db = await database;
+    final batch = db.batch();
+
+    for (int i = 0; i < templates.length; i++) {
+      batch.update(
+        'message_templates',
+        {'display_order': i},
+        where: 'id = ? AND user_id = ? AND company_id = ?',
+        whereArgs: [templates[i].id, userId, companyId],
+      );
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  Future<int> deleteMessageTemplate(String userId, int id) async {
+    final db = await database;
+    return await db.delete(
+      'message_templates',
+      where: 'id = ? AND user_id = ?',
       whereArgs: [id, userId],
     );
   }

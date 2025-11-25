@@ -5,8 +5,6 @@ class Company {
   final List<WorkItem> workItems;
   final int color; // ARGB color value
   final int displayOrder; // 표시 순서
-  final String confirmMessage; // 확정 메시지 템플릿
-  final String absenceMessage; // 부재 메시지 템플릿
 
   Company({
     this.id,
@@ -15,8 +13,6 @@ class Company {
     required this.workItems,
     this.color = 0xFF2196F3, // 기본값: 파란색
     this.displayOrder = 0,
-    this.confirmMessage = '',
-    this.absenceMessage = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -27,8 +23,6 @@ class Company {
       'workItems': workItems.map((item) => item.toMap()).toList(),
       'color': color,
       'displayOrder': displayOrder,
-      'confirmMessage': confirmMessage,
-      'absenceMessage': absenceMessage,
     };
   }
 
@@ -42,8 +36,6 @@ class Company {
           .toList(),
       color: map['color'] ?? 0xFF2196F3,
       displayOrder: map['displayOrder'] ?? 0,
-      confirmMessage: map['confirmMessage'] ?? '',
-      absenceMessage: map['absenceMessage'] ?? '',
     );
   }
 
@@ -54,8 +46,6 @@ class Company {
     List<WorkItem>? workItems,
     int? color,
     int? displayOrder,
-    String? confirmMessage,
-    String? absenceMessage,
   }) {
     return Company(
       id: id ?? this.id,
@@ -64,8 +54,6 @@ class Company {
       workItems: workItems ?? this.workItems,
       color: color ?? this.color,
       displayOrder: displayOrder ?? this.displayOrder,
-      confirmMessage: confirmMessage ?? this.confirmMessage,
-      absenceMessage: absenceMessage ?? this.absenceMessage,
     );
   }
 }

@@ -23,8 +23,6 @@ class CompanyEditScreen extends StatefulWidget {
 class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _confirmMessageController;
-  late TextEditingController _absenceMessageController;
   late List<WorkItem> _workItems;
   late Color _selectedColor;
 
@@ -39,8 +37,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
-    _confirmMessageController.dispose();
-    _absenceMessageController.dispose();
     super.dispose();
   }
 
@@ -54,8 +50,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
 
   void _loadCompanyData() {
     _nameController = TextEditingController(text: widget.company?.name);
-    _confirmMessageController = TextEditingController(text: widget.company?.confirmMessage ?? '');
-    _absenceMessageController = TextEditingController(text: widget.company?.absenceMessage ?? '');
     _workItems = widget.company?.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList() ?? [];
     _selectedColor = widget.company != null ? Color(widget.company!.color) : const Color(0xFF2196F3);
   }
@@ -73,8 +67,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
       if (mounted) {
         setState(() {
           _nameController.text = updatedCompany.name;
-          _confirmMessageController.text = updatedCompany.confirmMessage;
-          _absenceMessageController.text = updatedCompany.absenceMessage;
           _workItems = updatedCompany.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList();
           _selectedColor = Color(updatedCompany.color);
         });
@@ -261,8 +253,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                     name: _nameController.text,
                     workItems: _workItems,
                     color: _selectedColor.toARGB32(),
-                    confirmMessage: _confirmMessageController.text,
-                    absenceMessage: _absenceMessageController.text,
+                    displayOrder: widget.company!.displayOrder,
                   );
 
                   final messenger = ScaffoldMessenger.of(context);
@@ -324,8 +315,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         name: _nameController.text,
         workItems: _workItems,
         color: _selectedColor.toARGB32(),
-        confirmMessage: _confirmMessageController.text,
-        absenceMessage: _absenceMessageController.text,
+        displayOrder: widget.company?.displayOrder ?? 0,
       );
 
       try {
@@ -411,16 +401,9 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
               child: ListTile(
                 leading: const Icon(Icons.message),
                 title: const Text('메시지 템플릿'),
-                subtitle: Text(
-                  _confirmMessageController.text.isEmpty && _absenceMessageController.text.isEmpty
-                      ? '확정/부재 메시지 템플릿 미설정'
-                      : '확정/부재 메시지 템플릿 설정됨',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _confirmMessageController.text.isEmpty && _absenceMessageController.text.isEmpty
-                        ? Colors.grey
-                        : Colors.green,
-                  ),
+                subtitle: const Text(
+                  '업체별 메시지 템플릿 관리',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: _navigateToMessageTemplate,
@@ -481,8 +464,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                       name: _nameController.text,
                       workItems: _workItems,
                       color: _selectedColor.toARGB32(),
-                      confirmMessage: _confirmMessageController.text,
-                      absenceMessage: _absenceMessageController.text,
+                      displayOrder: widget.company!.displayOrder,
                     );
 
                     final messenger = ScaffoldMessenger.of(context);
@@ -546,8 +528,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                                   name: _nameController.text,
                                   workItems: _workItems,
                                   color: _selectedColor.toARGB32(),
-                                  confirmMessage: _confirmMessageController.text,
-                                  absenceMessage: _absenceMessageController.text,
+                                  displayOrder: widget.company!.displayOrder,
                                 );
 
                                 try {

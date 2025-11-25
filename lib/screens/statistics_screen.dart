@@ -178,7 +178,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('매출 통계', style: TextStyle(fontSize: 18)),
+                const Text('매출 분석', style: TextStyle(fontSize: 18)),
                 if (hasActiveSubscription) ...[
                   const SizedBox(width: 8),
                   Container(
@@ -485,7 +485,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   const SizedBox(height: 10),
                   _buildBenefitItem('업체 추가 무제한'),
                   _buildBenefitItem('AI 텍스트 추출 무제한'),
-                  _buildBenefitItem('매출 통계 기간 변경 가능'),
+                  _buildBenefitItem('매출 분석 기간 변경 가능'),
                   _buildBenefitItem('과거 스케줄 백업 기능 '),
                   _buildBenefitItem('광고 제거'),
                 ],
@@ -1283,7 +1283,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
-          '고객별 매출 통계',
+          '고객별 매출 분석',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
