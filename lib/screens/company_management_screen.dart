@@ -123,7 +123,7 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
                   const SizedBox(height: 10),
                   _buildBenefitItem('업체 추가 무제한'),
                   _buildBenefitItem('AI 텍스트 추출 무제한'),
-                  _buildBenefitItem('매출 통계 기간 변경 가능'),
+                  _buildBenefitItem('매출 분석 기간 변경 가능'),
                   _buildBenefitItem('과거 스케줄 백업 기능 '),
                   _buildBenefitItem('광고 제거'),
                 ],

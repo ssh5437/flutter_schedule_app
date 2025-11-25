@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
 import '../database/database_helper.dart';
+import '../services/analytics_service.dart';
 import '../widgets/gradient_app_bar.dart';
 
 class MessageTemplateScreen extends StatefulWidget {
@@ -44,7 +45,61 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
     }
   }
 
+  // 멤버십 상태 확인
+  Future<bool> _isPremiumUser() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final response = await Supabase.instance.client
+          .from('user_profiles')
+          .select('membership_tier, membership_expires_at')
+          .eq('id', userId)
+          .single();
+
+      final membershipTier = response['membership_tier'] as String?;
+      final expiresAtStr = response['membership_expires_at'] as String?;
+
+      if (membershipTier != 'plus') return false;
+
+      if (expiresAtStr != null) {
+        final expiresAt = DateTime.parse(expiresAtStr);
+        return expiresAt.isAfter(DateTime.now());
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> _addTemplate() async {
+    // 무료 사용자 제한 확인
+    final isPremium = await _isPremiumUser();
+
+    if (!mounted) return;
+
+    if (!isPremium && _templates.isNotEmpty) {
+      // 무료 사용자는 업체당 1개만 가능
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('템플릿 개수 제한'),
+          content: const Text(
+            '무료 플랜에서는 업체당 1개의 메시지 템플릿만 등록할 수 있습니다.\n\n'
+            'Plus 멤버십 구독 시 무제한으로 템플릿을 등록할 수 있습니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -99,6 +154,16 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
       try {
         final userId = Supabase.instance.client.auth.currentUser!.id;
         await DatabaseHelper.instance.deleteMessageTemplate(userId, template.id!);
+
+        // Analytics 로그
+        await AnalyticsService().logFeatureUsed(
+          featureName: 'template_deleted',
+          parameters: {
+            'template_name': template.name,
+            'company_id': template.companyId,
+          },
+        );
+
         _loadTemplates();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -136,27 +201,6 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
       }
       _loadTemplates(); // 실패하면 다시 로드
     }
-  }
-
-  // 변수 복사 버튼 위젯
-  Widget _buildVariableChip(String variable) {
-    return ActionChip(
-      label: Text(
-        variable,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-      backgroundColor: Colors.white,
-      side: BorderSide(color: Colors.blue.shade300),
-      onPressed: () {
-        Clipboard.setData(ClipboardData(text: variable));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$variable 복사되었습니다'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -200,29 +244,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
                           '• #{고객명} - 고객 이름\n'
                           '• #{업체명} - 업체 이름',
                           style: TextStyle(fontSize: 13, height: 1.5),
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '변수 복사하기',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildVariableChip('#{일자}'),
-                            _buildVariableChip('#{시간}'),
-                            _buildVariableChip('#{고객명}'),
-                            _buildVariableChip('#{업체명}'),
-                          ],
-                        ),
+                        ),                        
                       ],
                     ),
                   ),
@@ -366,6 +388,15 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
           createdAt: DateTime.now(),
         );
         await DatabaseHelper.instance.createMessageTemplate(newTemplate);
+
+        // Analytics 로그
+        await AnalyticsService().logFeatureUsed(
+          featureName: 'template_created',
+          parameters: {
+            'template_name': _nameController.text.trim(),
+            'company_id': widget.company.id!,
+          },
+        );
       } else {
         // 기존 템플릿 수정
         final updatedTemplate = widget.template!.copyWith(
@@ -373,6 +404,15 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
           content: _contentController.text.trim(),
         );
         await DatabaseHelper.instance.updateMessageTemplate(updatedTemplate);
+
+        // Analytics 로그
+        await AnalyticsService().logFeatureUsed(
+          featureName: 'template_edited',
+          parameters: {
+            'template_name': _nameController.text.trim(),
+            'company_id': widget.company.id!,
+          },
+        );
       }
 
       if (mounted) {

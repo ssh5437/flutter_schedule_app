@@ -259,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '오늘: ${limitCheck['dailyCount']}/${limitCheck['dailyLimit']}회 사용\n이번 달: ${limitCheck['monthlyCount']}/${limitCheck['monthlyLimit']}회 사용',
+                      '이번 달: ${limitCheck['monthlyCount']}/${limitCheck['monthlyLimit']}회 사용',
                       style: const TextStyle(fontSize: 13, height: 1.4),
                     ),
                   ],
@@ -963,27 +963,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
 
-          const Divider(),
-
-          // 앱 정보 섹션
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              '앱 정보',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-
-          // 버전 정보
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('버전'),
-            subtitle: Text('1.0.0'),
-          ),
 
           // 위험 구역 및 모든 데이터 삭제 기능은 숨김 처리
           // const Divider(),

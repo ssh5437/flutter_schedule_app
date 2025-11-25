@@ -187,6 +187,15 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('"${template.name}" 메시지가 복사되었습니다')),
     );
+
+    // Analytics 로그
+    AnalyticsService().logFeatureUsed(
+      featureName: 'message_copied',
+      parameters: {
+        'template_name': template.name,
+        'company_id': template.companyId,
+      },
+    );
   }
 
   Future<void> _deleteSchedule() async {

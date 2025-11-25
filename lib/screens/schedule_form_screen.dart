@@ -10,6 +10,7 @@ import '../utils/text_extraction_limit_helper.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
 import '../services/address_service.dart';
+import '../services/analytics_service.dart';
 import '../widgets/gradient_app_bar.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
@@ -472,17 +473,28 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       final result = await GeminiHelper.extractScheduleInfo(text);
 
       if (!mounted) return;
-      navigator.pop(); // 로딩 다이얼로그 닫기
 
       if (result == null) {
+        navigator.pop(); // 로딩 다이얼로그 닫기
         messenger.showSnackBar(
           const SnackBar(
             content: Text('정보 추출에 실패했습니다. Gemini API 키를 확인해주세요.'),
             backgroundColor: Colors.red,
           ),
         );
+
+        // Analytics 로그
+        await AnalyticsService().logFeatureUsed(
+          featureName: 'ocr_text_extraction',
+          parameters: {
+            'success': false,
+            'error': 'api_key_error',
+          },
+        );
         return;
       }
+
+      navigator.pop(); // 로딩 다이얼로그 닫기
 
       // 추출된 정보를 폼에 입력
       setState(() {
@@ -528,6 +540,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           backgroundColor: Colors.green,
         ),
       );
+
+      // Analytics 로그
+      await AnalyticsService().logFeatureUsed(
+        featureName: 'ocr_text_extraction',
+        parameters: {
+          'success': true,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       navigator.pop(); // 로딩 다이얼로그 닫기
@@ -537,6 +557,15 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           content: Text('오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
+      );
+
+      // Analytics 로그
+      await AnalyticsService().logFeatureUsed(
+        featureName: 'ocr_text_extraction',
+        parameters: {
+          'success': false,
+          'error': 'exception',
+        },
       );
     }
   }

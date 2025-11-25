@@ -266,18 +266,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
             _buildBenefitItem(
               Icons.bar_chart,
-              '매출 통계 기간 변경 가능',
-              '과거의 매출까지 통계 및 분석',
+              '매출 분석 기간 변경 가능',
+              '원하는 기간을 설정해서 통계 및 분석',
             ),
             _buildBenefitItem(
-              Icons.sms,
+              Icons.date_range,
               '백업 기간 지정 가능',
               '과거의 스케줄까지 백업 가능',
             ),
             _buildBenefitItem(
-              Icons.block,
-              '광고 제거',
-              '텍스트 추출, 백업 기능 등에 광고 제거',
+              Icons.message,
+              '메시지 템플릿 무제한',
+              '자주 사용하는 메시지들을 등록',
             ),
             const SizedBox(height: 16),
             Container(

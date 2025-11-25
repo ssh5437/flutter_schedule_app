@@ -16,7 +16,6 @@ class BackupService {
   static const String _secretKey = 'bizplan_backup_secret_key_v1_2025';
 
   // 무료 사용자 백업 제한
-  static const int _maxDailyBackups = 3;  // 하루 최대 3회
   static const int _maxMonthlyBackups = 10; // 한 달 최대 10회
 
   // 백업 데이터에 서명 생성
@@ -86,24 +85,6 @@ class BackupService {
     }
   }
 
-  // 오늘 백업 횟수 확인
-  Future<int> _getTodayBackupCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now();
-    final todayKey = '${today.year}-${today.month}-${today.day}';
-
-    // 저장된 날짜와 비교
-    final savedDate = prefs.getString('last_backup_date');
-    if (savedDate != todayKey) {
-      // 날짜가 다르면 카운트 초기화
-      await prefs.setString('last_backup_date', todayKey);
-      await prefs.setInt('daily_backup_count', 0);
-      return 0;
-    }
-
-    return prefs.getInt('daily_backup_count') ?? 0;
-  }
-
   // 이번 달 백업 횟수 확인
   Future<int> _getMonthlyBackupCount() async {
     final prefs = await SharedPreferences.getInstance();
@@ -122,13 +103,9 @@ class BackupService {
     return prefs.getInt('monthly_backup_count') ?? 0;
   }
 
-  // 백업 횟수 증가
+  // 백업 횟수 증가 (월간만)
   Future<void> _incrementBackupCount() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // 일일 카운트 증가
-    final dailyCount = await _getTodayBackupCount();
-    await prefs.setInt('daily_backup_count', dailyCount + 1);
 
     // 월간 카운트 증가
     final monthlyCount = await _getMonthlyBackupCount();
@@ -145,17 +122,14 @@ class BackupService {
       };
     }
 
-    // 무료 사용자: 제한 확인
-    final dailyCount = await _getTodayBackupCount();
+    // 무료 사용자: 월간 제한만 확인 (일일 제한 제거)
     final monthlyCount = await _getMonthlyBackupCount();
 
-    final canBackup = dailyCount < _maxDailyBackups && monthlyCount < _maxMonthlyBackups;
+    final canBackup = monthlyCount < _maxMonthlyBackups;
 
     return {
       'canBackup': canBackup,
       'isPremium': false,
-      'dailyCount': dailyCount,
-      'dailyLimit': _maxDailyBackups,
       'monthlyCount': monthlyCount,
       'monthlyLimit': _maxMonthlyBackups,
     };
@@ -219,14 +193,8 @@ class BackupService {
 
       if (!limitCheck['canBackup']) {
         if (limitCheck['isPremium'] == false) {
-          final dailyCount = limitCheck['dailyCount'];
           final monthlyCount = limitCheck['monthlyCount'];
-
-          if (dailyCount >= _maxDailyBackups) {
-            throw Exception('오늘의 백업 횟수를 모두 사용했습니다. ($dailyCount/$_maxDailyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
-          } else if (monthlyCount >= _maxMonthlyBackups) {
-            throw Exception('이번 달 백업 횟수를 모두 사용했습니다. ($monthlyCount/$_maxMonthlyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
-          }
+          throw Exception('이번 달 백업 횟수를 모두 사용했습니다. ($monthlyCount/$_maxMonthlyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
         }
       }
 
