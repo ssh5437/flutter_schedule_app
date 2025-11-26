@@ -25,7 +25,7 @@ class SubscriptionService {
 
   // 마지막 서버 검증 시간 (캐싱용)
   DateTime? _lastVerificationTime;
-  static const Duration _verificationCacheDuration = Duration(hours: 1);
+  static const Duration _verificationCacheDuration = Duration(hours: 12);
 
   // 초기화
   Future<void> initialize() async {

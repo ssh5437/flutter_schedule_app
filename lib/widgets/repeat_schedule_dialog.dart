@@ -292,124 +292,121 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        children: [
-          ListTile(
-            title: const Text('날짜'),
-            leading: Radio<MonthlyRepeatType>(
-              value: MonthlyRepeatType.dayOfMonth,
-              groupValue: _monthlyType,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _monthlyType = value;
-                  });
-                }
-              },
-              activeColor: const Color(0xFF579bf2),
-            ),
-            onTap: () {
-              setState(() {
-                _monthlyType = MonthlyRepeatType.dayOfMonth;
-              });
-            },
-          ),
-          if (_monthlyType == MonthlyRepeatType.dayOfMonth)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '매월 $_selectedMonthDay일에 반복',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  Slider(
-                    value: _selectedMonthDay!.toDouble(),
-                    min: 1,
-                    max: 31,
-                    divisions: 30,
-                    label: '$_selectedMonthDay일',
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedMonthDay = value.toInt();
-                      });
-                    },
-                    activeColor: const Color(0xFF579bf2),
-                  ),
-                ],
+      child: RadioGroup<MonthlyRepeatType>(
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _monthlyType = value;
+            });
+          }
+        },
+        child: Column(
+          children: [
+            ListTile(
+              title: const Text('날짜'),
+              leading: Radio<MonthlyRepeatType>(
+                value: MonthlyRepeatType.dayOfMonth,
+                toggleable: false,
+                activeColor: const Color(0xFF579bf2),
               ),
-            ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text('요일'),
-            leading: Radio<MonthlyRepeatType>(
-              value: MonthlyRepeatType.weekOfMonth,
-              groupValue: _monthlyType,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _monthlyType = value;
-                  });
-                }
+              selected: _monthlyType == MonthlyRepeatType.dayOfMonth,
+              onTap: () {
+                setState(() {
+                  _monthlyType = MonthlyRepeatType.dayOfMonth;
+                });
               },
-              activeColor: const Color(0xFF579bf2),
             ),
-            onTap: () {
-              setState(() {
-                _monthlyType = MonthlyRepeatType.weekOfMonth;
-              });
-            },
-          ),
-          if (_monthlyType == MonthlyRepeatType.weekOfMonth)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text('매월', style: TextStyle(fontSize: 14)),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: _weekOfMonth,
-                        items: const [
-                          DropdownMenuItem(value: 1, child: Text('첫째')),
-                          DropdownMenuItem(value: 2, child: Text('둘째')),
-                          DropdownMenuItem(value: 3, child: Text('셋째')),
-                          DropdownMenuItem(value: 4, child: Text('넷째')),
-                          DropdownMenuItem(value: 5, child: Text('다섯째')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _weekOfMonth = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: _dayOfWeek,
-                        items: const [
-                          DropdownMenuItem(value: 1, child: Text('월요일')),
-                          DropdownMenuItem(value: 2, child: Text('화요일')),
-                          DropdownMenuItem(value: 3, child: Text('수요일')),
-                          DropdownMenuItem(value: 4, child: Text('목요일')),
-                          DropdownMenuItem(value: 5, child: Text('금요일')),
-                          DropdownMenuItem(value: 6, child: Text('토요일')),
-                          DropdownMenuItem(value: 7, child: Text('일요일')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _dayOfWeek = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+            if (_monthlyType == MonthlyRepeatType.dayOfMonth)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '매월 $_selectedMonthDay일에 반복',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    Slider(
+                      value: _selectedMonthDay!.toDouble(),
+                      min: 1,
+                      max: 31,
+                      divisions: 30,
+                      label: '$_selectedMonthDay일',
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedMonthDay = value.toInt();
+                        });
+                      },
+                      activeColor: const Color(0xFF579bf2),
+                    ),
+                  ],
+                ),
               ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Text('요일'),
+              leading: Radio<MonthlyRepeatType>(
+                value: MonthlyRepeatType.weekOfMonth,
+                toggleable: false,
+                activeColor: const Color(0xFF579bf2),
+              ),
+              selected: _monthlyType == MonthlyRepeatType.weekOfMonth,
+              onTap: () {
+                setState(() {
+                  _monthlyType = MonthlyRepeatType.weekOfMonth;
+                });
+              },
             ),
-        ],
+            if (_monthlyType == MonthlyRepeatType.weekOfMonth)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('매월', style: TextStyle(fontSize: 14)),
+                        const SizedBox(width: 8),
+                        DropdownButton<int>(
+                          value: _weekOfMonth,
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('첫째')),
+                            DropdownMenuItem(value: 2, child: Text('둘째')),
+                            DropdownMenuItem(value: 3, child: Text('셋째')),
+                            DropdownMenuItem(value: 4, child: Text('넷째')),
+                            DropdownMenuItem(value: 5, child: Text('다섯째')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _weekOfMonth = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        DropdownButton<int>(
+                          value: _dayOfWeek,
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('월요일')),
+                            DropdownMenuItem(value: 2, child: Text('화요일')),
+                            DropdownMenuItem(value: 3, child: Text('수요일')),
+                            DropdownMenuItem(value: 4, child: Text('목요일')),
+                            DropdownMenuItem(value: 5, child: Text('금요일')),
+                            DropdownMenuItem(value: 6, child: Text('토요일')),
+                            DropdownMenuItem(value: 7, child: Text('일요일')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _dayOfWeek = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -421,116 +418,113 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        children: [
-          ListTile(
-            title: const Text('날짜'),
-            leading: Radio<EndType>(
-              value: EndType.date,
-              groupValue: _endType,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _endType = value;
-                  });
-                }
-              },
-              activeColor: const Color(0xFF579bf2),
-            ),
-            onTap: () {
-              setState(() {
-                _endType = EndType.date;
-              });
-            },
-          ),
-          if (_endType == EndType.date)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-              child: Column(
-                children: [
-                  _buildDatePickerRow(
-                    '시작일',
-                    _startDate,
-                    (date) => setState(() {
-                      _startDate = date;
-                      if (_endDate != null && _endDate!.isBefore(date)) {
-                        _endDate = date.add(const Duration(days: 30));
-                      }
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDatePickerRow(
-                    '종료일',
-                    _endDate ?? _startDate.add(const Duration(days: 30)),
-                    (date) => setState(() => _endDate = date),
-                  ),
-                ],
+      child: RadioGroup<EndType>(
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _endType = value;
+            });
+          }
+        },
+        child: Column(
+          children: [
+            ListTile(
+              title: const Text('날짜'),
+              leading: Radio<EndType>(
+                value: EndType.date,
+                toggleable: false,
+                activeColor: const Color(0xFF579bf2),
               ),
-            ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text('횟수'),
-            leading: Radio<EndType>(
-              value: EndType.count,
-              groupValue: _endType,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _endType = value;
-                  });
-                }
+              selected: _endType == EndType.date,
+              onTap: () {
+                setState(() {
+                  _endType = EndType.date;
+                });
               },
-              activeColor: const Color(0xFF579bf2),
             ),
-            onTap: () {
-              setState(() {
-                _endType = EndType.count;
-              });
-            },
-          ),
-          if (_endType == EndType.count)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-              child: Column(
-                children: [
-                  _buildDatePickerRow(
-                    '시작일',
-                    _startDate,
-                    (date) => setState(() => _startDate = date),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text('반복 횟수'),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 80,
-                        child: TextField(
-                          controller: TextEditingController(text: _repeatCount.toString()),
-                          keyboardType: TextInputType.number,
-                          textAlign: TextAlign.center,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            if (_endType == EndType.date)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                child: Column(
+                  children: [
+                    _buildDatePickerRow(
+                      '시작일',
+                      _startDate,
+                      (date) => setState(() {
+                        _startDate = date;
+                        if (_endDate != null && _endDate!.isBefore(date)) {
+                          _endDate = date.add(const Duration(days: 30));
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDatePickerRow(
+                      '종료일',
+                      _endDate ?? _startDate.add(const Duration(days: 30)),
+                      (date) => setState(() => _endDate = date),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Text('횟수'),
+              leading: Radio<EndType>(
+                value: EndType.count,
+                toggleable: false,
+                activeColor: const Color(0xFF579bf2),
+              ),
+              selected: _endType == EndType.count,
+              onTap: () {
+                setState(() {
+                  _endType = EndType.count;
+                });
+              },
+            ),
+            if (_endType == EndType.count)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                child: Column(
+                  children: [
+                    _buildDatePickerRow(
+                      '시작일',
+                      _startDate,
+                      (date) => setState(() => _startDate = date),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Text('반복 횟수'),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: TextEditingController(text: _repeatCount.toString()),
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                            onChanged: (value) {
+                              final number = int.tryParse(value);
+                              if (number != null && number > 0) {
+                                setState(() {
+                                  _repeatCount = number;
+                                });
+                              }
+                            },
                           ),
-                          onChanged: (value) {
-                            final number = int.tryParse(value);
-                            if (number != null && number > 0) {
-                              setState(() {
-                                _repeatCount = number;
-                              });
-                            }
-                          },
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text('회'),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 12),
+                        const Text('회'),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
