@@ -23,8 +23,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _subscriptionProvider = context.read<SubscriptionProvider>();
       _subscriptionProvider!.initialize();
-      // 만료 확인
-      _subscriptionProvider!.checkExpiration();
+
+      // 멤버십 화면 진입 시 서버에서 최신 상태 강제 검증
+      _subscriptionProvider!.refreshSubscription(forceVerify: true);
 
       // 구독 상태 변경 리스닝
       _subscriptionProvider!.addListener(_onSubscriptionChanged);

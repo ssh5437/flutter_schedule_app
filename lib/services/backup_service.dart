@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import 'subscription_service.dart';
 
 class BackupService {
   // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
@@ -54,31 +55,10 @@ class BackupService {
     return providedSignature == calculatedSignature;
   }
 
-  // 사용자의 구독 상태 확인
+  // 사용자의 구독 상태 확인 (SubscriptionService 사용)
   Future<bool> _isPremiumUser() async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return false;
-
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select('membership_tier, membership_expires_at')
-          .eq('id', userId)
-          .single();
-
-      final membershipTier = response['membership_tier'] as String?;
-      final expiresAtStr = response['membership_expires_at'] as String?;
-
-      // plus 사용자인지 확인
-      if (membershipTier != 'plus') return false;
-
-      // 만료일 확인
-      if (expiresAtStr != null) {
-        final expiresAt = DateTime.parse(expiresAtStr);
-        return expiresAt.isAfter(DateTime.now());
-      }
-
-      return false;
+      return await SubscriptionService().hasActiveSubscription();
     } catch (e) {
       debugPrint('구독 상태 확인 실패: $e');
       return false;

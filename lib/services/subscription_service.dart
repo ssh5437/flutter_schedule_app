@@ -23,6 +23,10 @@ class SubscriptionService {
   bool _isInitialized = false;
   bool get isAvailable => _isInitialized;
 
+  // 마지막 서버 검증 시간 (캐싱용)
+  DateTime? _lastVerificationTime;
+  static const Duration _verificationCacheDuration = Duration(hours: 1);
+
   // 초기화
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -112,6 +116,84 @@ class SubscriptionService {
   Future<bool> hasActiveSubscription() async {
     await _loadSubscription();
     return _currentSubscription.isActive && !_currentSubscription.isExpired;
+  }
+
+  // 서버에서 구독 상태 재검증 (해지 여부 확인)
+  Future<void> verifySubscriptionStatus({bool forceVerify = false}) async {
+    try {
+      // 현재 활성 구독이 없으면 검증 불필요
+      if (!_currentSubscription.isActive || _currentSubscription.isExpired) {
+        debugPrint('활성 구독이 없어 검증을 건너뜁니다.');
+        return;
+      }
+
+      // 테스트 모드면 검증 건너뛰기
+      if (_currentSubscription.isTestMode) {
+        debugPrint('테스트 모드 구독은 검증을 건너뜁니다.');
+        return;
+      }
+
+      // 캐시 확인: 최근 1시간 이내에 검증했으면 스킵 (강제 검증 제외)
+      if (!forceVerify && _lastVerificationTime != null) {
+        final timeSinceLastVerification = DateTime.now().difference(_lastVerificationTime!);
+        if (timeSinceLastVerification < _verificationCacheDuration) {
+          debugPrint('⚡ 캐시 사용: ${timeSinceLastVerification.inMinutes}분 전 검증 완료, 재검증 스킵');
+          return;
+        }
+      }
+
+      // Supabase에서 최신 멤버십 정보 확인
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final profile = await ProfileService.instance.getProfile(user.id);
+      if (profile == null) return;
+
+      // Supabase에 저장된 만료일과 로컬 만료일 비교
+      if (profile.membershipExpiresAt != null) {
+        final serverExpiryDate = profile.membershipExpiresAt!;
+        final localExpiryDate = _currentSubscription.expiryDate;
+
+        // 서버의 만료일이 더 최신이면 업데이트
+        if (localExpiryDate == null || serverExpiryDate.isAfter(localExpiryDate)) {
+          debugPrint('📡 서버에서 더 최신 구독 정보 발견: $serverExpiryDate');
+          await loadFromSupabase();
+          return;
+        }
+
+        // 서버의 멤버십 티어가 'plus'가 아니면 해지된 것으로 판단
+        if (profile.membershipTier != 'plus') {
+          debugPrint('⚠️ 서버에서 구독 해지 감지 (membership_tier != plus)');
+          _currentSubscription = _currentSubscription.copyWith(
+            isActive: false,
+            status: SubscriptionStatus.cancelled,
+          );
+          await _saveSubscription(_currentSubscription);
+          _subscriptionController.add(_currentSubscription);
+          return;
+        }
+
+        // 서버의 만료일이 과거면 만료 처리
+        if (serverExpiryDate.isBefore(DateTime.now())) {
+          debugPrint('⚠️ 서버에서 만료된 구독 감지');
+          _currentSubscription = _currentSubscription.copyWith(
+            isActive: false,
+            status: SubscriptionStatus.expired,
+          );
+          await _saveSubscription(_currentSubscription);
+          await _syncToSupabase(_currentSubscription);
+          _subscriptionController.add(_currentSubscription);
+          return;
+        }
+      }
+
+      debugPrint('✅ 구독 상태 검증 완료: 정상');
+
+      // 검증 성공 시 마지막 검증 시간 업데이트
+      _lastVerificationTime = DateTime.now();
+    } catch (e) {
+      debugPrint('구독 상태 검증 오류: $e');
+    }
   }
 
   // === 테스트 모드 기능 ===

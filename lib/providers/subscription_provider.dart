@@ -72,6 +72,9 @@ class SubscriptionProvider extends ChangeNotifier {
       _errorMessage = null;
       _isInitialized = true;
 
+      // 서버에서 구독 상태 검증 (해지 여부 확인)
+      await _subscriptionService.verifySubscriptionStatus();
+
       debugPrint('✅ SubscriptionProvider initialized: hasActive=$hasActiveSubscription');
     } catch (e) {
       _errorMessage = '구독 정보를 불러오는데 실패했습니다: $e';
@@ -162,10 +165,13 @@ class SubscriptionProvider extends ChangeNotifier {
   }
 
   // 구독 상태 새로고침
-  Future<void> refreshSubscription() async {
-    debugPrint('🔄 구독 상태 새로고침 중...');
+  Future<void> refreshSubscription({bool forceVerify = false}) async {
+    debugPrint('🔄 구독 상태 새로고침 중... (강제검증: $forceVerify)');
 
     try {
+      // 서버에서 구독 상태 검증 (캐시 사용, forceVerify=true이면 강제 검증)
+      await _subscriptionService.verifySubscriptionStatus(forceVerify: forceVerify);
+
       // Supabase에서 최신 멤버십 정보 먼저 확인
       await _subscriptionService.loadFromSupabase();
 

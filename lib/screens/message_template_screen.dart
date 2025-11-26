@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
 import '../database/database_helper.dart';
 import '../services/analytics_service.dart';
+import '../providers/subscription_provider.dart';
 import '../widgets/gradient_app_bar.dart';
 
 class MessageTemplateScreen extends StatefulWidget {
@@ -45,41 +47,12 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
     }
   }
 
-  // 멤버십 상태 확인
-  Future<bool> _isPremiumUser() async {
-    try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return false;
-
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select('membership_tier, membership_expires_at')
-          .eq('id', userId)
-          .single();
-
-      final membershipTier = response['membership_tier'] as String?;
-      final expiresAtStr = response['membership_expires_at'] as String?;
-
-      if (membershipTier != 'plus') return false;
-
-      if (expiresAtStr != null) {
-        final expiresAt = DateTime.parse(expiresAtStr);
-        return expiresAt.isAfter(DateTime.now());
-      }
-
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
   Future<void> _addTemplate() async {
-    // 무료 사용자 제한 확인
-    final isPremium = await _isPremiumUser();
+    // 무료 사용자 제한 확인 (SubscriptionProvider 사용)
+    final subscriptionProvider = context.read<SubscriptionProvider>();
+    final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
 
-    if (!mounted) return;
-
-    if (!isPremium && _templates.isNotEmpty) {
+    if (!hasActiveSubscription && _templates.isNotEmpty) {
       // 무료 사용자는 업체당 1개만 가능
       showDialog(
         context: context,
