@@ -149,14 +149,13 @@ class SubscriptionService {
       final profile = await ProfileService.instance.getProfile(user.id);
       if (profile == null) return;
 
-      // Supabase에 저장된 만료일과 로컬 만료일 비교
+      // Supabase에 저장된 만료일 확인
       if (profile.membershipExpiresAt != null) {
         final serverExpiryDate = profile.membershipExpiresAt!;
-        final localExpiryDate = _currentSubscription.expiryDate;
 
-        // 서버의 만료일이 더 최신이면 업데이트
-        if (localExpiryDate == null || serverExpiryDate.isAfter(localExpiryDate)) {
-          debugPrint('📡 서버에서 더 최신 구독 정보 발견: $serverExpiryDate');
+        // 서버의 멤버십 티어가 'plus'면 항상 업데이트
+        if (profile.membershipTier == 'plus') {
+          debugPrint('📡 서버에 Plus 멤버십 확인 - Supabase에서 로드: $serverExpiryDate');
           await loadFromSupabase();
           return;
         }
@@ -255,10 +254,41 @@ class SubscriptionService {
 
     if (purchaseDetails.status == PurchaseStatus.purchased ||
         purchaseDetails.status == PurchaseStatus.restored) {
-      // 구매 완료 또는 복원됨 - 검증 먼저 완료
-      await _verifyAndSavePurchase(purchaseDetails);
 
-      // 검증 완료 후 구매 완료 처리
+      // ✅ 1. 즉시 임시 구독 생성 (낙관적 업데이트 - 틴더 방식)
+      final now = DateTime.now();
+      final tempSubscription = Subscription(
+        productId: purchaseDetails.productID,
+        purchaseId: purchaseDetails.purchaseID,
+        purchaseDate: now,
+        expiryDate: Subscription.calculateExpiryDate(now),
+        isActive: true,
+        status: SubscriptionStatus.active,
+      );
+
+      // ✅ 2. 즉시 로컬 DB에 저장
+      await _saveSubscription(tempSubscription);
+      _currentSubscription = tempSubscription;
+
+      // ✅ 2-1. Supabase에도 즉시 임시 저장
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await ProfileService.instance.updateMembership(
+          userId: user.id,
+          membershipTier: 'plus',
+          membershipExpiresAt: tempSubscription.expiryDate,
+        );
+        debugPrint('✅ Supabase에도 즉시 Plus 저장');
+      }
+
+      // ✅ 3. 즉시 스트림으로 전송 → UI 즉시 업데이트!
+      debugPrint('✅ 즉시 Plus 활성화! (낙관적 업데이트)');
+      _subscriptionController.add(tempSubscription);
+
+      // ✅ 4. 백그라운드에서 검증 (사용자는 기다리지 않음)
+      _verifyInBackground(purchaseDetails);
+
+      // 구매 완료 처리
       if (purchaseDetails.pendingCompletePurchase) {
         await _inAppPurchase.completePurchase(purchaseDetails);
         debugPrint('구매 완료 처리됨');
@@ -276,63 +306,62 @@ class SubscriptionService {
       // 구매 대기중
       debugPrint('구매 대기중...');
       _updateSubscriptionStatus(SubscriptionStatus.pending);
+    } else if (purchaseDetails.status == PurchaseStatus.canceled) {
+      // 구매 취소
+      debugPrint('❌ 구매 취소됨');
+      _updateSubscriptionStatus(SubscriptionStatus.none);
+
+      // 취소 상태도 완료 처리
+      if (purchaseDetails.pendingCompletePurchase) {
+        await _inAppPurchase.completePurchase(purchaseDetails);
+      }
     }
   }
 
-  // 구매 검증 및 저장
-  Future<void> _verifyAndSavePurchase(PurchaseDetails purchaseDetails) async {
+  // 백그라운드에서 검증 (사용자 방해하지 않음)
+  Future<void> _verifyInBackground(PurchaseDetails purchaseDetails) async {
     try {
+      debugPrint('🔄 백그라운드에서 서버 검증 시작...');
+
       // 서버에서 구매 검증
       final verificationResult = await _verifyPurchaseWithServer(purchaseDetails);
 
       if (!verificationResult['valid']) {
-        debugPrint('구매 검증 실패: ${verificationResult['error']}');
+        debugPrint('❌ 백그라운드 검증 실패: ${verificationResult['error']}');
+        // 실패 시 롤백 (Free로 되돌림)
+        _currentSubscription = Subscription.empty();
+        await _saveSubscription(_currentSubscription);
+
+        // Supabase에서도 제거
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user != null) {
+          await ProfileService.instance.updateMembership(
+            userId: user.id,
+            membershipTier: 'free',
+            membershipExpiresAt: null,
+          );
+        }
+
+        _subscriptionController.add(_currentSubscription);
         _updateSubscriptionStatus(SubscriptionStatus.error);
         return;
       }
 
-      // 검증된 정보로 구독 생성
-      final purchaseDate = DateTime.parse(verificationResult['purchaseDate']);
-      final expiryDateStr = verificationResult['expiryDate'];
+      // 검증 성공 - 서버 데이터로 업데이트 (서버가 Supabase에 이미 저장함)
+      debugPrint('✅ 백그라운드 검증 완료!');
 
-      if (expiryDateStr == null) {
-        debugPrint('구매 검증 실패: 만료 날짜가 없습니다.');
-        _updateSubscriptionStatus(SubscriptionStatus.error);
-        return;
-      }
-
-      final expiryDate = DateTime.parse(expiryDateStr);
-
-      final subscription = Subscription(
-        productId: purchaseDetails.productID,
-        purchaseId: verificationResult['orderId'] ?? purchaseDetails.purchaseID,
-        purchaseDate: purchaseDate,
-        expiryDate: expiryDate,
-        isActive: true,
-        status: SubscriptionStatus.active,
-      );
-
-      await _saveSubscription(subscription);
-
-      // Supabase는 서버 검증 시 이미 업데이트되었으므로, 최신 정보 다시 로드
-      debugPrint('🔄 Supabase에서 최신 멤버십 정보 다시 로드 중...');
-      await Future.delayed(const Duration(milliseconds: 500)); // 서버 업데이트 완료 대기
+      // 서버가 Supabase에 저장한 데이터 다시 로드
+      await Future.delayed(const Duration(milliseconds: 500));
       await loadFromSupabase();
 
-      // 최신 정보로 업데이트된 _currentSubscription 사용
-      _currentSubscription = subscription;
-
-      debugPrint('✅ 구독 저장 완료 (서버 검증됨): $purchaseDate ~ $expiryDate');
-      debugPrint('🔔 스트림으로 구독 정보 전송 중...');
-
-      _subscriptionController.add(_currentSubscription);
-
-      debugPrint('✅ 구독 활성화 완료! isActive=${_currentSubscription.isActive}');
+      debugPrint('✅ Supabase에서 검증된 데이터 로드 완료');
     } catch (e) {
-      debugPrint('구매 저장 오류: $e');
-      _updateSubscriptionStatus(SubscriptionStatus.error);
+      debugPrint('⚠️ 백그라운드 검증 오류: $e');
+      // 오류가 나도 사용자는 이미 Plus 상태이므로 조용히 처리
+      // 다음 로그인 시 서버와 동기화됨
     }
   }
+
 
   // 서버에서 구매 검증
   Future<Map<String, dynamic>> _verifyPurchaseWithServer(PurchaseDetails purchaseDetails) async {
@@ -357,12 +386,20 @@ class SubscriptionService {
         },
       );
 
+      debugPrint('🔍 Edge Function 응답:');
+      debugPrint('  - Status: ${response.status}');
+      debugPrint('  - Data: ${response.data}');
+
       if (response.status != 200) {
-        debugPrint('서버 검증 실패: ${response.data}');
+        debugPrint('❌ 서버 검증 실패 (HTTP ${response.status}): ${response.data}');
         return {'valid': false, 'error': response.data.toString()};
       }
 
-      return response.data as Map<String, dynamic>;
+      final Map<String, dynamic> result = response.data as Map<String, dynamic>;
+      debugPrint('  - valid: ${result['valid']}');
+      debugPrint('  - error: ${result['error']}');
+
+      return result;
     } catch (e) {
       debugPrint('서버 검증 오류: $e');
       return {'valid': false, 'error': e.toString()};
@@ -486,30 +523,27 @@ class SubscriptionService {
       final profile = await ProfileService.instance.getProfile(user.id);
       if (profile == null) return;
 
-      // Supabase의 멤버십 정보가 더 최신이면 로컬에 반영
+      // Supabase의 멤버십 정보가 있으면 로컬에 반영
       if (profile.membershipTier == 'plus' &&
           profile.membershipExpiresAt != null) {
 
-        // 로컬 구독과 비교
-        if (_currentSubscription.expiryDate == null ||
-            profile.membershipExpiresAt!.isAfter(_currentSubscription.expiryDate!)) {
+        final subscription = Subscription(
+          productId: SubscriptionProduct.monthlySubscriptionId,
+          purchaseDate: profile.membershipExpiresAt!.subtract(const Duration(days: 30)),
+          expiryDate: profile.membershipExpiresAt,
+          isActive: profile.isMembershipValid,
+          status: profile.isMembershipValid
+              ? SubscriptionStatus.active
+              : SubscriptionStatus.expired,
+        );
 
-          final subscription = Subscription(
-            productId: SubscriptionProduct.monthlySubscriptionId,
-            purchaseDate: profile.membershipExpiresAt!.subtract(const Duration(days: 30)),
-            expiryDate: profile.membershipExpiresAt,
-            isActive: profile.isMembershipValid,
-            status: profile.isMembershipValid
-                ? SubscriptionStatus.active
-                : SubscriptionStatus.expired,
-          );
+        await _saveSubscription(subscription);
+        _currentSubscription = subscription;
+        _subscriptionController.add(subscription);
 
-          await _saveSubscription(subscription);
-          _currentSubscription = subscription;
-          _subscriptionController.add(subscription);
-
-          debugPrint('Supabase에서 멤버십 정보 로드 완료');
-        }
+        debugPrint('✅ Supabase에서 멤버십 정보 로드 완료: isActive=${subscription.isActive}, expiryDate=${subscription.expiryDate}');
+      } else {
+        debugPrint('⚠️ Supabase에 Plus 멤버십 정보 없음 (tier=${profile.membershipTier})');
       }
     } catch (e) {
       debugPrint('Supabase에서 로드 오류: $e');

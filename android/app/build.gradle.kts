@@ -35,8 +35,8 @@ android {
         applicationId = "com.vividlife.bizplan"
         minSdk = 24  // Android 7.0 이상
         targetSdk = 36  // Android 16
-        versionCode = 12
-        versionName = "1.0.12"
+        versionCode = 14
+        versionName = "1.1.0"
     }
 
     signingConfigs {

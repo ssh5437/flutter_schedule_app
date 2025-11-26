@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- 멤버십 정보
-    membership_tier TEXT NOT NULL DEFAULT 'free' CHECK (membership_tier IN ('free', 'basic', 'premium', 'enterprise')),
+    membership_tier TEXT NOT NULL DEFAULT 'free' CHECK (membership_tier IN ('free', 'plus', 'pro')),
     membership_expires_at TIMESTAMPTZ,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
 

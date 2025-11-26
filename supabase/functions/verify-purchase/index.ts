@@ -46,26 +46,106 @@ serve(async (req) => {
     const serviceAccountEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
     const privateKey = Deno.env.get('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
 
+    console.log('🔍 Environment variables check:');
+    console.log('  - GOOGLE_SERVICE_ACCOUNT_EMAIL exists:', !!serviceAccountEmail);
+    console.log('  - GOOGLE_PRIVATE_KEY exists:', !!privateKey);
+    console.log('  - Service Account Email:', serviceAccountEmail);
+    console.log('  - Private Key length:', privateKey?.length);
+
     if (!serviceAccountEmail || !privateKey) {
-      console.error('Missing Google service account credentials');
+      console.error('❌ Missing Google service account credentials');
       return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
+        JSON.stringify({
+          error: 'Server configuration error',
+          debug: {
+            hasEmail: !!serviceAccountEmail,
+            hasKey: !!privateKey,
+          }
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // JWT 토큰 생성 (Google API 인증용)
-    const jwtToken = await createJWT(serviceAccountEmail, privateKey);
+    console.log('🔐 Creating JWT token...');
+    let jwtToken: string;
+    try {
+      jwtToken = await createJWT(serviceAccountEmail, privateKey);
+      console.log('✅ JWT token created successfully');
+      console.log('  - Token length:', jwtToken.length);
+    } catch (error) {
+      console.error('❌ JWT token creation failed:', error);
+      return new Response(
+        JSON.stringify({
+          error: 'JWT token creation failed',
+          details: error.message
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // JWT를 Access Token으로 교환
+    console.log('🔄 Exchanging JWT for access token...');
+    let accessToken: string;
+    try {
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion: jwtToken,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('❌ Token exchange failed:', errorText);
+        return new Response(
+          JSON.stringify({
+            error: 'Failed to get access token',
+            details: errorText
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const tokenData = await tokenResponse.json();
+      accessToken = tokenData.access_token;
+      console.log('✅ Access token obtained successfully');
+      console.log('  - Token type:', tokenData.token_type);
+      console.log('  - Expires in:', tokenData.expires_in, 'seconds');
+    } catch (error) {
+      console.error('❌ Access token exchange failed:', error);
+      return new Response(
+        JSON.stringify({
+          error: 'Access token exchange failed',
+          details: error.message
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Google Play Developer API 호출
-    const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptionsv2/tokens/${purchaseToken}`;
+    // productId(구독 ID)를 사용하는 기존 API 엔드포인트 사용
+    const verifyUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/purchases/subscriptions/${productId}/tokens/${purchaseToken}`;
+
+    console.log('📡 Calling Google Play API...');
+    console.log('  - URL:', verifyUrl);
+    console.log('  - Product ID:', productId);
+    console.log('  - Package Name:', packageName);
 
     const verifyResponse = await fetch(verifyUrl, {
       headers: {
-        'Authorization': `Bearer ${jwtToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     });
+
+    console.log('📥 Google Play API response:');
+    console.log('  - Status:', verifyResponse.status);
+    console.log('  - Status Text:', verifyResponse.statusText);
 
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text();
@@ -83,7 +163,8 @@ serve(async (req) => {
     const verificationData: GooglePlayVerificationResponse = await verifyResponse.json();
 
     // 구매 상태 확인 (0 = 구매됨, 1 = 취소됨, 2 = 보류 중)
-    const isValid = verificationData.purchaseState === 0;
+    // 0(구매됨)과 2(보류 중) 모두 유효한 상태로 처리
+    const isValid = verificationData.purchaseState === 0 || verificationData.purchaseState === 2;
     const purchaseDate = new Date(parseInt(verificationData.purchaseTimeMillis));
     const expiryDate = verificationData.expiryTimeMillis
       ? new Date(parseInt(verificationData.expiryTimeMillis))
@@ -136,13 +217,13 @@ serve(async (req) => {
         );
       }
     } else if (!isValid) {
-      // 구매가 유효하지 않은 경우 (취소됨, 보류 중 등)
+      // 구매가 유효하지 않은 경우 (취소됨만 해당, 보류 중은 위에서 유효 처리됨)
       return new Response(
         JSON.stringify({
           valid: false,
           error: 'Purchase is not valid',
           purchaseState: verificationData.purchaseState,
-          details: verificationData.purchaseState === 1 ? 'Purchase cancelled' : 'Purchase pending'
+          details: 'Purchase cancelled'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

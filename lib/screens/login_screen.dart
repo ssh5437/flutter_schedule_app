@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -16,12 +17,46 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _saveEmail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedEmail();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // 저장된 이메일 불러오기
+  Future<void> _loadSavedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('saved_email');
+    final shouldSave = prefs.getBool('save_email') ?? false;
+
+    if (savedEmail != null && savedEmail.isNotEmpty) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _saveEmail = shouldSave;
+      });
+    }
+  }
+
+  // 이메일 저장
+  Future<void> _saveEmailIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (_saveEmail) {
+      await prefs.setString('saved_email', _emailController.text.trim());
+      await prefs.setBool('save_email', true);
+    } else {
+      await prefs.remove('saved_email');
+      await prefs.setBool('save_email', false);
+    }
   }
 
   // 에러 메시지를 유저 친화적인 한글로 변환
@@ -85,6 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       debugPrint('===== 로그인 시도 =====');
       debugPrint('Email: ${_emailController.text.trim()}');
+
+      // 이메일 저장
+      await _saveEmailIfNeeded();
 
       final response = await _authService.signIn(
         email: _emailController.text.trim(),
@@ -317,18 +355,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // 비밀번호 찾기
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _isLoading ? null : _handleForgotPassword,
-                      style: TextButton.styleFrom(
-                        foregroundColor: primaryColor,
+                  // 이메일 저장 체크박스
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _saveEmail,
+                        onChanged: (value) {
+                          setState(() {
+                            _saveEmail = value ?? false;
+                          });
+                        },
+                        activeColor: primaryColor,
                       ),
-                      child: const Text('비밀번호를 잊으셨나요?'),
-                    ),
+                      const Text('이메일 저장'),
+                      const Spacer(),
+                      // 비밀번호 찾기
+                      TextButton(
+                        onPressed: _isLoading ? null : _handleForgotPassword,
+                        style: TextButton.styleFrom(
+                          foregroundColor: primaryColor,
+                        ),
+                        child: const Text('비밀번호를 잊으셨나요?'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
 
                   // 로그인 버튼
                   ElevatedButton(

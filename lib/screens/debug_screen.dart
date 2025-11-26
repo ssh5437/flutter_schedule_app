@@ -595,6 +595,54 @@ class _DebugScreenState extends State<DebugScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            const Divider(),
+            const Text(
+              '🔧 서버 검증 테스트',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _forceUpdateSupabasePlus,
+                icon: const Icon(Icons.cloud_upload),
+                label: const Text('Supabase membership_tier → plus 강제 변경'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _testServerVerification(subscriptionProvider),
+                icon: const Icon(Icons.verified),
+                label: const Text('서버 검증 테스트 (verifySubscriptionStatus)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _testEdgeFunction,
+                icon: const Icon(Icons.api),
+                label: const Text('Edge Function 테스트 (verify-purchase)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -725,6 +773,209 @@ class _DebugScreenState extends State<DebugScreen> {
           SnackBar(
             content: Text('❌ 오류 발생: $e'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Supabase membership_tier를 plus로 강제 변경
+  Future<void> _forceUpdateSupabasePlus() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ 로그인이 필요합니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Supabase profiles 테이블 직접 업데이트
+      final expiryDate = DateTime.now().add(const Duration(days: 30));
+
+      await Supabase.instance.client
+          .from('profiles')
+          .update({
+            'membership_tier': 'plus',
+            'membership_expires_at': expiryDate.toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', user.id);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('✅ 성공'),
+            content: Text(
+              'Supabase profiles 테이블 업데이트 완료\n\n'
+              'User ID: ${user.id}\n'
+              'membership_tier: plus\n'
+              'membership_expires_at: ${expiryDate.toIso8601String()}'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('❌ 실패'),
+            content: Text('에러: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // 서버 검증 테스트
+  Future<void> _testServerVerification(SubscriptionProvider provider) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ 로그인이 필요합니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 검증 전 상태
+      final beforeStatus = provider.subscription.isActive ? 'Plus' : 'Free';
+
+      // 서버 검증 실행
+      await SubscriptionService().verifySubscriptionStatus(forceVerify: true);
+      await Future.delayed(const Duration(milliseconds: 500));
+      await provider.refreshSubscription();
+
+      // 검증 후 상태
+      final afterStatus = provider.subscription.isActive ? 'Plus' : 'Free';
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('🔍 서버 검증 결과'),
+            content: Text(
+              '검증 전 상태: $beforeStatus\n'
+              '검증 후 상태: $afterStatus\n\n'
+              '${beforeStatus == afterStatus ? "✅ 상태 변화 없음" : "⚠️ 상태 변경됨"}'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('❌ 검증 실패'),
+            content: Text('에러: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // Edge Function 테스트
+  Future<void> _testEdgeFunction() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ 로그인이 필요합니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Edge Function 호출 (테스트용 더미 데이터)
+      final response = await Supabase.instance.client.functions.invoke(
+        'verify-purchase',
+        body: {
+          'productId': 'bizplan_monthly_subscription',
+          'purchaseToken': 'test_token_${DateTime.now().millisecondsSinceEpoch}',
+          'packageName': 'com.vividlife.bizplan',
+        },
+      );
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(
+              response.status == 200 ? '✅ Edge Function 호출 성공' : '❌ Edge Function 호출 실패',
+            ),
+            content: SingleChildScrollView(
+              child: SelectableText(
+                'Status: ${response.status}\n\n'
+                'Response:\n${response.data}',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('❌ Edge Function 오류'),
+            content: SelectableText(
+              '에러:\n$e',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
       }

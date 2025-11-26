@@ -39,7 +39,9 @@
       "Bash(nc:*)",
       "Bash(timeout:*)",
       "Bash(touch:*)",
-      "Bash(supabase functions deploy:*)"
+      "Bash(supabase functions deploy:*)",
+      "Bash(tee:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

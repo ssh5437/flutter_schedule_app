@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/subscription_provider.dart';
 import '../models/subscription.dart';
 import '../widgets/gradient_app_bar.dart';
-import '../widgets/subscription_processing_overlay.dart';
+// import '../widgets/subscription_processing_overlay.dart'; // 낙관적 업데이트 방식으로 변경되어 비활성화
 
 class MembershipScreen extends StatefulWidget {
   const MembershipScreen({super.key});
@@ -87,11 +87,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   ),
                 ),
 
-              // 구독 처리 중 오버레이
-              if (provider.isProcessingPurchase)
-                const Positioned.fill(
-                  child: SubscriptionProcessingOverlay(),
-                ),
+              // 구독 처리 중 오버레이 (낙관적 업데이트 방식으로 변경되어 비활성화)
+              // if (provider.isProcessingPurchase)
+              //   const Positioned.fill(
+              //     child: SubscriptionProcessingOverlay(),
+              //   ),
             ],
           );
         },
