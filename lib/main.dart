@@ -287,7 +287,7 @@ class _MainScreenState extends State<MainScreen> {
     _checkForWidgetScheduleId();
   }
 
-  // MethodChannel 설정 - Android에서 보내는 메시지 수신
+  // MethodChannel 설정 - Android에서 보내는 메세지 수신
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
       if (call.method == 'openSchedule') {

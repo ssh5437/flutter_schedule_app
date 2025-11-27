@@ -700,7 +700,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         Navigator.pop(context);
       }
 
-      // 에러 메시지 표시
+      // 에러 메세지 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -3,7 +3,7 @@ class MessageTemplate {
   String userId;
   int companyId;
   String name;        // 템플릿 이름 (예: "확정 안내", "일정 변경", "부재 알림")
-  String content;     // 메시지 내용 (변수 포함 가능: #{일자}, #{시간}, #{고객명}, #{업체명})
+  String content;     // 메세지 내용 (변수 포함 가능: #{일자}, #{시간}, #{고객명}, #{업체명})
   int displayOrder;   // 표시 순서
   DateTime createdAt;
 
@@ -43,7 +43,7 @@ class MessageTemplate {
     };
   }
 
-  // 메시지 내용에서 변수를 실제 값으로 치환
+  // 메세지 내용에서 변수를 실제 값으로 치환
   String replaceVariables({
     String? visitDate,
     String? visitTime,

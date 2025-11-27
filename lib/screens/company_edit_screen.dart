@@ -299,7 +299,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
     await _reloadCompanyData();
   }
 
-  // 메시지 템플릿 설정 화면으로 이동
+  // 메세지 템플릿 설정 화면으로 이동
   Future<void> _navigateToMessageTemplate() async {
     if (widget.company == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -455,13 +455,13 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
             ),
             const SizedBox(height: 24),
 
-            // 메시지 템플릿 설정 버튼
+            // 메세지 템플릿 설정 버튼
             Card(
               child: ListTile(
                 leading: const Icon(Icons.message),
-                title: const Text('메시지 템플릿'),
+                title: const Text('메세지 템플릿'),
                 subtitle: const Text(
-                  '업체별 메시지 템플릿 관리',
+                  '업체별 메세지 템플릿 관리',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),

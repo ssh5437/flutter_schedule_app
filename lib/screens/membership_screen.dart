@@ -277,8 +277,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
             _buildBenefitItem(
               Icons.message,
-              '메시지 템플릿 무제한',
-              '자주 사용하는 메시지들을 등록',
+              '메세지 템플릿 무제한',
+              '자주 사용하는 메세지들을 등록',
             ),
             const SizedBox(height: 16),
             Container(

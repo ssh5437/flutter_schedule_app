@@ -58,7 +58,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
         builder: (context) => AlertDialog(
           title: const Text('템플릿 개수 제한'),
           content: const Text(
-            '무료 플랜에서는 업체당 1개의 메시지 템플릿만 등록할 수 있습니다.\n\n'
+            '무료 플랜에서는 업체당 1개의 메세지 템플릿만 등록할 수 있습니다.\n\n'
             'Plus 멤버십 구독 시 무제한으로 템플릿을 등록할 수 있습니다.',
           ),
           actions: [
@@ -179,7 +179,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: GradientAppBar(
-        title: '${widget.company.name} 메시지 템플릿',
+        title: '${widget.company.name} 메세지 템플릿',
         toolbarHeight: 40,
       ),
       body: _isLoading
@@ -232,7 +232,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
                               Icon(Icons.message_outlined, size: 64, color: Colors.grey.shade400),
                               const SizedBox(height: 16),
                               Text(
-                                '등록된 메시지 템플릿이 없습니다',
+                                '등록된 메세지 템플릿이 없습니다',
                                 style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                               ),
                               const SizedBox(height: 8),
@@ -295,7 +295,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
   }
 }
 
-// 메시지 템플릿 추가/편집 화면
+// 메세지 템플릿 추가/편집 화면
 class MessageTemplateFormScreen extends StatefulWidget {
   final Company company;
   final MessageTemplate? template;
@@ -339,7 +339,7 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
 
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('메시지 내용을 입력해주세요')),
+        const SnackBar(content: Text('메세지 내용을 입력해주세요')),
       );
       return;
     }
@@ -463,9 +463,9 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 변수 삽입 버튼
+            // 변수 복사 버튼
             const Text(
-              '변수 삽입',
+              '변수 복사',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -493,9 +493,9 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 메시지 내용
+            // 메세지 내용
             const Text(
-              '메시지 내용',
+              '메세지 내용',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

@@ -622,7 +622,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       Navigator.pop(context); // 로딩 닫기
 
-      // 결과 메시지 생성
+      // 결과 메세지 생성
       final schedulesSuccess = result['schedules'] as int;
       final companiesSuccess = result['companies'] as int;
       final schedulesFailed = result['schedulesFailed'] as int;

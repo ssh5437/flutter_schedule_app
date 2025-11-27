@@ -293,7 +293,7 @@ class HomeScreenState extends State<HomeScreen> {
                           return dateA.compareTo(dateB);
                         });
 
-                        // 스케줄이 없는 경우 메시지 표시
+                        // 스케줄이 없는 경우 메세지 표시
                         if (filteredSchedules.isEmpty) {
                           return ListView(
                             children: [

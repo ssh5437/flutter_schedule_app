@@ -328,24 +328,24 @@ class DatabaseHelper {
 
         int order = 0;
 
-        // 확정 메시지가 있으면 템플릿으로 추가
+        // 확정 메세지가 있으면 템플릿으로 추가
         if (confirmMessage != null && confirmMessage.isNotEmpty) {
           await db.insert('message_templates', {
             'user_id': userId,
             'company_id': companyId,
-            'name': '확정 메시지',
+            'name': '확정 메세지',
             'content': confirmMessage,
             'display_order': order++,
             'created_at': DateTime.now().toIso8601String(),
           });
         }
 
-        // 부재 메시지가 있으면 템플릿으로 추가
+        // 부재 메세지가 있으면 템플릿으로 추가
         if (absenceMessage != null && absenceMessage.isNotEmpty) {
           await db.insert('message_templates', {
             'user_id': userId,
             'company_id': companyId,
-            'name': '부재 메시지',
+            'name': '부재 메세지',
             'content': absenceMessage,
             'display_order': order++,
             'created_at': DateTime.now().toIso8601String(),
@@ -823,7 +823,7 @@ class DatabaseHelper {
     );
   }
 
-  // 메시지 템플릿 순서 일괄 업데이트
+  // 메세지 템플릿 순서 일괄 업데이트
   Future<void> updateMessageTemplatesOrder(String userId, int companyId, List<MessageTemplate> templates) async {
     final db = await database;
     final batch = db.batch();

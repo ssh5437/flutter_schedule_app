@@ -26,7 +26,7 @@ class SubscriptionProcessingOverlay extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // 메인 메시지
+                // 메인 메세지
                 const Text(
                   '구독 처리 중',
                   style: TextStyle(

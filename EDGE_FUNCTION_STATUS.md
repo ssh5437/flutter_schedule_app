@@ -102,7 +102,7 @@ https://supabase.com/dashboard/project/bsofmuvuvhjpcrkygwjz/logs/edge-functions
 
 확인 사항:
 - 함수 호출 기록
-- 에러 메시지
+- 에러 메세지
 - 응답 시간
 
 ### 3. Settings - Edge Functions Secrets
