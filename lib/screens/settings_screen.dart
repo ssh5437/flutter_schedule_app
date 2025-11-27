@@ -481,6 +481,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
+                  // 전체 데이터 백업이 아닌 경우, 시작일과 종료일이 필수
+                  if (!isAllData && (startDate == null || endDate == null)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('시작일과 종료일을 모두 선택해주세요'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+
                   Navigator.pop(context, {
                     'startDate': startDate,
                     'endDate': endDate,
@@ -488,7 +499,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1976D2),
-                  foregroundColor: Colors.white,       
+                  foregroundColor: Colors.white,
                 ),
                 child: const Text('백업 시작'),
               ),
