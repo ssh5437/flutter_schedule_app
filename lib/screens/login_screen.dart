@@ -268,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 36),
 
                   // 이메일 입력
                   TextFormField(
