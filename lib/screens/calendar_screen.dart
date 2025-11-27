@@ -23,14 +23,16 @@ class CalendarScreenState extends State<CalendarScreen> {
   final ScrollController _scrollController = ScrollController();
   Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
+  bool _isCalendarCompact = false; // 캘린더 축소 모드 여부
 
   // 외부에서 호출 가능한 새로고침 메서드
   void refresh() {
     _loadSchedules();
   }
 
-  // 외부에서 접근 가능한 isPortrait getter
+  // 외부에서 접근 가능한 getter들
   bool get isPortrait => _isPortrait;
+  bool get isCalendarCompact => _isCalendarCompact;
 
   // 외부에서 호출 가능한 가로/세로 전환 메서드
   void toggleOrientation() {
@@ -39,12 +41,34 @@ class CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  // 외부에서 호출 가능한 캘린더 확장/축소 전환 메서드
+  void toggleCalendarCompactMode() {
+    _toggleCalendarCompactMode();
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
     _loadSchedules();
     _loadColors();
+    _loadCalendarCompactState();
+  }
+
+  Future<void> _loadCalendarCompactState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _isCalendarCompact = prefs.getBool('calendar_compact_mode') ?? false;
+    });
+  }
+
+  Future<void> _toggleCalendarCompactMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isCalendarCompact = !_isCalendarCompact;
+    });
+    await prefs.setBool('calendar_compact_mode', _isCalendarCompact);
   }
 
   Future<void> _loadColors() async {
@@ -267,78 +291,134 @@ class CalendarScreenState extends State<CalendarScreen> {
           color: backgroundColor,
           border: Border.all(color: borderColor, width: isToday || isSelected ? 2 : 0.5),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 날짜 표시
-            Container(
-              padding: const EdgeInsets.all(6.0),
-              child: Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                  color: isOutside
-                      ? Colors.grey.shade400
-                      : isWeekend
-                          ? (day.weekday == DateTime.sunday ? Colors.red : Colors.blue)
-                          : Colors.black87,
-                ),
-              ),
-            ),
-            // 스케줄 목록
-            Expanded(
-              child: schedules.isEmpty
-                  ? const SizedBox.shrink()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: schedules.length,
-                      itemBuilder: (context, index) {
-                        final schedule = schedules[index];
-                        // 업체 색상 가져오기 (없으면 기본 회색)
-                        final companyColor = schedule.companyName != null
-                            ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
-                            : 0xFF9E9E9E;
-                        final borderColor = Color(companyColor);
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 날짜 표시
+              if (_isCalendarCompact)
+                // 축소 모드: 날짜와 업체별 색상 점 표시
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 날짜
+                      Text(
+                        '${day.day}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                          color: isOutside
+                              ? Colors.grey.shade400
+                              : isWeekend
+                                  ? (day.weekday == DateTime.sunday ? Colors.red : Colors.blue)
+                                  : Colors.black87,
+                        ),
+                      ),
+                      // 업체별 색상 점 표시
+                      if (schedules.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Wrap(
+                            spacing: 2,
+                            runSpacing: 2,
+                            children: schedules.map((schedule) {
+                              // 업체 색상 가져오기
+                              final companyColor = schedule.companyName != null
+                                  ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
+                                  : 0xFF9E9E9E;
+                              final color = Color(companyColor);
 
-                        // 상태별 배경색 가져오기
-                        final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
-
-                        // 배경색 밝기에 따라 텍스트 색상 자동 조정
-                        final textColor = backgroundColor.computeLuminance() > 0.5
-                            ? Colors.black87
-                            : Colors.white;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 3),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: backgroundColor,
-                            border: Border(
-                              left: BorderSide(
-                                color: borderColor,
-                                width: 3,
-                              ),
-                            ),
+                              return Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              );
+                            }).toList(),
                           ),
-                          child: Text(
-                            schedule.visitTime != null
-                                ? '${schedule.visitTime} ${_formatWorkItems(schedule.workItems)}'
-                                : _formatWorkItems(schedule.workItems),
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      },
+                        ),
+                    ],
+                  ),
+                )
+              else
+                // 확장 모드: 날짜만 표시
+                Container(
+                  padding: const EdgeInsets.all(6.0),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                      color: isOutside
+                          ? Colors.grey.shade400
+                          : isWeekend
+                              ? (day.weekday == DateTime.sunday ? Colors.red : Colors.blue)
+                              : Colors.black87,
                     ),
-            ),
-          ],
+                  ),
+                ),
+              // 스케줄 목록 또는 개수 표시 (확장 모드에서만)
+              if (!_isCalendarCompact)
+                Expanded(
+                  child: schedules.isEmpty
+                      ? const SizedBox.shrink()
+                        // 확장 모드: 스케줄 상세 정보 표시
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: schedules.length,
+                            itemBuilder: (context, index) {
+                              final schedule = schedules[index];
+                              // 업체 색상 가져오기 (없으면 기본 회색)
+                              final companyColor = schedule.companyName != null
+                                  ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
+                                  : 0xFF9E9E9E;
+                              final borderColor = Color(companyColor);
+
+                              // 상태별 배경색 가져오기
+                              final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
+
+                              // 배경색 밝기에 따라 텍스트 색상 자동 조정
+                              final textColor = backgroundColor.computeLuminance() > 0.5
+                                  ? Colors.black87
+                                  : Colors.white;
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: backgroundColor,
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: borderColor,
+                                      width: 3,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  schedule.visitTime != null
+                                      ? '${schedule.visitTime} ${_formatWorkItems(schedule.workItems)}'
+                                      : _formatWorkItems(schedule.workItems),
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            },
+                          ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -401,12 +481,18 @@ class CalendarScreenState extends State<CalendarScreen> {
         }
       }
 
-      // 스케줄이 2개 이상이면 기본 높이 없이 스케줄 개수만큼만 계산
-      // 스케줄이 0~1개면 기본 높이 80px 사용
-      final rowHeight = maxSchedulesInWeek >= 2
-          ? (maxSchedulesInWeek * 25.0) + 50.0  // 날짜 표시 공간 50px만 추가
-          : 80.0 + (maxSchedulesInWeek * 25.0);
-      rowHeights.add(rowHeight);
+      // 축소 모드: 고정 높이 50px (날짜와 개수만 표시)
+      if (_isCalendarCompact) {
+        rowHeights.add(50.0);
+      } else {
+        // 확장 모드: 기존 로직
+        // 스케줄이 2개 이상이면 기본 높이 없이 스케줄 개수만큼만 계산
+        // 스케줄이 0~1개면 기본 높이 80px 사용
+        final rowHeight = maxSchedulesInWeek >= 2
+            ? (maxSchedulesInWeek * 25.0) + 50.0  // 날짜 표시 공간 50px만 추가
+            : 80.0 + (maxSchedulesInWeek * 25.0);
+        rowHeights.add(rowHeight);
+      }
 
       currentWeekStart = currentWeekStart.add(const Duration(days: 7));
     }
@@ -516,6 +602,7 @@ class CalendarScreenState extends State<CalendarScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: backgroundColor,
+              borderRadius: BorderRadius.circular(8),
               border: Border(
                 left: BorderSide(
                   color: borderColor,

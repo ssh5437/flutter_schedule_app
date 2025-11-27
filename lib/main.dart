@@ -202,6 +202,7 @@ class _MyAppState extends State<MyApp> {
         title: '비비 관리',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          scaffoldBackgroundColor: const Color(0xFFFAFAFA),
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,
@@ -364,6 +365,7 @@ class _MainScreenState extends State<MainScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFFFAFAFA),
         selectedItemColor: const Color(0xFF579bf2),
         items: const [
           BottomNavigationBarItem(

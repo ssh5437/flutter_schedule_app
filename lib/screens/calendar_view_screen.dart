@@ -44,6 +44,12 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
     }
   }
 
+  void _toggleCalendarCompact() {
+    if (!_isWeeklyView) {
+      _monthlyKey.currentState?.toggleCalendarCompactMode();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,19 +57,32 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
         title: _isWeeklyView ? '주간 캘린더' : '월간 캘린더',
         toolbarHeight: 40,
         actions: [
+          // 월간 캘린더일 때만 확장/축소 버튼 표시
+          if (!_isWeeklyView)
+            IconButton(
+              icon: Icon(
+                _monthlyKey.currentState?.isCalendarCompact ?? false
+                    ? Icons.unfold_more
+                    : Icons.unfold_less,
+              ),
+              onPressed: _toggleCalendarCompact,
+              tooltip: _monthlyKey.currentState?.isCalendarCompact ?? false
+                  ? '캘린더 확장'
+                  : '캘린더 축소',
+            ),
           // 월간 캘린더일 때만 가로/세로 전환 버튼 표시
           if (!_isWeeklyView)
             IconButton(
               icon: Icon(
                 _monthlyKey.currentState?.isPortrait ?? true
-                    ? Icons.phone_android
-                    : Icons.phone_iphone_outlined,
+                    ? Icons.screen_rotation
+                    : Icons.stay_current_portrait,
               ),
               onPressed: _toggleOrientation,
               tooltip: _monthlyKey.currentState?.isPortrait ?? true ? '가로보기' : '세로보기',
             ),
           IconButton(
-            icon: Icon(_isWeeklyView ? Icons.calendar_month : Icons.view_week),
+            icon: Icon(_isWeeklyView ? Icons.calendar_month : Icons.calendar_view_week),
             onPressed: () {
               setState(() {
                 _isWeeklyView = !_isWeeklyView;

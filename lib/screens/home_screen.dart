@@ -225,6 +225,7 @@ class HomeScreenState extends State<HomeScreen> {
                             _showPendingSchedules = value;
                           });
                         },
+                        backgroundColor: Colors.white,
                         selectedColor: Colors.orange.shade100,
                         checkmarkColor: Colors.orange.shade700,
                       ),
@@ -237,6 +238,7 @@ class HomeScreenState extends State<HomeScreen> {
                             _showTodayOnly = value;
                           });
                         },
+                        backgroundColor: Colors.white,
                         selectedColor: Colors.blue.shade100,
                         checkmarkColor: Colors.blue.shade700,
                       ),
