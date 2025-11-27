@@ -210,7 +210,7 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 3. 앱 실행 → Supabase 로그인
 4. **멤버십 관리** > **프리미엄 구독하기** 클릭
 5. Google Play 결제 화면에서:
-   - 테스트 계정: "테스트 결제 - 실제 청구 없음" 메세지 표시
+   - 테스트 계정: "테스트 결제 - 실제 청구 없음" 메시지 표시
    - 구매 진행
 
 #### 5.3 검증 확인

@@ -8,6 +8,7 @@ import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../providers/subscription_provider.dart';
+import '../services/analytics_service.dart';
 import 'message_template_screen.dart';
 import 'membership_screen.dart';
 
@@ -274,6 +275,26 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                   final messenger = ScaffoldMessenger.of(context);
                   try {
                     await DatabaseHelper.instance.updateCompany(updatedCompany);
+
+                    // Analytics: 작업 항목 추가/수정 이벤트
+                    if (index == null) {
+                      await AnalyticsService().logFeatureUsed(
+                        featureName: 'work_item_added',
+                        parameters: {
+                          'company_id': widget.company!.id!,
+                          'work_item_name': newItem.name,
+                          'work_item_price': newItem.price,
+                        },
+                      );
+                    } else {
+                      await AnalyticsService().logFeatureUsed(
+                        featureName: 'work_item_edited',
+                        parameters: {
+                          'company_id': widget.company!.id!,
+                          'work_item_name': newItem.name,
+                        },
+                      );
+                    }
                   } catch (e) {
                     if (mounted) {
                       messenger.showSnackBar(
@@ -299,7 +320,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
     await _reloadCompanyData();
   }
 
-  // 메세지 템플릿 설정 화면으로 이동
+  // 메시지 템플릿 설정 화면으로 이동
   Future<void> _navigateToMessageTemplate() async {
     if (widget.company == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -336,8 +357,18 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
       try {
         if (widget.company == null) {
           await DatabaseHelper.instance.createCompany(company);
+
+          // Analytics: 업체 생성 이벤트
+          await AnalyticsService().logCompanyCreated(
+            workItemCount: _workItems.length,
+          );
         } else {
           await DatabaseHelper.instance.updateCompany(company);
+
+          // Analytics: 업체 수정 이벤트
+          await AnalyticsService().logCompanyUpdated(
+            workItemCount: _workItems.length,
+          );
 
           // 업체명이 변경되었고 스케줄 업체명도 변경하도록 체크된 경우
           if (_updateScheduleCompanyNames && _originalCompanyName.isNotEmpty && _originalCompanyName != _nameController.text) {
@@ -455,13 +486,13 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
             ),
             const SizedBox(height: 24),
 
-            // 메세지 템플릿 설정 버튼
+            // 메시지 템플릿 설정 버튼
             Card(
               child: ListTile(
                 leading: const Icon(Icons.message),
-                title: const Text('메세지 템플릿'),
+                title: const Text('메시지 템플릿'),
                 subtitle: const Text(
-                  '업체별 메세지 템플릿 관리',
+                  '업체별 메시지 템플릿 관리',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -609,6 +640,38 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 },
               ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveCompany,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: const Color.fromARGB(255, 20, 137, 226),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  widget.company == null ? '업체 추가' : '수정 완료',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

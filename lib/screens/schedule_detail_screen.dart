@@ -88,7 +88,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     }
   }
 
-  // 메세지 템플릿 선택 및 복사
+  // 메시지 템플릿 선택 및 복사
   Future<void> _showTemplateSelector() async {
     if (_company == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,7 +107,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
     if (templates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('등록된 메세지 템플릿이 없습니다')),
+        const SnackBar(content: Text('등록된 메시지 템플릿이 없습니다')),
       );
       return;
     }
@@ -129,7 +129,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
           Row(
             children: [
               const Text(
-                '메세지 템플릿 선택',
+                '메시지 템플릿 선택',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
@@ -185,7 +185,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
     Clipboard.setData(ClipboardData(text: message));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${template.name}" 메세지가 복사되었습니다')),
+      SnackBar(content: Text('"${template.name}" 메시지가 복사되었습니다')),
     );
 
     // Analytics 로그
@@ -506,7 +506,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       child: ElevatedButton.icon(
         onPressed: _showTemplateSelector,
         icon: const Icon(Icons.message),
-        label: const Text('메세지 복사'),
+        label: const Text('메시지 복사'),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
@@ -601,7 +601,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       if (mounted) {
         Navigator.pop(context); // 로딩 다이얼로그 닫기
 
-        // 성공 메세지
+        // 성공 메시지
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$successCount개의 스케줄이 등록되었습니다.'),

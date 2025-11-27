@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 에러 메세지를 유저 친화적인 한글로 변환
+  // 에러 메시지를 유저 친화적인 한글로 변환
   String _getErrorMessage(String error) {
     final errorLower = error.toLowerCase();
 

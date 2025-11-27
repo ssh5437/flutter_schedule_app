@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
 import '../database/database_helper.dart';
@@ -58,7 +59,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
         builder: (context) => AlertDialog(
           title: const Text('템플릿 개수 제한'),
           content: const Text(
-            '무료 플랜에서는 업체당 1개의 메세지 템플릿만 등록할 수 있습니다.\n\n'
+            '무료 플랜에서는 업체당 1개의 메시지 템플릿만 등록할 수 있습니다.\n\n'
             'Plus 멤버십 구독 시 무제한으로 템플릿을 등록할 수 있습니다.',
           ),
           actions: [
@@ -179,7 +180,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: GradientAppBar(
-        title: '${widget.company.name} 메세지 템플릿',
+        title: '${widget.company.name} 메시지 템플릿',
         toolbarHeight: 40,
       ),
       body: _isLoading
@@ -232,7 +233,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
                               Icon(Icons.message_outlined, size: 64, color: Colors.grey.shade400),
                               const SizedBox(height: 16),
                               Text(
-                                '등록된 메세지 템플릿이 없습니다',
+                                '등록된 메시지 템플릿이 없습니다',
                                 style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                               ),
                               const SizedBox(height: 8),
@@ -295,7 +296,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
   }
 }
 
-// 메세지 템플릿 추가/편집 화면
+// 메시지 템플릿 추가/편집 화면
 class MessageTemplateFormScreen extends StatefulWidget {
   final Company company;
   final MessageTemplate? template;
@@ -339,7 +340,7 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
 
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('메세지 내용을 입력해주세요')),
+        const SnackBar(content: Text('메시지 내용을 입력해주세요')),
       );
       return;
     }
@@ -470,7 +471,7 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
+              spacing: 5,
               runSpacing: 8,
               children: [
                 ActionChip(
@@ -493,9 +494,9 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 메세지 내용
+            // 메시지 내용
             const Text(
-              '메세지 내용',
+              '메시지 내용',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -510,27 +511,85 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
               minLines: 8,
               keyboardType: TextInputType.multiline,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-            // 저장 버튼
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _save,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save),
-                label: Text(_isSaving ? '저장 중...' : '저장'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+            // 사용 방법 링크
+            GestureDetector(
+              onTap: () async {
+                final url = Uri.parse('https://www.notion.so/2b81f6185ba18089af48e27dfb04c0d0');
+                try {
+                  final launched = await launchUrl(
+                    url,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (!launched && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('링크를 열 수 없습니다.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('링크를 열 수 없습니다.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.help_outline, size: 16, color: Colors.blue[700]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '사용 방법 자세히 보기',
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontSize: 14,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: const Color.fromARGB(255, 20, 137, 226),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  _isSaving ? '저장 중...' : '저장',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

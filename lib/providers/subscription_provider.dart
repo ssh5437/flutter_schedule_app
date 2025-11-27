@@ -206,19 +206,19 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // 에러 메세지 클리어
+  // 에러 메시지 클리어
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
-  // 성공 메세지 클리어
+  // 성공 메시지 클리어
   void clearSuccess() {
     _successMessage = null;
     notifyListeners();
   }
 
-  // 모든 메세지 클리어
+  // 모든 메시지 클리어
   void clearMessages() {
     _errorMessage = null;
     _successMessage = null;

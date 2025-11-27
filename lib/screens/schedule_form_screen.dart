@@ -673,8 +673,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       int savedId;
       if (widget.schedule == null) {
         savedId = await DatabaseHelper.instance.createSchedule(schedule);
+
+        // Analytics: 스케줄 생성 이벤트
+        await AnalyticsService().logScheduleCreated(
+          companyName: _selectedCompany!.name,
+          workItemCount: workItemsList.length,
+        );
       } else {
         savedId = await DatabaseHelper.instance.updateSchedule(schedule);
+
+        // Analytics: 스케줄 수정 이벤트
+        await AnalyticsService().logScheduleUpdated(
+          status: schedule.computedStatus,
+        );
       }
 
       // 저장된 ID로 스케줄 객체 업데이트
@@ -700,7 +711,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         Navigator.pop(context);
       }
 
-      // 에러 메세지 표시
+      // 에러 메시지 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
