@@ -25,6 +25,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   late TextEditingController _nameController;
   late List<WorkItem> _workItems;
   late Color _selectedColor;
+  late String _originalCompanyName; // 원래 업체명 저장
+  bool _updateScheduleCompanyNames = false; // 스케줄 업체명 변경 여부
 
   @override
   void initState() {
@@ -50,6 +52,7 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
 
   void _loadCompanyData() {
     _nameController = TextEditingController(text: widget.company?.name);
+    _originalCompanyName = widget.company?.name ?? ''; // 원래 업체명 저장
     _workItems = widget.company?.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList() ?? [];
     _selectedColor = widget.company != null ? Color(widget.company!.color) : const Color(0xFF2196F3);
   }
@@ -195,6 +198,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         title: Text(workItem == null ? '작업 항목 추가' : '작업 항목 수정'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: nameController,
@@ -217,6 +221,17 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 FilteringTextInputFormatter.digitsOnly,
               ],
             ),
+            if (workItem != null) ...[
+              const SizedBox(height: 12),
+              const Text(
+                '* 기존 스케줄에 등록된 작업 항목명은 바뀌지 않습니다.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -323,6 +338,20 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
           await DatabaseHelper.instance.createCompany(company);
         } else {
           await DatabaseHelper.instance.updateCompany(company);
+
+          // 업체명이 변경되었고 스케줄 업체명도 변경하도록 체크된 경우
+          if (_updateScheduleCompanyNames && _originalCompanyName.isNotEmpty && _originalCompanyName != _nameController.text) {
+            final updatedCount = await DatabaseHelper.instance.updateScheduleCompanyNames(
+              userId,
+              _originalCompanyName,
+              _nameController.text,
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('업체명 변경 완료 (스케줄 $updatedCount개 업데이트)')),
+              );
+            }
+          }
         }
 
         if (mounted) {
@@ -374,7 +403,37 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 }
                 return null;
               },
+              onChanged: (value) {
+                // 업체명이 변경되면 체크박스 상태 초기화 및 UI 갱신
+                setState(() {
+                  _updateScheduleCompanyNames = false;
+                });
+              },
             ),
+
+            // 업체명 변경 시 스케줄 업체명 변경 체크박스 (기존 업체 수정 시에만 표시)
+            if (widget.company != null &&
+                _originalCompanyName.isNotEmpty &&
+                _nameController.text != _originalCompanyName)
+              CheckboxListTile(
+                title: const Text(
+                  '기존 스케줄의 업체명도 모두 변경',
+                  style: TextStyle(fontSize: 14),
+                ),
+                subtitle: const Text(
+                  '체크하면 이 업체로 등록된 모든 스케줄의 업체명이 변경됩니다',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                value: _updateScheduleCompanyNames,
+                onChanged: (value) {
+                  setState(() {
+                    _updateScheduleCompanyNames = value ?? false;
+                  });
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             const SizedBox(height: 16),
 
             // 색상 선택

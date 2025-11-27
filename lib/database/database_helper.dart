@@ -756,6 +756,17 @@ class DatabaseHelper {
     );
   }
 
+  // 스케줄의 업체명 일괄 변경
+  Future<int> updateScheduleCompanyNames(String userId, String oldCompanyName, String newCompanyName) async {
+    final db = await database;
+    return await db.update(
+      'schedules',
+      {'companyName': newCompanyName},
+      where: 'userId = ? AND companyName = ?',
+      whereArgs: [userId, oldCompanyName],
+    );
+  }
+
   // MessageTemplate CRUD operations
   Future<List<MessageTemplate>> readAllMessageTemplates(String userId, int companyId) async {
     final db = await database;

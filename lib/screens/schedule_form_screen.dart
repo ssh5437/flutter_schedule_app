@@ -1081,6 +1081,8 @@ class _WorkItemsDialogState extends State<_WorkItemsDialog> {
   late Map<String, int> _tempWorkPrices;
   final Map<String, TextEditingController> _priceControllers = {};
   final Map<String, FocusNode> _priceFocusNodes = {};
+  late List<WorkItem> _displayWorkItems; // 표시할 작업 항목 목록 (현재 항목 + 삭제된 항목)
+  late Set<String> _deletedWorkItems; // 삭제된 작업 항목 이름
 
   @override
   void initState() {
@@ -1088,8 +1090,25 @@ class _WorkItemsDialogState extends State<_WorkItemsDialog> {
     _tempWorkItems = Map<String, int>.from(widget.initialWorkItems);
     _tempWorkPrices = Map<String, int>.from(widget.initialWorkPrices);
 
+    // 현재 업체 작업 항목 이름 Set
+    final currentWorkItemNames = widget.company.workItems.map((item) => item.name).toSet();
+
+    // 삭제된 작업 항목 찾기 (initialWorkItems에는 있지만 현재 company.workItems에는 없는 항목)
+    _deletedWorkItems = widget.initialWorkItems.keys.where((name) => !currentWorkItemNames.contains(name)).toSet();
+
+    // 표시할 작업 항목 목록 생성: 현재 작업 항목 + 삭제된 작업 항목
+    _displayWorkItems = List<WorkItem>.from(widget.company.workItems);
+
+    // 삭제된 항목을 WorkItem 객체로 생성하여 추가
+    for (var deletedName in _deletedWorkItems) {
+      _displayWorkItems.add(WorkItem(
+        name: deletedName,
+        price: widget.initialWorkPrices[deletedName] ?? 0,
+      ));
+    }
+
     // 각 작업 항목에 대한 컨트롤러와 FocusNode 초기화
-    for (var workItem in widget.company.workItems) {
+    for (var workItem in _displayWorkItems) {
       final currentPrice = _tempWorkPrices[workItem.name] ?? workItem.price;
       _priceControllers[workItem.name] = TextEditingController(
         text: NumberFormat('#,###').format(currentPrice),
@@ -1140,10 +1159,11 @@ class _WorkItemsDialogState extends State<_WorkItemsDialog> {
         width: MediaQuery.of(context).size.width - 32, // 화면 너비 - 좌우 패딩
         child: ListView.builder(
           shrinkWrap: true,
-          itemCount: widget.company.workItems.length,
+          itemCount: _displayWorkItems.length,
           itemBuilder: (context, index) {
-            final workItem = widget.company.workItems[index];
+            final workItem = _displayWorkItems[index];
             final isSelected = _tempWorkItems.containsKey(workItem.name);
+            final isDeleted = _deletedWorkItems.contains(workItem.name);
 
             return Card(
               key: ValueKey(workItem.name),
@@ -1177,19 +1197,20 @@ class _WorkItemsDialogState extends State<_WorkItemsDialog> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                workItem.name,
-                                style: const TextStyle(
+                                isDeleted ? '${workItem.name} (삭제됨)' : workItem.name,
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
+                                  color: isDeleted ? Colors.red.shade700 : null,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 '기본 금액: ${NumberFormat('#,###').format(workItem.price)}원',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Color.fromARGB(255, 54, 49, 49),
+                                  color: isDeleted ? Colors.red.shade400 : const Color.fromARGB(255, 54, 49, 49),
                                 ),
                               ),
                             ],
