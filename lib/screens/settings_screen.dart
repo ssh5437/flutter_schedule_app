@@ -4,6 +4,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../services/widget_service.dart';
@@ -967,6 +968,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     SnackBar(
                       content: Text('로그아웃 실패: ${e.toString()}'),
                       backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+
+          // 문의 메일 보내기
+          ListTile(
+            leading: const Icon(Icons.email, color: Colors.blue),
+            title: const Text('문의 메일 보내기'),
+            subtitle: const Text('앱 사용 중 문의사항이나 건의사항을 보내주세요'),
+            onTap: () async {
+              final Uri emailUri = Uri(
+                scheme: 'mailto',
+                path: 'vividlifekr@gmail.com',
+                query: 'subject=${Uri.encodeComponent('비비 관리 앱 문의')}',
+              );
+
+              try {
+                // LaunchMode.externalApplication을 사용하여 외부 앱으로 실행
+                final launched = await launchUrl(
+                  emailUri,
+                  mode: LaunchMode.externalApplication,
+                );
+
+                if (!launched && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('메일 앱을 열 수 없습니다.\n이메일: vividlifekr@gmail.com'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('메일 앱을 열 수 없습니다.\n이메일: vividlifekr@gmail.com'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 4),
                     ),
                   );
                 }

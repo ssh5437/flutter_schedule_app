@@ -68,10 +68,14 @@ class _LoginScreenState extends State<LoginScreen> {
       return '이메일 인증이 필요합니다.\n받은 이메일의 인증 링크를 클릭해주세요';
     }
 
-    // 이메일/비밀번호 오류
-    if (errorLower.contains('invalid login credentials') ||
-        errorLower.contains('invalid password')) {
-      return '이메일 또는 비밀번호가 올바르지 않습니다';
+    // 이메일/비밀번호 오류 (회원가입되지 않은 경우 포함)
+    if (errorLower.contains('invalid login credentials')) {
+      return '등록되지 않은 이메일이거나 비밀번호가 올바르지 않습니다';
+    }
+
+    // 비밀번호 오류
+    if (errorLower.contains('invalid password')) {
+      return '비밀번호가 올바르지 않습니다';
     }
 
     // 사용자 없음

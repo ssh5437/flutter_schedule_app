@@ -12,6 +12,7 @@ import '../services/widget_service.dart';
 import '../services/address_service.dart';
 import '../services/analytics_service.dart';
 import '../widgets/gradient_app_bar.dart';
+import 'company_edit_screen.dart';
 
 class ScheduleFormScreen extends StatefulWidget {
   final Schedule? schedule;
@@ -298,11 +299,33 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('작업 항목 없음'),
-          content: const Text('업체 관리에서 작업 항목을 추가해주세요'),
+          content: const Text('선택한 업체에 작업 항목이 없습니다.\n작업 항목을 추가하시겠습니까?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
+              child: const Text('취소'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                // 업체 수정 화면으로 이동
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CompanyEditScreen(company: _selectedCompany),
+                  ),
+                );
+                // 업체 수정 후 돌아오면 업체 목록 새로고침
+                if (result == true && mounted) {
+                  await _loadCompanies();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('작업 항목 추가하러 가기'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF579bf2),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
