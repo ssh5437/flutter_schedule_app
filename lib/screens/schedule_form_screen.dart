@@ -7,6 +7,7 @@ import '../models/company.dart';
 import '../database/database_helper.dart';
 import '../utils/gemini_helper.dart';
 import '../utils/text_extraction_limit_helper.dart';
+import '../utils/image_text_extractor.dart';
 import '../services/notification_service.dart';
 import '../services/widget_service.dart';
 import '../services/address_service.dart';
@@ -363,8 +364,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            const Text('텍스트에서 스케줄 추출'),
-            const Spacer(),
+            const Expanded(
+              child: Text('텍스트에서 스케줄 추출'),
+            ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -376,7 +379,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 ),
               ),
               child: Text(
-                '남은 횟수: $remaining/${TextExtractionLimitHelper.monthlyLimit}',
+                '$remaining/${TextExtractionLimitHelper.monthlyLimit}',
                 style: TextStyle(
                   fontSize: 12,
                   color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
@@ -437,6 +440,226 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         ],
       ),
     );
+  }
+
+  // 이미지에서 추출 다이얼로그
+  Future<void> _showImageExtractionDialog() async {
+    final remaining = await TextExtractionLimitHelper.getRemainingCount();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Expanded(
+              child: Text('이미지에서 스케줄 추출'),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: remaining > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: remaining > 0 ? Colors.green : Colors.red,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                '$remaining/${TextExtractionLimitHelper.monthlyLimit}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '문서 사진이나 캡처 이미지에서\n스케줄 정보를 추출합니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // 갤러리에서 선택
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _pickAndExtractImage(fromCamera: false);
+                    },
+                    icon: const Icon(Icons.photo_library, size: 32),
+                    label: const Text('갤러리', style: TextStyle(fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      side: const BorderSide(color: _primaryColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // 카메라로 촬영
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _pickAndExtractImage(fromCamera: true);
+                    },
+                    icon: const Icon(Icons.camera_alt, size: 32),
+                    label: const Text('카메라', style: TextStyle(fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      side: const BorderSide(color: _primaryColor),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 추출된 텍스트 확인 다이얼로그
+  Future<Map<String, dynamic>?> _showExtractedTextDialog(String extractedText) async {
+    final textController = TextEditingController(text: extractedText);
+
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('추출된 텍스트 확인'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '이미지에서 추출된 텍스트입니다.\n필요하면 수정 후 계속 진행하세요.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: TextField(
+                  controller: textController,
+                  maxLines: null,
+                  minLines: 15,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    border: _enabledBorder,
+                    focusedBorder: _focusedBorder,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              textController.dispose();
+              Navigator.pop(context, null);
+            },
+            child: const Text('취소'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final text = textController.text;
+              textController.dispose();
+              Navigator.pop(context, {'continue': true, 'text': text});
+            },
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('계속'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 이미지 선택 및 텍스트 추출
+  Future<void> _pickAndExtractImage({required bool fromCamera}) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      // 이미지 선택
+      final image = fromCamera
+          ? await ImageTextExtractor.pickImageFromCamera()
+          : await ImageTextExtractor.pickImageFromGallery();
+
+      if (image == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('이미지를 선택하지 않았습니다')),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      // 로딩 다이얼로그 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('이미지에서 텍스트 추출 중...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // OCR로 텍스트 추출
+      final extractedText = await ImageTextExtractor.extractTextFromImage(image.path);
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+      if (extractedText.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('이미지에서 텍스트를 찾을 수 없습니다')),
+        );
+        return;
+      }
+
+      // 추출된 텍스트 확인 다이얼로그 표시
+      final result = await _showExtractedTextDialog(extractedText);
+
+      if (result != null && result['continue'] == true) {
+        // 추출된 텍스트로 스케줄 정보 추출 (수정된 텍스트 사용)
+        await _extractScheduleInfo(result['text'] as String);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 다이얼로그가 열려있다면 닫기
+
+      messenger.showSnackBar(
+        SnackBar(content: Text('이미지 처리 중 오류가 발생했습니다: $e')),
+      );
+    }
   }
 
   Future<void> _extractScheduleInfo(String text) async {
@@ -735,6 +958,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
             onPressed: _showPasteDialog,
             tooltip: '텍스트에서 추출',
           ),
+          /*
+          IconButton(
+            icon: const Icon(Icons.image),
+            onPressed: _showImageExtractionDialog,
+            tooltip: '이미지에서 추출',
+          ),
+          */
           /*
           IconButton(
             icon: const Icon(Icons.save),

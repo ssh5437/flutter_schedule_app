@@ -41,7 +41,8 @@
       "Bash(touch:*)",
       "Bash(supabase functions deploy:*)",
       "Bash(tee:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(supabase secrets:*)"
     ],
     "deny": [],
     "ask": []

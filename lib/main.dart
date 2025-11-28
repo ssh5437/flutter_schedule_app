@@ -203,6 +203,9 @@ class _MyAppState extends State<MyApp> {
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Color(0xFFFAFAFA),
+          ),
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,
