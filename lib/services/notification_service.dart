@@ -226,8 +226,16 @@ class NotificationService {
       return '$time${s.customerName} - $work';
     }
 
-    // 2건 이상인 경우
-    final first = schedules.first;
+    // 2건 이상인 경우 - 시간이 제일 빠른 스케줄 찾기
+    final sortedSchedules = List<Schedule>.from(schedules);
+    sortedSchedules.sort((a, b) {
+      // 시간이 없거나 미정인 경우 뒤로 보냄
+      if (a.visitTime == null || a.visitTime == '미정') return 1;
+      if (b.visitTime == null || b.visitTime == '미정') return -1;
+      return a.visitTime!.compareTo(b.visitTime!);
+    });
+
+    final first = sortedSchedules.first;
     final time = first.visitTime != null && first.visitTime != '미정' ? '${first.visitTime} ' : '';
     final work = first.workItems.isNotEmpty ? first.workItems.first : '작업';
     return '$time${first.customerName} - $work 외 ${schedules.length - 1}건';
