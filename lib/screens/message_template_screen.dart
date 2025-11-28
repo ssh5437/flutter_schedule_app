@@ -52,14 +52,14 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
     final subscriptionProvider = context.read<SubscriptionProvider>();
     final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
 
-    if (!hasActiveSubscription && _templates.isNotEmpty) {
-      // 무료 사용자는 업체당 1개만 가능
+    if (!hasActiveSubscription && _templates.length >= 2) {
+      // 무료 사용자는 업체당 2개만 가능
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('템플릿 개수 제한'),
           content: const Text(
-            '무료 플랜에서는 업체당 1개의 메시지 템플릿만 등록할 수 있습니다.\n\n'
+            '무료 플랜에서는 업체당 2개의 메시지 템플릿만 등록할 수 있습니다.\n\n'
             'Plus 멤버십 구독 시 무제한으로 템플릿을 등록할 수 있습니다.',
           ),
           actions: [

@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class TextExtractionLimitHelper {
   static const String _usageCountKey = 'text_extraction_usage_count';
   static const String _lastResetDateKey = 'text_extraction_last_reset_date';
-  static const int monthlyLimit = 10;
+  static const int monthlyLimit = 30;
 
   /// 이번 달 남은 사용 가능 횟수 반환
   static Future<int> getRemainingCount() async {

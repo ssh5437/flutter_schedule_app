@@ -41,8 +41,8 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
       final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
       final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
 
-      // 무료 회원이고 이미 업체가 1개 이상 있으면 제한
-      if (!hasActiveSubscription && _companies.isNotEmpty) {
+      // 무료 회원이고 이미 업체가 2개 이상 있으면 제한
+      if (!hasActiveSubscription && _companies.length >= 2) {
         _showMembershipRequiredDialog();
         return;
       }
@@ -92,7 +92,7 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '무료 회원은 업체를 1개까지만 등록할 수 있습니다.',
+              '무료 회원은 업체를 2개까지만 등록할 수 있습니다.',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
             const SizedBox(height: 16),
