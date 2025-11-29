@@ -41,6 +41,11 @@ migrate_working_dir/
 **/GeneratedPluginRegistrant.java
 **/GeneratedPluginRegistrant.swift
 **/generated_plugin_registrant.cc
+**/generated_plugins.cmake
+
+linux/flutter/*
+macos/Flutter/*
+windows/flutter/*
 
 # Symbolication related
 app.*.symbols
