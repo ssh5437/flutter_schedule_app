@@ -4,7 +4,6 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 
@@ -375,37 +374,25 @@ class NotificationService {
     final results = <String, bool>{};
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      // 알림 권한 (Android 13+)
-      final notificationStatus = await Permission.notification.status;
-      debugPrint('🔔 Notification permission: $notificationStatus');
-      if (!notificationStatus.isGranted) {
-        final result = await Permission.notification.request();
-        results['notification'] = result.isGranted;
-        debugPrint('🔔 Notification permission requested: ${result.isGranted}');
-      } else {
-        results['notification'] = true;
-      }
+      final androidImpl = _notifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
-      // 정확한 알람 권한 (Android 12+)
-      final scheduleStatus = await Permission.scheduleExactAlarm.status;
-      debugPrint('⏰ Schedule exact alarm permission: $scheduleStatus');
-      if (!scheduleStatus.isGranted) {
-        final result = await Permission.scheduleExactAlarm.request();
-        results['scheduleExactAlarm'] = result.isGranted;
-        debugPrint('⏰ Schedule exact alarm permission requested: ${result.isGranted}');
-      } else {
-        results['scheduleExactAlarm'] = true;
-      }
+      if (androidImpl != null) {
+        // 알림 권한 (Android 13+)
+        debugPrint('🔔 Requesting notification permission...');
+        final notificationGranted = await androidImpl.requestNotificationsPermission();
+        results['notification'] = notificationGranted ?? false;
+        debugPrint('🔔 Notification permission: $notificationGranted');
 
-      // 배터리 최적화 무시 권한
-      final ignoreBatteryStatus = await Permission.ignoreBatteryOptimizations.status;
-      debugPrint('🔋 Ignore battery optimizations: $ignoreBatteryStatus');
-      if (!ignoreBatteryStatus.isGranted) {
-        final result = await Permission.ignoreBatteryOptimizations.request();
-        results['ignoreBatteryOptimizations'] = result.isGranted;
-        debugPrint('🔋 Ignore battery optimizations requested: ${result.isGranted}');
-      } else {
+        // 정확한 알람 권한 (Android 12+)
+        debugPrint('⏰ Requesting exact alarm permission...');
+        final exactAlarmGranted = await androidImpl.requestExactAlarmsPermission();
+        results['scheduleExactAlarm'] = exactAlarmGranted ?? false;
+        debugPrint('⏰ Exact alarm permission: $exactAlarmGranted');
+
+        // 배터리 최적화는 flutter_local_notifications에서 직접 지원하지 않으므로 true로 설정
         results['ignoreBatteryOptimizations'] = true;
+        debugPrint('🔋 Battery optimization (not checked): true');
       }
     }
 
@@ -417,9 +404,20 @@ class NotificationService {
     final results = <String, bool>{};
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      results['notification'] = await Permission.notification.isGranted;
-      results['scheduleExactAlarm'] = await Permission.scheduleExactAlarm.isGranted;
-      results['ignoreBatteryOptimizations'] = await Permission.ignoreBatteryOptimizations.isGranted;
+      final androidImpl = _notifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+      if (androidImpl != null) {
+        // 알림 권한 체크
+        final notificationGranted = await androidImpl.areNotificationsEnabled();
+        results['notification'] = notificationGranted ?? false;
+
+        // 정확한 알람 권한은 체크 메서드가 없으므로 true로 가정
+        results['scheduleExactAlarm'] = true;
+
+        // 배터리 최적화도 true로 가정
+        results['ignoreBatteryOptimizations'] = true;
+      }
     }
 
     return results;
