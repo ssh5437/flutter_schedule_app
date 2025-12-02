@@ -288,6 +288,14 @@ class _MainScreenState extends State<MainScreen> {
     ];
     _setupMethodChannel();
     _checkForWidgetScheduleId();
+    _initializeSubscription();
+  }
+
+  // 구독 상태 초기화
+  Future<void> _initializeSubscription() async {
+    final subscriptionProvider = context.read<SubscriptionProvider>();
+    await subscriptionProvider.initialize();
+    debugPrint('✅ 멤버십 구독 상태 초기화 완료');
   }
 
   // MethodChannel 설정 - Android에서 보내는 메시지 수신

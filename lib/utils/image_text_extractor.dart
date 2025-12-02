@@ -47,6 +47,8 @@ class ImageTextExtractor {
     try {
       final recognizer = _getTextRecognizer();
       final inputImage = InputImage.fromFilePath(imagePath);
+
+      debugPrint('Processing image for text recognition...');
       final RecognizedText recognizedText = await recognizer.processImage(inputImage);
 
       String extractedText = '';
@@ -58,9 +60,16 @@ class ImageTextExtractor {
 
       debugPrint('Extracted text: $extractedText');
       return extractedText.trim();
-    } catch (e) {
+    } on Exception catch (e) {
       debugPrint('Error extracting text from image: $e');
-      rethrow;
+      // 모델 다운로드 관련 에러인 경우 더 명확한 메시지 제공
+      if (e.toString().contains('model') || e.toString().contains('download')) {
+        throw Exception('한글 인식 모델을 다운로드하는 중 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      }
+      throw Exception('텍스트 추출 중 오류가 발생했습니다: ${e.toString()}');
+    } catch (e) {
+      debugPrint('Unexpected error: $e');
+      throw Exception('예상치 못한 오류가 발생했습니다: ${e.toString()}');
     }
   }
 

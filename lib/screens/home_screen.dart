@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:upgrader/upgrader.dart';
 import '../models/schedule.dart';
 import '../database/database_helper.dart';
 import '../services/widget_service.dart';
@@ -170,8 +171,12 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: GradientAppBar(
+    return UpgradeAlert(
+      upgrader: Upgrader(
+        durationUntilAlertAgain: const Duration(days: 1),
+      ),
+      child: Scaffold(
+        appBar: GradientAppBar(
         title: '스케줄 목록',
         toolbarHeight: 40,
         actions: [
@@ -549,6 +554,7 @@ class HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 }

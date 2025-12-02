@@ -753,7 +753,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '이번 달 일별 매출 추이',
+            '최근 30일 일별 매출 추이',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
@@ -867,28 +867,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   }
 
   Widget _buildDailyTrendChart() {
-    // 이번 달 1일부터 어제까지의 일별 매출 데이터 계산
+    // 최근 30일간의 일별 매출 데이터 계산
     final now = DateTime.now();
-    final yesterday = now.subtract(const Duration(days: 1));
+    final today = DateTime(now.year, now.month, now.day);
+    final thirtyDaysAgo = today.subtract(const Duration(days: 30));
 
-    // 어제까지의 일수 (1일이면 0, 2일이면 1, ...)
-    final daysToShow = yesterday.day;
-
-    // 일별 매출 맵 생성 (전체 스케줄에서 이번 달 데이터만 추출)
-    final dailyData = <int, int>{};
+    // 일별 매출 맵 생성 (날짜를 키로 사용)
+    final dailyData = <DateTime, int>{};
     for (var schedule in _allSchedules) {
       final date = schedule.visitDate ?? schedule.requestDate;
-      // 이번 달 1일 ~ 어제까지만
-      if (date.year == now.year && date.month == now.month && date.day <= yesterday.day) {
-        final day = date.day;
-        dailyData[day] = (dailyData[day] ?? 0) + schedule.totalPrice;
+      final dateOnly = DateTime(date.year, date.month, date.day);
+
+      // 최근 30일 이내 데이터만
+      if (dateOnly.isAfter(thirtyDaysAgo) && dateOnly.isBefore(today.add(const Duration(days: 1)))) {
+        dailyData[dateOnly] = (dailyData[dateOnly] ?? 0) + schedule.totalPrice;
       }
     }
 
-    // 차트 데이터 생성 (1일부터 어제까지)
-    final chartData = List.generate(daysToShow, (i) {
-      final day = i + 1;
-      return dailyData[day] ?? 0;
+    // 차트 데이터 생성 (최근 30일)
+    final chartData = List.generate(30, (i) {
+      final date = thirtyDaysAgo.add(Duration(days: i + 1));
+      return dailyData[date] ?? 0;
     });
 
     // 최대값 계산
@@ -906,7 +905,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                   Icon(Icons.info_outline, size: 48, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    '이번 달 매출 데이터가 없습니다',
+                    '최근 30일 매출 데이터가 없습니다',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -939,13 +938,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
-                      interval: 5,
+                      interval: 1,
                       getTitlesWidget: (value, meta) {
-                        final day = value.toInt() + 1;
-                        if (day == 1 || day % 5 == 0 || day == daysToShow) {
-                          return Text(
-                            '$day일',
-                            style: const TextStyle(fontSize: 10),
+                        final index = value.toInt();
+                        // 5일 간격으로 표시 (0, 5, 10, 15, 20, 25, 29)
+                        if (index % 5 == 0 || index == 29) {
+                          final date = thirtyDaysAgo.add(Duration(days: index + 1));
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '${date.month}/${date.day}',
+                              style: const TextStyle(fontSize: 9),
+                            ),
                           );
                         }
                         return const Text('');

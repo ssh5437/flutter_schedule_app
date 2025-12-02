@@ -126,8 +126,20 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     setState(() {
       _companies = companies;
       _isLoadingCompanies = false;
+
+      // 기존에 선택된 업체가 있으면 새로 로드된 리스트에서 같은 ID의 업체로 업데이트
+      if (_selectedCompany != null && _companies.isNotEmpty) {
+        try {
+          _selectedCompany = _companies.firstWhere(
+            (c) => c.id == _selectedCompany!.id,
+          );
+        } catch (e) {
+          // 선택된 업체가 삭제된 경우 첫 번째 업체로 설정
+          _selectedCompany = _companies.first;
+        }
+      }
       // 기본값으로 첫 번째 업체 선택 (보통 "개인")
-      if (_companies.isNotEmpty && _selectedCompany == null) {
+      else if (_companies.isNotEmpty && _selectedCompany == null) {
         _selectedCompany = _companies.first;
       }
     });
@@ -625,6 +637,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
                   Text('이미지에서 텍스트 추출 중...'),
+                  SizedBox(height: 8),
+                  Text(
+                    '처음 사용시 한글 모델을 다운로드합니다',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -654,10 +671,27 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop(); // 로딩 다이얼로그가 열려있다면 닫기
+
+      // 로딩 다이얼로그가 열려있다면 닫기
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {
+        // 이미 닫혀있을 수 있음
+      }
+
+      // 에러 메시지 추출
+      String errorMessage = '이미지 처리 중 오류가 발생했습니다';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      } else {
+        errorMessage = '$errorMessage: $e';
+      }
 
       messenger.showSnackBar(
-        SnackBar(content: Text('이미지 처리 중 오류가 발생했습니다: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          duration: const Duration(seconds: 4),
+        ),
       );
     }
   }
@@ -958,13 +992,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
             onPressed: _showPasteDialog,
             tooltip: '텍스트에서 추출',
           ),
-          /*
           IconButton(
             icon: const Icon(Icons.image),
             onPressed: _showImageExtractionDialog,
             tooltip: '이미지에서 추출',
           ),
-          */
           /*
           IconButton(
             icon: const Icon(Icons.save),
@@ -986,6 +1018,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         children: [
                           // 업체 선택 드롭다운
                           DropdownButtonFormField<Company>(
+                            key: ValueKey(_selectedCompany?.id),
                             initialValue: _selectedCompany,
                             decoration: InputDecoration(
                               labelText: '업체 *',

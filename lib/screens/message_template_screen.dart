@@ -408,14 +408,24 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
   void _insertVariable(String variable) {
     final currentText = _contentController.text;
     final selection = _contentController.selection;
+
+    // 포커스가 없거나 선택 영역이 유효하지 않을 때는 끝에 추가
+    int insertPosition;
+    if (selection.start < 0 || selection.start > currentText.length) {
+      insertPosition = currentText.length;
+    } else {
+      insertPosition = selection.start;
+    }
+
     final newText = currentText.replaceRange(
-      selection.start,
-      selection.end,
+      insertPosition,
+      selection.isValid && selection.end >= 0 ? selection.end : insertPosition,
       variable,
     );
+
     _contentController.text = newText;
     _contentController.selection = TextSelection.collapsed(
-      offset: selection.start + variable.length,
+      offset: insertPosition + variable.length,
     );
   }
 
@@ -464,9 +474,9 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 변수 복사 버튼
+            // 변수 자동 입력 버튼
             const Text(
-              '변수 복사',
+              '변수 자동 입력',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
