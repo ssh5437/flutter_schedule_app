@@ -288,11 +288,16 @@ class _MainScreenState extends State<MainScreen> {
     ];
     _setupMethodChannel();
     _checkForWidgetScheduleId();
-    _initializeSubscription();
+
+    // 빌드 완료 후 구독 상태 초기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeSubscription();
+    });
   }
 
   // 구독 상태 초기화
   Future<void> _initializeSubscription() async {
+    if (!mounted) return;
     final subscriptionProvider = context.read<SubscriptionProvider>();
     await subscriptionProvider.initialize();
     debugPrint('✅ 멤버십 구독 상태 초기화 완료');

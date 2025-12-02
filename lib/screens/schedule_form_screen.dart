@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../database/database_helper.dart';
@@ -507,7 +508,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.pop(context);
-                      await _pickAndExtractImage(fromCamera: false);
+                      await _requestPermissionAndPick(fromCamera: false);
                     },
                     icon: const Icon(Icons.photo_library, size: 32),
                     label: const Text('갤러리', style: TextStyle(fontSize: 14)),
@@ -523,7 +524,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.pop(context);
-                      await _pickAndExtractImage(fromCamera: true);
+                      await _requestPermissionAndPick(fromCamera: true);
                     },
                     icon: const Icon(Icons.camera_alt, size: 32),
                     label: const Text('카메라', style: TextStyle(fontSize: 14)),
@@ -604,95 +605,217 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
   }
 
+  // 권한 요청 및 이미지 선택
+  Future<void> _requestPermissionAndPick({required bool fromCamera}) async {
+    debugPrint('🚀 [ScheduleForm] Starting image selection: fromCamera=$fromCamera');
+
+    if (!mounted) {
+      debugPrint('⚠️ [ScheduleForm] Widget not mounted');
+      return;
+    }
+
+    // image_picker 플러그인이 내부적으로 권한을 처리하므로 바로 진행
+    await _pickAndExtractImage(fromCamera: fromCamera);
+  }
+
   // 이미지 선택 및 텍스트 추출
   Future<void> _pickAndExtractImage({required bool fromCamera}) async {
-    final messenger = ScaffoldMessenger.of(context);
+    debugPrint('📸 [ScheduleForm] _pickAndExtractImage START');
 
+    if (!mounted) {
+      debugPrint('⚠️ [ScheduleForm] Not mounted at start');
+      return;
+    }
+
+    XFile? selectedImage;
+
+    // Step 1: 이미지 선택
     try {
-      // 이미지 선택
-      final image = fromCamera
+      debugPrint('📸 [ScheduleForm] Calling ImageTextExtractor...');
+
+      selectedImage = fromCamera
           ? await ImageTextExtractor.pickImageFromCamera()
           : await ImageTextExtractor.pickImageFromGallery();
 
-      if (image == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('이미지를 선택하지 않았습니다')),
+      debugPrint('📸 [ScheduleForm] ImageTextExtractor returned: ${selectedImage?.path ?? "null"}');
+
+    } on Exception catch (e, stack) {
+      debugPrint('❌ [ScheduleForm] Exception in image picker: $e');
+      debugPrint('Stack: $stack');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 선택 실패: $e'),
+            backgroundColor: Colors.orange,
+          ),
         );
-        return;
       }
+      return;
 
-      if (!mounted) return;
+    } catch (e, stack) {
+      debugPrint('❌ [ScheduleForm] Error in image picker: $e');
+      debugPrint('Stack: $stack');
 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지 선택 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // 사용자가 취소했거나 이미지를 선택하지 않음
+    if (selectedImage == null) {
+      debugPrint('ℹ️ [ScheduleForm] No image selected');
+      return;
+    }
+
+    debugPrint('✅ [ScheduleForm] Image selected: ${selectedImage.path}');
+
+    if (!mounted) {
+      debugPrint('⚠️ [ScheduleForm] Not mounted after image selection');
+      return;
+    }
+
+    // Step 2: OCR 처리
+    debugPrint('🔍 [ScheduleForm] Starting OCR process');
+    await _processImageOCR(selectedImage.path);
+  }
+
+  // OCR 처리 (이미지 선택과 분리)
+  Future<void> _processImageOCR(String imagePath) async {
+    debugPrint('🔍 [ScheduleForm] _processImageOCR START for: $imagePath');
+
+    if (!mounted) {
+      debugPrint('⚠️ [ScheduleForm] Not mounted at OCR start');
+      return;
+    }
+
+    bool isDialogOpen = false;
+
+    try {
       // 로딩 다이얼로그 표시
+      debugPrint('⏳ [ScheduleForm] Showing loading dialog');
+      isDialogOpen = true;
+
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('이미지에서 텍스트 추출 중...'),
-                  SizedBox(height: 8),
-                  Text(
-                    '처음 사용시 한글 모델을 다운로드합니다',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+        builder: (BuildContext ctx) {
+          return PopScope(
+            canPop: false,
+            child: Center(
+              child: Card(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        '이미지에서 텍스트 추출 중...',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '처음 사용시 한글 모델을 다운로드합니다\n잠시만 기다려주세요',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       );
 
-      // OCR로 텍스트 추출
-      final extractedText = await ImageTextExtractor.extractTextFromImage(image.path);
+      // 다이얼로그가 완전히 표시될 때까지 대기
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      if (!mounted) return;
-      Navigator.pop(context); // 로딩 다이얼로그 닫기
-
-      if (extractedText.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('이미지에서 텍스트를 찾을 수 없습니다')),
-        );
+      if (!mounted) {
+        debugPrint('⚠️ [ScheduleForm] Not mounted after dialog delay');
         return;
       }
 
-      // 추출된 텍스트 확인 다이얼로그 표시
+      // OCR 실행
+      debugPrint('🤖 [ScheduleForm] Executing OCR');
+      final String extractedText = await ImageTextExtractor.extractTextFromImage(imagePath);
+
+      debugPrint('✅ [ScheduleForm] OCR SUCCESS: ${extractedText.length} chars');
+
+      if (!mounted) {
+        debugPrint('⚠️ [ScheduleForm] Not mounted after OCR');
+        return;
+      }
+
+      // 로딩 다이얼로그 닫기
+      if (isDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        isDialogOpen = false;
+        debugPrint('✅ [ScheduleForm] Dialog closed');
+      }
+
+      // 추출된 텍스트가 비어있는 경우
+      if (extractedText.trim().isEmpty) {
+        debugPrint('⚠️ [ScheduleForm] No text found in image');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미지에서 텍스트를 찾을 수 없습니다'),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 추출된 텍스트 확인 다이얼로그
+      debugPrint('📝 [ScheduleForm] Showing text confirmation dialog');
       final result = await _showExtractedTextDialog(extractedText);
 
       if (result != null && result['continue'] == true) {
-        // 추출된 텍스트로 스케줄 정보 추출 (수정된 텍스트 사용)
+        debugPrint('✅ [ScheduleForm] User confirmed, extracting schedule');
         await _extractScheduleInfo(result['text'] as String);
+      } else {
+        debugPrint('ℹ️ [ScheduleForm] User cancelled');
       }
-    } catch (e) {
+
+    } catch (e, stack) {
+      debugPrint('❌ [ScheduleForm] ERROR in _processImageOCR: $e');
+      debugPrint('Stack: $stack');
+
       if (!mounted) return;
 
-      // 로딩 다이얼로그가 열려있다면 닫기
-      try {
-        Navigator.of(context).pop();
-      } catch (_) {
-        // 이미 닫혀있을 수 있음
+      // 열려있는 다이얼로그 닫기
+      if (isDialogOpen) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+          isDialogOpen = false;
+          debugPrint('✅ [ScheduleForm] Dialog closed (error case)');
+        } catch (closeErr) {
+          debugPrint('⚠️ [ScheduleForm] Failed to close dialog: $closeErr');
+        }
       }
 
-      // 에러 메시지 추출
-      String errorMessage = '이미지 처리 중 오류가 발생했습니다';
-      if (e is Exception) {
-        errorMessage = e.toString().replaceAll('Exception: ', '');
-      } else {
-        errorMessage = '$errorMessage: $e';
-      }
+      // 사용자에게 에러 표시
+      String errorMsg = e.toString().replaceAll('Exception: ', '');
 
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -992,11 +1115,12 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
             onPressed: _showPasteDialog,
             tooltip: '텍스트에서 추출',
           ),
+          /*
           IconButton(
             icon: const Icon(Icons.image),
             onPressed: _showImageExtractionDialog,
             tooltip: '이미지에서 추출',
-          ),
+          ),*/
           /*
           IconButton(
             icon: const Icon(Icons.save),

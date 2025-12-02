@@ -37,6 +37,7 @@ android {
         targetSdk = 36  // Android 16
         versionCode = 19
         versionName = "1.1.5"
+        multiDexEnabled = true
     }
 
     signingConfigs {
