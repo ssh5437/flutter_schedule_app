@@ -35,8 +35,8 @@ android {
         applicationId = "com.vividlife.bizplan"
         minSdk = 24  // Android 7.0 이상
         targetSdk = 36  // Android 16
-        versionCode = 21
-        versionName = "1.1.7"
+        versionCode = 22
+        versionName = "1.1.8"
         multiDexEnabled = true
     }
 
@@ -69,4 +69,7 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
     implementation("com.google.firebase:firebase-analytics")
+
+    // Google ML Kit Text Recognition (한글 지원)
+    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
 }

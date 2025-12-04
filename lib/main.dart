@@ -12,6 +12,7 @@ import 'services/notification_service.dart';
 import 'services/background_service.dart';
 import 'services/widget_service.dart';
 import 'services/analytics_service.dart';
+import 'services/last_seen_service.dart';
 import 'providers/subscription_provider.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -289,9 +290,10 @@ class _MainScreenState extends State<MainScreen> {
     _setupMethodChannel();
     _checkForWidgetScheduleId();
 
-    // 빌드 완료 후 구독 상태 초기화
+    // 빌드 완료 후 구독 상태 초기화 및 last_seen 업데이트
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeSubscription();
+      _updateLastSeen();
     });
   }
 
@@ -301,6 +303,11 @@ class _MainScreenState extends State<MainScreen> {
     final subscriptionProvider = context.read<SubscriptionProvider>();
     await subscriptionProvider.initialize();
     debugPrint('✅ 멤버십 구독 상태 초기화 완료');
+  }
+
+  // Last seen 업데이트 (하루에 한 번)
+  Future<void> _updateLastSeen() async {
+    await LastSeenService.updateLastSeenIfNeeded();
   }
 
   // MethodChannel 설정 - Android에서 보내는 메시지 수신

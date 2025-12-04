@@ -284,11 +284,21 @@ class AnalyticsService {
     Map<String, Object>? parameters,
   }) async {
     try {
+      // Firebase Analytics는 String 또는 num만 허용하므로 boolean을 변환
+      final sanitizedParams = <String, Object>{};
+      parameters?.forEach((key, value) {
+        if (value is bool) {
+          sanitizedParams[key] = value ? 'true' : 'false';
+        } else {
+          sanitizedParams[key] = value;
+        }
+      });
+
       await _analytics.logEvent(
         name: 'feature_used',
         parameters: {
           'feature_name': featureName,
-          ...?parameters,
+          ...sanitizedParams,
         },
       );
       debugPrint('📊 Analytics: Feature used - $featureName');

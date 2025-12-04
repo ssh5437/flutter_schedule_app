@@ -445,7 +445,62 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               }
 
               Navigator.pop(context);
-              await _extractScheduleInfo(text);
+
+              // 사용 가능 횟수 확인
+              final canUse = await TextExtractionLimitHelper.incrementUsage();
+
+              if (!canUse) {
+                final remaining = await TextExtractionLimitHelper.getRemainingCount();
+                if (!mounted) return;
+
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('사용 횟수 초과'),
+                    content: Text(
+                      '텍스트 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
+                      '이번 달 남은 횟수: $remaining회\n\n'
+                      '무제한으로 사용하려면 멤버십에 가입해주세요.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
+              // 로딩 다이얼로그 표시
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => PopScope(
+                  canPop: false,
+                  child: const Center(
+                    child: Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text(
+                              'AI로 정보 추출 중...',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+
+              await _extractScheduleInfoDirect(text, true);
             },
             icon: const Icon(Icons.auto_fix_high, size: 18),
             label: const Text('추출하기'),
@@ -548,63 +603,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
   }
 
-  // 추출된 텍스트 확인 다이얼로그
-  Future<Map<String, dynamic>?> _showExtractedTextDialog(String extractedText) async {
-    final textController = TextEditingController(text: extractedText);
-
-    return showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('추출된 텍스트 확인'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '이미지에서 추출된 텍스트입니다.\n필요하면 수정 후 계속 진행하세요.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: TextField(
-                  controller: textController,
-                  maxLines: null,
-                  minLines: 15,
-                  keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(
-                    border: _enabledBorder,
-                    focusedBorder: _focusedBorder,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              textController.dispose();
-              Navigator.pop(context, null);
-            },
-            child: const Text('취소'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              final text = textController.text;
-              textController.dispose();
-              Navigator.pop(context, {'continue': true, 'text': text});
-            },
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('계속'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 권한 요청 및 이미지 선택
   Future<void> _requestPermissionAndPick({required bool fromCamera}) async {
     debugPrint('🚀 [ScheduleForm] Starting image selection: fromCamera=$fromCamera');
@@ -695,6 +693,33 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
+    // 사용 가능 횟수 확인 (OCR + Gemini 통합 제한)
+    final canUse = await TextExtractionLimitHelper.incrementUsage();
+
+    if (!canUse) {
+      final remaining = await TextExtractionLimitHelper.getRemainingCount();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('사용 횟수 초과'),
+          content: Text(
+            '이미지 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
+            '이번 달 남은 횟수: $remaining회\n\n'
+            '무제한으로 사용하려면 멤버십에 가입해주세요.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     bool isDialogOpen = false;
 
     try {
@@ -750,42 +775,80 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       final String extractedText = await ImageTextExtractor.extractTextFromImage(imagePath);
 
       debugPrint('✅ [ScheduleForm] OCR SUCCESS: ${extractedText.length} chars');
+      debugPrint('📄 [ScheduleForm] Extracted text:\n$extractedText');
 
       if (!mounted) {
         debugPrint('⚠️ [ScheduleForm] Not mounted after OCR');
         return;
       }
 
-      // 로딩 다이얼로그 닫기
-      if (isDialogOpen) {
-        Navigator.of(context, rootNavigator: true).pop();
-        isDialogOpen = false;
-        debugPrint('✅ [ScheduleForm] Dialog closed');
-      }
-
       // 추출된 텍스트가 비어있는 경우
       if (extractedText.trim().isEmpty) {
         debugPrint('⚠️ [ScheduleForm] No text found in image');
+
+        // 로딩 다이얼로그 닫기
+        if (isDialogOpen) {
+          Navigator.of(context, rootNavigator: true).pop();
+          isDialogOpen = false;
+        }
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('이미지에서 텍스트를 찾을 수 없습니다'),
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('텍스트 추출 실패'),
+              content: const Text('이미지에서 텍스트를 찾을 수 없습니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('확인'),
+                ),
+              ],
             ),
           );
         }
         return;
       }
 
-      // 추출된 텍스트 확인 다이얼로그
-      debugPrint('📝 [ScheduleForm] Showing text confirmation dialog');
-      final result = await _showExtractedTextDialog(extractedText);
+      // 로딩 메시지 변경 (Gemini API 처리 중)
+      if (mounted && isDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        isDialogOpen = false;
 
-      if (result != null && result['continue'] == true) {
-        debugPrint('✅ [ScheduleForm] User confirmed, extracting schedule');
-        await _extractScheduleInfo(result['text'] as String);
-      } else {
-        debugPrint('ℹ️ [ScheduleForm] User cancelled');
+        // 새 로딩 다이얼로그 표시
+        isDialogOpen = true;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => PopScope(
+            canPop: false,
+            child: const Center(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'AI로 정보 추출 중...',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
       }
+
+      if (!mounted) return;
+
+      // Gemini API로 정보 추출 (제한 체크 없이 직접 호출)
+      debugPrint('🤖 [ScheduleForm] Calling Gemini API');
+      await _extractScheduleInfoDirect(extractedText, isDialogOpen);
 
     } catch (e, stack) {
       debugPrint('❌ [ScheduleForm] ERROR in _processImageOCR: $e');
@@ -808,77 +871,68 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       String errorMsg = e.toString().replaceAll('Exception: ', '');
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMsg),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('오류 발생'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '이미지 처리 중 오류가 발생했습니다:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red[200]!),
+                    ),
+                    child: SelectableText(
+                      errorMsg,
+                      style: const TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
           ),
         );
       }
     }
   }
 
-  Future<void> _extractScheduleInfo(String text) async {
-    // 사용 가능 횟수 확인
-    final canUse = await TextExtractionLimitHelper.incrementUsage();
-
-    if (!canUse) {
-      final remaining = await TextExtractionLimitHelper.getRemainingCount();
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('사용 횟수 초과'),
-          content: Text(
-            '텍스트 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
-            '이번 달 남은 횟수: $remaining회\n\n'
-            '무제한으로 사용하려면 멤버십에 가입해주세요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
+  // Gemini API로 정보 추출 (제한 체크 없이)
+  Future<void> _extractScheduleInfoDirect(String text, bool isDialogOpen) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-
-    // 로딩 다이얼로그 표시
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('정보 추출 중...'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
 
     try {
       final result = await GeminiHelper.extractScheduleInfo(text);
 
       if (!mounted) return;
 
+      // 로딩 다이얼로그 닫기
+      if (isDialogOpen) {
+        try {
+          navigator.pop();
+        } catch (e) {
+          debugPrint('⚠️ Dialog close error: $e');
+        }
+      }
+
       if (result == null) {
-        navigator.pop(); // 로딩 다이얼로그 닫기
         messenger.showSnackBar(
           const SnackBar(
             content: Text('정보 추출에 실패했습니다. Gemini API 키를 확인해주세요.'),
@@ -896,8 +950,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         );
         return;
       }
-
-      navigator.pop(); // 로딩 다이얼로그 닫기
 
       // 추출된 정보를 폼에 입력
       setState(() {
@@ -953,7 +1005,15 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      navigator.pop(); // 로딩 다이얼로그 닫기
+
+      // 로딩 다이얼로그 닫기
+      if (isDialogOpen) {
+        try {
+          navigator.pop();
+        } catch (closeErr) {
+          debugPrint('⚠️ Dialog close error: $closeErr');
+        }
+      }
 
       messenger.showSnackBar(
         SnackBar(
@@ -972,6 +1032,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       );
     }
   }
+
 
   Future<void> _saveSchedule() async {
     if (!_formKey.currentState!.validate()) {
@@ -1115,12 +1176,12 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
             onPressed: _showPasteDialog,
             tooltip: '텍스트에서 추출',
           ),
-          /*
+          
           IconButton(
             icon: const Icon(Icons.image),
             onPressed: _showImageExtractionDialog,
             tooltip: '이미지에서 추출',
-          ),*/
+          ),
           /*
           IconButton(
             icon: const Icon(Icons.save),
