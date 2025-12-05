@@ -365,21 +365,41 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
                 ),
               ),
               const SizedBox(width: 4),
-              ElevatedButton(
-                onPressed: hasActiveSubscription ? _setThisMonth : _showMembershipRequiredDialog,
-                style: ElevatedButton.styleFrom(
+              // 왼쪽 이동 버튼 (한 달 전)
+              IconButton(
+                onPressed: hasActiveSubscription ? _movePeriodLeft : _showMembershipRequiredDialog,
+                icon: const Icon(Icons.chevron_left, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFF7eb3f5),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text('이번달', style: TextStyle(fontSize: 12)),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+              ),
+              // 오른쪽 이동 버튼 (한 달 후) - 간격 없이 붙임
+              IconButton(
+                onPressed: hasActiveSubscription ? _movePeriodRight : _showMembershipRequiredDialog,
+                icon: const Icon(Icons.chevron_right, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF7eb3f5),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
               const SizedBox(width: 4),
+              // 올해 년도 버튼
               ElevatedButton(
                 onPressed: hasActiveSubscription ? _setThisYear : _showMembershipRequiredDialog,
                 style: ElevatedButton.styleFrom(
@@ -410,17 +430,34 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       _startDate = firstDayOfYear;
       _endDate = yesterday;
     });
+    _loadSchedules();
   }
 
-  void _setThisMonth() {
+  void _movePeriodLeft() {
+    setState(() {
+      // 이전 달 1일부터 말일까지
+      final previousMonth = DateTime(_startDate.year, _startDate.month - 1, 1);
+      _startDate = previousMonth;
+      // 이전 달의 마지막 날 계산 (다음 달 0일 = 이전 달 마지막 날)
+      _endDate = DateTime(previousMonth.year, previousMonth.month + 1, 0);
+    });
+    _loadSchedules();
+  }
+
+  void _movePeriodRight() {
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
-    final firstDayOfMonth = DateTime(now.year, now.month, 1);
 
     setState(() {
-      _startDate = firstDayOfMonth;
-      _endDate = yesterday;
+      // 다음 달 1일부터 말일까지
+      final nextMonth = DateTime(_startDate.year, _startDate.month + 1, 1);
+      _startDate = nextMonth;
+      // 다음 달의 마지막 날 계산 (다다음 달 0일 = 다음 달 마지막 날)
+      final lastDayOfNextMonth = DateTime(nextMonth.year, nextMonth.month + 1, 0);
+      // 종료일이 어제를 넘지 않도록
+      _endDate = lastDayOfNextMonth.isAfter(yesterday) ? yesterday : lastDayOfNextMonth;
     });
+    _loadSchedules();
   }
 
   void _showMembershipRequiredDialog() {
@@ -454,7 +491,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '무료 회원은 기간 변경이 제한됩니다.\n이번 달 매출만 조회 가능합니다.',
+              '무료 회원은 기간 변경이 제한됩니다.\n2달 전부터 어제까지 매출만 조회 가능합니다.',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
             const SizedBox(height: 16),
@@ -705,25 +742,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
     final twelveMonthsAgo = DateTime(now.year - 1, now.month, now.day);
-    final thisMonthStart = DateTime(now.year, now.month, 1);
-
-    // 이번 달 1일 ~ 어제까지의 스케줄 필터링 (visitDate가 있는 것만)
-    final thisMonthSchedules = _allSchedules.where((schedule) {
-      if (schedule.visitDate == null) return false;
-      return schedule.visitDate!.isAfter(thisMonthStart.subtract(const Duration(days: 1))) &&
-             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
-    }).toList();
-
     // 12개월 전 ~ 어제까지의 스케줄 필터링 (visitDate가 있는 것만)
     final overviewSchedules = _allSchedules.where((schedule) {
       if (schedule.visitDate == null) return false;
       return schedule.visitDate!.isAfter(twelveMonthsAgo.subtract(const Duration(days: 1))) &&
              schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
     }).toList();
-
-    // 이번 달 총 매출/작업
-    final thisMonthRevenue = thisMonthSchedules.fold(0, (sum, s) => sum + s.totalPrice);
-    final thisMonthCount = thisMonthSchedules.length;
 
     // 12개월 총 매출/작업
     final yearRevenue = overviewSchedules.fold(0, (sum, s) => sum + s.totalPrice);
@@ -747,6 +771,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
       return monthlyData[month] ?? 0;
     }).toList();
 
+    // 최근 30일 총 매출/작업 계산
+    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    final last30DaysSchedules = _allSchedules.where((schedule) {
+      if (schedule.visitDate == null) return false;
+      return schedule.visitDate!.isAfter(thirtyDaysAgo.subtract(const Duration(days: 1))) &&
+             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
+    }).toList();
+    final last30DaysRevenue = last30DaysSchedules.fold(0, (sum, s) => sum + s.totalPrice);
+    final last30DaysCount = last30DaysSchedules.length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Column(
@@ -757,7 +791,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          _buildOverviewSummaryCards(thisMonthRevenue, thisMonthCount),
+          _buildOverviewSummaryCards(last30DaysRevenue, last30DaysCount),
           const SizedBox(height: 12),
           _buildDailyTrendChart(),
           const SizedBox(height: 32),
