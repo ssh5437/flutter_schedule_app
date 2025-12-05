@@ -25,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -37,7 +37,6 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         userId TEXT NOT NULL,
         customerName TEXT NOT NULL,
-        requestDate TEXT NOT NULL,
         visitDate TEXT,
         visitTime TEXT,
         phoneNumber TEXT NOT NULL,
@@ -275,6 +274,49 @@ class DatabaseHelper {
       // 기존 Company의 confirmMessage와 absenceMessage를 message_templates로 마이그레이션
       await _migrateCompanyMessagesToTemplates(db);
     }
+    if (oldVersion < 14) {
+      // requestDate 컬럼 제거 (SQLite는 직접 제거를 지원하지 않으므로 테이블 재생성)
+      // 1. 기존 테이블을 임시 테이블로 이름 변경
+      await db.execute('ALTER TABLE schedules RENAME TO schedules_old');
+
+      // 2. requestDate가 없는 새 테이블 생성
+      await db.execute('''
+        CREATE TABLE schedules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId TEXT NOT NULL,
+          customerName TEXT NOT NULL,
+          visitDate TEXT,
+          visitTime TEXT,
+          phoneNumber TEXT NOT NULL,
+          address TEXT NOT NULL,
+          jibunAddress TEXT,
+          companyName TEXT,
+          workItems TEXT NOT NULL,
+          workPrices TEXT NOT NULL,
+          workCount INTEGER NOT NULL,
+          notes TEXT,
+          status TEXT NOT NULL
+        )
+      ''');
+
+      // 3. 데이터 복사 (requestDate는 제외, requestDate가 있었던 레코드는 visitDate로 복사)
+      await db.execute('''
+        INSERT INTO schedules (
+          id, userId, customerName, visitDate, visitTime, phoneNumber,
+          address, jibunAddress, companyName, workItems, workPrices,
+          workCount, notes, status
+        )
+        SELECT
+          id, userId, customerName,
+          COALESCE(visitDate, requestDate) as visitDate,
+          visitTime, phoneNumber, address, jibunAddress,
+          companyName, workItems, workPrices, workCount, notes, status
+        FROM schedules_old
+      ''');
+
+      // 4. 임시 테이블 삭제
+      await db.execute('DROP TABLE schedules_old');
+    }
   }
 
   Future<void> _migrateToEncryptedData(Database db) async {
@@ -474,7 +516,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ?',
       whereArgs: [userId],
-      orderBy: 'requestDate DESC',
+      orderBy: 'visitDate DESC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -498,15 +540,15 @@ class DatabaseHelper {
       return statuses.contains(schedule.computedStatus);
     }).toList()
       ..sort((a, b) {
-        // visitDate가 있으면 visitDate 순, 없으면 requestDate 순
+        // visitDate로 정렬 (null인 경우 가장 뒤로)
         if (a.visitDate != null && b.visitDate != null) {
-          return a.visitDate!.compareTo(b.visitDate!);
+          return b.visitDate!.compareTo(a.visitDate!); // 최신순
         } else if (a.visitDate != null) {
           return -1;
         } else if (b.visitDate != null) {
           return 1;
         } else {
-          return a.requestDate.compareTo(b.requestDate);
+          return 0; // 둘 다 null인 경우
         }
       });
   }
@@ -598,7 +640,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ?',
       whereArgs: [userId],
-      orderBy: 'requestDate DESC',
+      orderBy: 'visitDate DESC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -616,8 +658,7 @@ class DatabaseHelper {
       final lowerQuery = query.toLowerCase();
       return schedule.customerName.toLowerCase().contains(lowerQuery) ||
              schedule.phoneNumber.toLowerCase().contains(lowerQuery) ||
-             schedule.address.toLowerCase().contains(lowerQuery) ||
-             schedule.requestDate.toString().contains(lowerQuery) ||
+             (schedule.address?.toLowerCase().contains(lowerQuery) ?? false) ||
              (schedule.visitDate?.toString().contains(lowerQuery) ?? false);
     }).toList();
   }

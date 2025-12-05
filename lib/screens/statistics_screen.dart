@@ -81,7 +81,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     setState(() => _isLoading = true);
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
-      // 완료, 확정, 예정 스케줄 모두 가져오기
+      // 완료, 확정, 미확정 스케줄 모두 가져오기
       final allSchedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['완료', '확정', '예정']);
 
       // 확정일시가 지난 스케줄만 매출 데이터로 필터링
@@ -133,12 +133,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     }
   }
 
-  // 기간 내 스케줄 필터링
+  // 기간 내 스케줄 필터링 (visitDate가 있는 것만)
   List<Schedule> get _filteredSchedules {
     return _allSchedules.where((schedule) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      return date.isAfter(_startDate.subtract(const Duration(days: 1))) &&
-             date.isBefore(_endDate.add(const Duration(days: 1)));
+      if (schedule.visitDate == null) return false;
+      return schedule.visitDate!.isAfter(_startDate.subtract(const Duration(days: 1))) &&
+             schedule.visitDate!.isBefore(_endDate.add(const Duration(days: 1)));
     }).toList();
   }
 
@@ -707,18 +707,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final twelveMonthsAgo = DateTime(now.year - 1, now.month, now.day);
     final thisMonthStart = DateTime(now.year, now.month, 1);
 
-    // 이번 달 1일 ~ 어제까지의 스케줄 필터링
+    // 이번 달 1일 ~ 어제까지의 스케줄 필터링 (visitDate가 있는 것만)
     final thisMonthSchedules = _allSchedules.where((schedule) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      return date.isAfter(thisMonthStart.subtract(const Duration(days: 1))) &&
-             date.isBefore(yesterday.add(const Duration(days: 1)));
+      if (schedule.visitDate == null) return false;
+      return schedule.visitDate!.isAfter(thisMonthStart.subtract(const Duration(days: 1))) &&
+             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
     }).toList();
 
-    // 12개월 전 ~ 어제까지의 스케줄 필터링
+    // 12개월 전 ~ 어제까지의 스케줄 필터링 (visitDate가 있는 것만)
     final overviewSchedules = _allSchedules.where((schedule) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      return date.isAfter(twelveMonthsAgo.subtract(const Duration(days: 1))) &&
-             date.isBefore(yesterday.add(const Duration(days: 1)));
+      if (schedule.visitDate == null) return false;
+      return schedule.visitDate!.isAfter(twelveMonthsAgo.subtract(const Duration(days: 1))) &&
+             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
     }).toList();
 
     // 이번 달 총 매출/작업
@@ -732,8 +732,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     // 월별 매출 데이터 계산
     final monthlyData = <String, int>{};
     for (var schedule in overviewSchedules) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      final monthKey = DateFormat('yyyy-MM').format(date);
+      if (schedule.visitDate == null) continue;
+      final monthKey = DateFormat('yyyy-MM').format(schedule.visitDate!);
       monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + schedule.totalPrice;
     }
 
@@ -872,11 +872,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final today = DateTime(now.year, now.month, now.day);
     final thirtyDaysAgo = today.subtract(const Duration(days: 30));
 
-    // 일별 매출 맵 생성 (날짜를 키로 사용)
+    // 일별 매출 맵 생성 (날짜를 키로 사용, visitDate가 있는 것만)
     final dailyData = <DateTime, int>{};
     for (var schedule in _allSchedules) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      final dateOnly = DateTime(date.year, date.month, date.day);
+      if (schedule.visitDate == null) continue;
+      final dateOnly = DateTime(schedule.visitDate!.year, schedule.visitDate!.month, schedule.visitDate!.day);
 
       // 최근 30일 이내 데이터만
       if (dateOnly.isAfter(thirtyDaysAgo) && dateOnly.isBefore(today.add(const Duration(days: 1)))) {
@@ -1003,9 +1003,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     final monthlyData = <String, int>{};
 
     for (var schedule in _filteredSchedules) {
-      final date = schedule.visitDate ?? schedule.requestDate;
-      final year = date.year;
-      final monthKey = DateFormat('yyyy-MM').format(date);
+      if (schedule.visitDate == null) continue;
+      final year = schedule.visitDate!.year;
+      final monthKey = DateFormat('yyyy-MM').format(schedule.visitDate!);
 
       yearlyData[year] = (yearlyData[year] ?? 0) + schedule.totalPrice;
       monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + schedule.totalPrice;
@@ -1088,8 +1088,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
 
     for (var schedule in _filteredSchedules) {
       // 지번 주소가 있으면 우선 사용, 없으면 도로명 주소 사용
-      final address = schedule.jibunAddress ?? schedule.address;
+      final address = schedule.jibunAddress ?? schedule.address ?? '';
       String region = '기타';
+
+      if (address.isEmpty) continue;
 
       // 주소를 공백으로 분리
       final parts = address.split(' ');
@@ -1239,7 +1241,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
         customerData[customerKey] = {
           'name': schedule.customerName,
           'phone': schedule.phoneNumber,
-          'address': schedule.address,
+          'address': schedule.address ?? '',
           'revenue': schedule.totalPrice,
           'count': 1,
         };

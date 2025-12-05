@@ -21,7 +21,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   bool _isLoading = true;
   bool _isPortrait = true; // true: 세로보기, false: 가로보기
   final ScrollController _scrollController = ScrollController();
-  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
+  Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
   bool _isCalendarCompact = false; // 캘린더 축소 모드 여부
 
@@ -166,12 +166,13 @@ class CalendarScreenState extends State<CalendarScreen> {
 
     final Map<DateTime, List<Schedule>> schedulesByDate = {};
     for (var schedule in schedules) {
-      // visitDate가 있으면 visitDate를 사용, 없으면 requestDate를 사용
-      final displayDate = schedule.visitDate ?? schedule.requestDate;
+      // visitDate가 있는 경우만 캘린더에 표시
+      if (schedule.visitDate == null) continue;
+
       final date = DateTime(
-        displayDate.year,
-        displayDate.month,
-        displayDate.day,
+        schedule.visitDate!.year,
+        schedule.visitDate!.month,
+        schedule.visitDate!.day,
       );
       if (schedulesByDate[date] == null) {
         schedulesByDate[date] = [];
@@ -179,10 +180,10 @@ class CalendarScreenState extends State<CalendarScreen> {
       schedulesByDate[date]!.add(schedule);
     }
 
-    // 각 날짜별로 스케줄 정렬: 요청 스케줄 먼저, 각각 시간순
+    // 각 날짜별로 스케줄 정렬: 미확정 스케줄 먼저, 각각 시간순
     for (var date in schedulesByDate.keys) {
       schedulesByDate[date]!.sort((a, b) {
-        // 1. 상태별 정렬: 예정(요청) 스케줄이 확정 스케줄보다 먼저
+        // 1. 상태별 정렬: 미확정 스케줄이 확정 스케줄보다 먼저
         final aStatus = a.computedStatus;
         final bStatus = b.computedStatus;
 
@@ -192,17 +193,11 @@ class CalendarScreenState extends State<CalendarScreen> {
         }
 
         // 2. 같은 상태 내에서 시간순 정렬
-        // 요청 스케줄(예정): requestDate의 시간 순서 (시간 정보가 없으면 날짜만)
-        // 확정 스케줄: visitTime 순서
-        if (aStatus == '확정' && bStatus == '확정') {
-          // 확정 스케줄끼리: visitTime으로 정렬
-          final aTime = a.visitTime ?? '99:99';  // 시간 없으면 맨 뒤로
-          final bTime = b.visitTime ?? '99:99';
-          return aTime.compareTo(bTime);
-        } else {
-          // 예정 스케줄끼리: requestDate 시간으로 정렬
-          return a.requestDate.compareTo(b.requestDate);
-        }
+        // 확정 스케줄: visitTime으로 정렬
+        // 미확정 스케줄: visitTime이 있으면 사용, 없으면 뒤로
+        final aTime = a.visitTime ?? '99:99';  // 시간 없으면 맨 뒤로
+        final bTime = b.visitTime ?? '99:99';
+        return aTime.compareTo(bTime);
       });
     }
 
@@ -388,7 +383,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                               final textColor = backgroundColor.computeLuminance() > 0.5
                                   ? Colors.black87
                                   : Colors.white;
-
+                             
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 3),
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -403,8 +398,8 @@ class CalendarScreenState extends State<CalendarScreen> {
                                 ),
                                 child: Text(
                                   schedule.visitTime != null
-                                      ? '${schedule.visitTime} ${_formatWorkItems(schedule.workItems)}'
-                                      : _formatWorkItems(schedule.workItems),
+                                      ? '${schedule.visitTime} ${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}'
+                                      : '${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}',
                                   style: TextStyle(
                                     color: textColor,
                                     fontSize: 10,
@@ -630,6 +625,18 @@ class CalendarScreenState extends State<CalendarScreen> {
                       ),
                     ),
                   if (schedule.visitTime != null) const SizedBox(width: 8),
+                  if (schedule.computedStatus == '예정')
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        '[미확정]',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: textColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
                   Text(
                     schedule.customerName,
                     style: TextStyle(
@@ -663,9 +670,9 @@ class CalendarScreenState extends State<CalendarScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 4),
-                  
+
                   Text(
-                    schedule.address,
+                    schedule.address ?? '',
                     style: TextStyle(
                       fontSize: 14,
                       color: textColor,

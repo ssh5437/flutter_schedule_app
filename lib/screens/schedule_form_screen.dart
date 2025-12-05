@@ -34,9 +34,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   final _notesController = TextEditingController();
   final _phoneNumberFocus = FocusNode();
 
-  DateTime _requestDate = DateTime.now();
-  DateTime? _visitDate;
-  String? _visitTime;
+  DateTime? _visitDate; // 방문확정일자 (선택)
+  String? _visitTime; // 방문시간 (확정 시에만 입력)
   Map<String, int> _workItemsWithCount = {}; // 작업 항목과 건수
   Map<String, int> _workPrices = {}; // 작업별 금액
 
@@ -151,9 +150,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _customerNameController.text = schedule.customerName;
     // 전화번호는 포맷팅해서 표시
     _phoneNumberController.text = _formatPhoneNumber(schedule.phoneNumber);
-    _addressController.text = schedule.address;
+    _addressController.text = schedule.address ?? '';
     _notesController.text = schedule.notes ?? '';
-    _requestDate = schedule.requestDate;
     _visitDate = schedule.visitDate;
     _visitTime = schedule.visitTime;
 
@@ -193,24 +191,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     _notesController.dispose();
     _phoneNumberFocus.dispose();
     super.dispose();
-  }
-
-  Future<void> _selectRequestDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _requestDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      locale: const Locale('ko', 'KR'),
-      helpText: '접수 일자 선택',
-      cancelText: '취소',
-      confirmText: '확인',
-    );
-    if (picked != null) {
-      setState(() {
-        _requestDate = picked;
-      });
-    }
   }
 
   Future<void> _selectVisitDate() async {
@@ -966,7 +946,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           _addressController.text = result['address'].toString();
         }
 
-        // 날짜는 요청일자에 넣고, 과거 날짜인 경우 오늘 날짜로 설정
+        // 날짜는 방문확정일자에 입력 (과거 날짜인 경우 오늘 날짜로 설정)
         if (result['date'] != null && result['date'].toString().isNotEmpty) {
           try {
             final extractedDate = DateTime.parse(result['date'].toString());
@@ -976,16 +956,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
             // 과거 날짜인 경우 오늘 날짜로, 아니면 추출된 날짜 사용
             if (extractedDateOnly.isBefore(todayDate)) {
-              _requestDate = today;
+              _visitDate = today;
             } else {
-              _requestDate = extractedDate;
+              _visitDate = extractedDate;
             }
           } catch (e) {
             // 날짜 파싱 실패 시 무시
           }
         }
 
-        // 방문시간은 미정으로 설정
+        // 방문시간은 null로 설정 (예정 상태)
         _visitTime = null;
       });
 
@@ -1097,11 +1077,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
         id: widget.schedule?.id,
         userId: userId,
         customerName: _customerNameController.text,
-        requestDate: _requestDate,
         visitDate: _visitDate,
         visitTime: _visitTime,
         phoneNumber: phoneNumberDigitsOnly,
-        address: _addressController.text,
+        address: _addressController.text.isEmpty ? null : _addressController.text,
         jibunAddress: jibunAddress,
         companyName: _selectedCompany!.name,
         workItems: workItemsList,
@@ -1279,27 +1258,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             },
                           ),
                           const SizedBox(height: 10),
-                          InkWell(
-                            onTap: _selectRequestDate,
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: '요청일자 *',
-                                labelStyle: const TextStyle(fontSize: 13),
-                                enabledBorder: _enabledBorder,
-                                border: _enabledBorder,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                isDense: true,
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                                suffixIcon: const Icon(Icons.calendar_today, size: 18),
-                              ),
-                              child: Text(
-                                DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(_requestDate),
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
@@ -1307,7 +1265,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                                   onTap: _selectVisitDate,
                                   child: InputDecorator(
                                     decoration: InputDecoration(
-                                      labelText: '방문확정일자',
+                                      labelText: '방문일자',
                                       labelStyle: const TextStyle(fontSize: 13),
                                       enabledBorder: _enabledBorder,
                                       border: _enabledBorder,
@@ -1405,7 +1363,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                           TextFormField(
                             controller: _addressController,
                             decoration: InputDecoration(
-                              labelText: '주소 *',
+                              labelText: '주소',
                               labelStyle: const TextStyle(fontSize: 13),
                               enabledBorder: _enabledBorder,
                               focusedBorder: _focusedBorder,
@@ -1422,9 +1380,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               FilteringTextInputFormatter.allow(RegExp(r'[0-9ㄱ-ㅎ가-힣\s,\-]')),
                             ],
                             validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return '주소를 입력해주세요';
-                              }
+                              // 주소는 선택 입력
                               return null;
                             },
                           ),

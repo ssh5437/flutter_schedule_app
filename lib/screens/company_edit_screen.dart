@@ -492,7 +492,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 leading: const Icon(Icons.message),
                 title: const Text('메시지 템플릿'),
                 subtitle: const Text(
-                  '업체별 메시지 템플릿 관리',
+                  '자주 사용하는 메시지를 저장해두세요',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),

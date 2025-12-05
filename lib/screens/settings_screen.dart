@@ -23,7 +23,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _defaultCalendar = 'monthly'; // 'monthly' 또는 'weekly'
-  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상 (연한 주황)
+  Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상 (연한 주황)
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
   Color _widgetBackgroundColor = const Color(0xFFFFFFFF); // 위젯 배경색 (흰색)
 
@@ -773,7 +773,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // 스케줄 색상 설정
           ListTile(
             leading: Icon(Icons.palette, color: _pendingColor),
-            title: const Text('예정 스케줄 색상'),
+            title: const Text('미확정 스케줄 색상'),
             trailing: Container(
               width: 40,
               height: 40,

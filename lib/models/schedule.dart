@@ -2,11 +2,10 @@ class Schedule {
   final int? id;
   final String userId;
   final String customerName;
-  final DateTime requestDate;
-  final DateTime? visitDate;
+  final DateTime? visitDate; // 방문일자 (선택)
   final String? visitTime;
   final String phoneNumber;
-  final String address;
+  final String? address; // 주소 (선택)
   final String? jibunAddress; // 지번 주소 (통계용)
   final String? companyName;
   final List<String> workItems;
@@ -19,11 +18,10 @@ class Schedule {
     this.id,
     required this.userId,
     required this.customerName,
-    required this.requestDate,
-    this.visitDate,
+    this.visitDate, // 선택 필드
     this.visitTime,
     required this.phoneNumber,
-    required this.address,
+    this.address, // 선택 필드
     this.jibunAddress,
     this.companyName,
     required this.workItems,
@@ -52,19 +50,18 @@ class Schedule {
     return total;
   }
 
-  // 스케줄 상태 자동 판단 (visitDate와 visitTime 기반)
+  // 스케줄 상태 자동 판단 (visitTime 기반)
   String get computedStatus {
-    // visitDate와 visitTime이 모두 있으면 '확정'
-    if (visitDate != null && visitTime != null && visitTime != '미정') {
+    // visitTime이 있으면 '확정', 없으면 '예정'
+    if (visitTime != null && visitTime != '미정' && visitTime!.isNotEmpty) {
       return '확정';
     }
-    // 하나라도 없으면 '예정'
     return '예정';
   }
 
   // 확정 스케줄인지 확인
   bool get isConfirmed {
-    return visitDate != null && visitTime != null && visitTime != '미정';
+    return visitTime != null && visitTime != '미정' && visitTime!.isNotEmpty;
   }
 
   Map<String, dynamic> toMap() {
@@ -72,7 +69,6 @@ class Schedule {
       'id': id,
       'userId': userId,
       'customerName': customerName,
-      'requestDate': requestDate.toIso8601String(),
       'visitDate': visitDate?.toIso8601String(),
       'visitTime': visitTime,
       'phoneNumber': phoneNumber,
@@ -106,7 +102,6 @@ class Schedule {
       id: map['id'],
       userId: map['userId'] ?? 'legacy_user',
       customerName: map['customerName'],
-      requestDate: DateTime.parse(map['requestDate']),
       visitDate: map['visitDate'] != null ? DateTime.parse(map['visitDate']) : null,
       visitTime: map['visitTime'],
       phoneNumber: map['phoneNumber'],
@@ -125,7 +120,6 @@ class Schedule {
     int? id,
     String? userId,
     String? customerName,
-    DateTime? requestDate,
     DateTime? visitDate,
     String? visitTime,
     String? phoneNumber,
@@ -142,7 +136,6 @@ class Schedule {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       customerName: customerName ?? this.customerName,
-      requestDate: requestDate ?? this.requestDate,
       visitDate: visitDate ?? this.visitDate,
       visitTime: visitTime ?? this.visitTime,
       phoneNumber: phoneNumber ?? this.phoneNumber,

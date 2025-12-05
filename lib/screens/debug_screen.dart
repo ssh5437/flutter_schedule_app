@@ -238,7 +238,6 @@ class _DebugScreenState extends State<DebugScreen> {
           final newSchedule = Schedule(
             userId: user.id,
             customerName: customerNames[random.nextInt(customerNames.length)],
-            requestDate: currentDate.subtract(Duration(days: random.nextInt(5) + 1)),
             visitDate: currentDate,
             visitTime: visitTime,
             phoneNumber: '010-${1000 + random.nextInt(9000)}-${1000 + random.nextInt(9000)}',

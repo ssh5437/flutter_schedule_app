@@ -99,8 +99,7 @@ class StorageHelper {
     return schedules.where((s) {
       return s.customerName.toLowerCase().contains(lowerQuery) ||
           s.phoneNumber.contains(query) ||
-          (s.visitDate?.toString().contains(query) ?? false) ||
-          (s.requestDate.toString().contains(query));
+          (s.visitDate?.toString().contains(query) ?? false);
     }).toList();
   }
 

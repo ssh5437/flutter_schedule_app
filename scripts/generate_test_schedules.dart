@@ -79,7 +79,6 @@ Future<void> main() async {
       final newSchedule = Schedule(
         userId: userId,
         customerName: customerNames[random.nextInt(customerNames.length)],
-        requestDate: currentDate.subtract(Duration(days: random.nextInt(5) + 1)), // 방문일 1~5일 전 요청
         visitDate: currentDate,
         visitTime: visitTime,
         phoneNumber: '010-${1000 + random.nextInt(9000)}-${1000 + random.nextInt(9000)}',

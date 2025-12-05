@@ -107,7 +107,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
     if (templates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('등록된 메시지 템플릿이 없습니다')),
+        const SnackBar(content: Text('등록된 메시지 템플릿이 없습니다. 업체관리에서 추가해주세요')),
       );
       return;
     }
@@ -177,7 +177,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   void _copyTemplateMessage(MessageTemplate template) {
     // 템플릿 변수를 실제 값으로 치환
     final message = template.replaceVariables(
-      visitDate: _formatDate(_schedule.visitDate ?? _schedule.requestDate),
+      visitDate: _schedule.visitDate != null ? _formatDate(_schedule.visitDate!) : '미정',
       visitTime: _schedule.visitTime ?? '미정',
       customerName: _schedule.customerName,
       companyName: _schedule.companyName ?? '',
@@ -324,17 +324,51 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 스케줄 상태 표시
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _schedule.computedStatus == '확정'
+                    ? Colors.blue.shade50
+                    : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _schedule.computedStatus == '확정'
+                        ? Icons.check_circle
+                        : Icons.schedule,
+                    size: 16,
+                    color: _schedule.computedStatus == '확정'
+                        ? Colors.blue.shade700
+                        : Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _schedule.computedStatus == '확정' ? '확정 스케줄' : '미확정 스케줄',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _schedule.computedStatus == '확정'
+                          ? Colors.blue.shade700
+                          : Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildInfoRow('고객명', _schedule.customerName),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
-            _buildInfoRow('요청일자', _formatDate(_schedule.requestDate)),
+            _buildInfoRow('방문일자', _schedule.visitDate != null ? _formatDate(_schedule.visitDate!) : '미정'),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
-            _buildInfoRow('방문확정일자', _formatDate(_schedule.visitDate)),
-            const Divider(height: 2, color: Color(0xFFabd9ff)),
-            _buildInfoRow('방문확정시간', _schedule.visitTime ?? '미정'),
+            _buildInfoRow('방문시간', _schedule.visitTime ?? '미정'),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             _buildPhoneRow('전화번호', _schedule.phoneNumber),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
-            _buildAddressRow('주소', _schedule.address),
+            _buildAddressRow('주소', _schedule.address ?? ''),
             const Divider(height: 2, color: Color(0xFFabd9ff)),
             // 테스트: 지번 주소 표시 (비활성화)
             // _buildInfoRow('지번주소(테스트)', _schedule.jibunAddress ?? '없음'),
@@ -536,8 +570,8 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    // 초기 날짜는 visitDate가 있으면 visitDate, 없으면 requestDate 사용
-    final initialDate = _schedule.visitDate ?? _schedule.requestDate;
+    // 초기 날짜는 visitDate가 있으면 visitDate, 없으면 오늘 사용
+    final initialDate = _schedule.visitDate ?? DateTime.now();
 
     final result = await showDialog<RepeatConfig>(
       context: context,
@@ -566,11 +600,11 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         final newSchedule = Schedule(
           userId: userId,
           customerName: _schedule.customerName,
-          requestDate: DateTime.now(), // 요청일은 현재
           visitDate: date, // 방문 예정일을 반복 날짜로 설정
           visitTime: _schedule.visitTime, // 원본의 시간 사용
           phoneNumber: _schedule.phoneNumber,
           address: _schedule.address,
+          jibunAddress: _schedule.jibunAddress,
           companyName: _schedule.companyName,
           workItems: _schedule.workItems,
           workPrices: _schedule.workPrices,

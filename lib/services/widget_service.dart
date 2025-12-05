@@ -55,30 +55,16 @@ class WidgetService {
 
       // 오늘과 내일 스케줄 가져오기
       final allSchedules = await DatabaseHelper.instance.readAllSchedules(userId);
-
-      // 오늘 스케줄 필터링
-      debugPrint('========== Widget Update Debug ==========');
-      debugPrint('Today: ${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}');
-      debugPrint('Total schedules in DB: ${allSchedules.length}');
-
-      for (var s in allSchedules) {
-        final displayDate = s.computedStatus == '확정' && s.visitDate != null
-            ? s.visitDate!
-            : s.requestDate;
-        debugPrint('Schedule: ${s.id} - Date: ${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}, Status: ${s.computedStatus}, Customer: ${s.customerName}');
-      }
-
+     
       final todaySchedules = allSchedules.where((s) {
-        final displayDate = s.computedStatus == '확정' && s.visitDate != null
-            ? s.visitDate!
-            : s.requestDate;
+        if (s.visitDate == null) return false;
         // 날짜만 비교 (시간 제외)
-        final match = displayDate.year == today.year &&
-               displayDate.month == today.month &&
-               displayDate.day == today.day;
+        final match = s.visitDate!.year == today.year &&
+               s.visitDate!.month == today.month &&
+               s.visitDate!.day == today.day;
 
         if (match) {
-          debugPrint('✓ Matched schedule: ${s.customerName} on ${displayDate.year}-${displayDate.month}-${displayDate.day}');
+          debugPrint('✓ Matched schedule: ${s.customerName} on ${s.visitDate!.year}-${s.visitDate!.month}-${s.visitDate!.day}');
         }
 
         return match;
@@ -119,13 +105,11 @@ class WidgetService {
       final scheduleDates = <int>[];
 
       for (var schedule in allSchedules) {
-        final displayDate = schedule.computedStatus == '확정' && schedule.visitDate != null
-            ? schedule.visitDate!
-            : schedule.requestDate;
+        if (schedule.visitDate == null) continue;
 
-        if (displayDate.year == now.year && displayDate.month == now.month) {
-          if (!scheduleDates.contains(displayDate.day)) {
-            scheduleDates.add(displayDate.day);
+        if (schedule.visitDate!.year == now.year && schedule.visitDate!.month == now.month) {
+          if (!scheduleDates.contains(schedule.visitDate!.day)) {
+            scheduleDates.add(schedule.visitDate!.day);
           }
         }
       }

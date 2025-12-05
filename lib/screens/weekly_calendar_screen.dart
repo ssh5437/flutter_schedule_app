@@ -18,7 +18,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   Map<DateTime, List<Schedule>> _schedulesByDate = {};
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
-  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
+  Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   // 통합된 가로 스크롤 컨트롤러
@@ -76,8 +76,10 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
 
     final Map<DateTime, List<Schedule>> schedulesByDate = {};
     for (var schedule in schedules) {
-      final displayDate = schedule.visitDate ?? schedule.requestDate;
-      final date = DateTime(displayDate.year, displayDate.month, displayDate.day);
+      // visitDate가 있는 경우만 캘린더에 표시
+      if (schedule.visitDate == null) continue;
+
+      final date = DateTime(schedule.visitDate!.year, schedule.visitDate!.month, schedule.visitDate!.day);
 
       if (schedulesByDate[date] == null) {
         schedulesByDate[date] = [];
@@ -406,6 +408,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
   }
 
   Widget _buildScheduleCard(Schedule schedule) {
+    
     // 업체 색상 가져오기 (테두리용, 없으면 기본 회색)
     final borderColor = schedule.companyName != null && _companyColors[schedule.companyName] != null
         ? Color(_companyColors[schedule.companyName]!)
@@ -470,7 +473,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                 ),
               ),
             Text(
-              schedule.customerName,
+              '${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName}',
               style: TextStyle(
                 color: textColor,
                 fontSize: 11,

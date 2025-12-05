@@ -126,20 +126,20 @@ class BackupService {
     // 모든 스케줄 조회
     var schedules = await db.readAllSchedules(userId);
 
-    // 기간 필터링 (startDate와 endDate가 제공된 경우)
+    // 기간 필터링 (startDate와 endDate가 제공된 경우, visitDate가 있는 것만)
     if (startDate != null || endDate != null) {
       schedules = schedules.where((schedule) {
-        final scheduleDate = schedule.visitDate ?? schedule.requestDate;
+        if (schedule.visitDate == null) return false;
 
         // startDate 체크
-        if (startDate != null && scheduleDate.isBefore(startDate)) {
+        if (startDate != null && schedule.visitDate!.isBefore(startDate)) {
           return false;
         }
 
         // endDate 체크 (endDate의 23:59:59까지 포함)
         if (endDate != null) {
           final endOfDay = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-          if (scheduleDate.isAfter(endOfDay)) {
+          if (schedule.visitDate!.isAfter(endOfDay)) {
             return false;
           }
         }
@@ -364,27 +364,31 @@ class BackupService {
             final scheduleMap = schedules[i] as Map<String, dynamic>;
 
             // DateTime 파싱 처리 개선
+            // 구 버전 백업 호환: requestDate가 있으면 visitDate로 이전
             final requestDateStr = scheduleMap['requestDate'];
             final visitDateStr = scheduleMap['visitDate'];
 
-            // requestDate 파싱 (필수)
-            if (requestDateStr != null && requestDateStr.toString().isNotEmpty) {
-              scheduleMap['requestDate'] = _parseDateTime(requestDateStr.toString()).toIso8601String();
-            } else {
-              throw Exception('requestDate is required');
-            }
-
-            // visitDate 파싱 (선택)
+            // visitDate 파싱 (선택, 없으면 구 버전의 requestDate 사용)
             if (visitDateStr != null && visitDateStr.toString().isNotEmpty && visitDateStr.toString() != 'null') {
               try {
                 scheduleMap['visitDate'] = _parseDateTime(visitDateStr.toString()).toIso8601String();
               } catch (e) {
-                // visitDate 파싱 실패 시 null로 설정
-                scheduleMap['visitDate'] = null;
+                // visitDate 파싱 실패 시 requestDate로 대체
+                if (requestDateStr != null && requestDateStr.toString().isNotEmpty) {
+                  scheduleMap['visitDate'] = _parseDateTime(requestDateStr.toString()).toIso8601String();
+                } else {
+                  scheduleMap['visitDate'] = null;
+                }
               }
+            } else if (requestDateStr != null && requestDateStr.toString().isNotEmpty) {
+              // visitDate가 없고 requestDate가 있는 경우 (구 버전 백업)
+              scheduleMap['visitDate'] = _parseDateTime(requestDateStr.toString()).toIso8601String();
             } else {
               scheduleMap['visitDate'] = null;
             }
+
+            // requestDate는 더 이상 사용하지 않으므로 제거
+            scheduleMap.remove('requestDate');
 
             // userId를 현재 사용자 ID로 덮어쓰기
             scheduleMap['userId'] = userId;
@@ -449,7 +453,6 @@ class BackupService {
             debugPrint('❌ 스케줄 복구 실패 [${i + 1}/${schedules.length}]: $customerName');
             debugPrint('  에러: $e');
             debugPrint('  스케줄 데이터:');
-            debugPrint('    requestDate: ${scheduleMap['requestDate']}');
             debugPrint('    visitDate: ${scheduleMap['visitDate']}');
             debugPrint('    visitTime: ${scheduleMap['visitTime']}');
             debugPrint('    workItems: ${scheduleMap['workItems']}');

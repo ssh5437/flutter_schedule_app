@@ -304,7 +304,7 @@ class CompletedSchedulesScreenState extends State<CompletedSchedulesScreen> {
                                           const SizedBox(height: 3),
                                           // 주소
                                           Text(
-                                            schedule.address,
+                                            schedule.address ?? '',
                                             style: TextStyle(
                                               fontSize: 13,
                                               color: textColor,

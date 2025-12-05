@@ -22,9 +22,9 @@ class HomeScreenState extends State<HomeScreen> {
   List<Schedule> _schedules = [];
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
   bool _isLoading = true;
-  bool _showPendingSchedules = true; // 요청 스케줄 표시 여부
+  bool _showPendingSchedules = true; // 미확정 스케줄 표시 여부
   bool _showTodayOnly = false; // 오늘 스케줄만 표시 여부
-  Color _pendingColor = const Color(0xFFFAE6BB); // 예정 스케줄 색상
+  Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
   @override
@@ -61,8 +61,7 @@ class HomeScreenState extends State<HomeScreen> {
 
       // 스케줄 정렬
       // 1. 예정(status='예정')이 먼저, 확정(status='확정')이 나중
-      // 2. 예정 내에서는 requestDate 오름차순
-      // 3. 확정 내에서는 visitDate 오름차순
+      // 2. 같은 상태 내에서는 visitDate 오름차순 (visitDate가 없으면 뒤로)
       schedules.sort((a, b) {
         // status 필드로 예정/확정 구분
         final aIsConfirmed = a.status == '확정';
@@ -72,15 +71,11 @@ class HomeScreenState extends State<HomeScreen> {
         if (!aIsConfirmed && bIsConfirmed) return -1;
         if (aIsConfirmed && !bIsConfirmed) return 1;
 
-        // 둘 다 예정인 경우: requestDate 오름차순
-        if (!aIsConfirmed && !bIsConfirmed) {
-          return a.requestDate.compareTo(b.requestDate);
-        }
-
-        // 둘 다 확정인 경우: visitDate 오름차순 (visitDate가 없으면 requestDate 사용)
-        final aDate = a.visitDate ?? a.requestDate;
-        final bDate = b.visitDate ?? b.requestDate;
-        return aDate.compareTo(bDate);
+        // 같은 상태 내에서: visitDate 오름차순 (null은 뒤로)
+        if (a.visitDate == null && b.visitDate == null) return 0;
+        if (a.visitDate == null) return 1;
+        if (b.visitDate == null) return -1;
+        return a.visitDate!.compareTo(b.visitDate!);
       });
 
       if (!mounted) return;
@@ -223,7 +218,7 @@ class HomeScreenState extends State<HomeScreen> {
                       const Text('필터:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                       const SizedBox(width: 12),
                       FilterChip(
-                        label: const Text('요청 스케줄', style: TextStyle(fontSize: 13)),
+                        label: const Text('미확정 스케줄', style: TextStyle(fontSize: 13)),
                         selected: _showPendingSchedules,
                         onSelected: (value) {
                           setState(() {
@@ -258,23 +253,27 @@ class HomeScreenState extends State<HomeScreen> {
                       builder: (context) {
                         // 필터링된 스케줄 계산
                         final filteredSchedules = _schedules.where((s) {
+                          // visitDate가 없는 스케줄은 항상 포함
+                          if (s.visitDate == null) {
+                            // 미확정 스케줄 필터
+                            if (!_showPendingSchedules && s.computedStatus != '확정') return false;
+                            return true;
+                          }
+
                           // 오늘 이전 스케줄 필터 (오늘 포함, 이전 제외)
                           final today = DateTime.now();
                           final todayStart = DateTime(today.year, today.month, today.day);
-                          final displayDate = s.computedStatus == '확정' && s.visitDate != null
-                              ? s.visitDate!
-                              : s.requestDate;
-                          final displayDateStart = DateTime(displayDate.year, displayDate.month, displayDate.day);
+                          final displayDateStart = DateTime(s.visitDate!.year, s.visitDate!.month, s.visitDate!.day);
                           if (displayDateStart.isBefore(todayStart)) return false;
 
-                          // 요청 스케줄 필터
+                          // 미확정 스케줄 필터
                           if (!_showPendingSchedules && s.computedStatus != '확정') return false;
 
                           // 오늘 스케줄 필터
                           if (_showTodayOnly) {
-                            if (displayDate.year != today.year ||
-                                displayDate.month != today.month ||
-                                displayDate.day != today.day) {
+                            if (s.visitDate!.year != today.year ||
+                                s.visitDate!.month != today.month ||
+                                s.visitDate!.day != today.day) {
                               return false;
                             }
                           }
@@ -288,14 +287,11 @@ class HomeScreenState extends State<HomeScreen> {
                             if (b.computedStatus == '예정') return 1;
                           }
 
-                          // 2. 같은 상태 내에서 날짜별 정렬
-                          final dateA = a.computedStatus == '확정' && a.visitDate != null
-                              ? a.visitDate!
-                              : a.requestDate;
-                          final dateB = b.computedStatus == '확정' && b.visitDate != null
-                              ? b.visitDate!
-                              : b.requestDate;
-                          return dateA.compareTo(dateB);
+                          // 2. 같은 상태 내에서 날짜별 정렬 (visitDate 없으면 뒤로)
+                          if (a.visitDate == null && b.visitDate == null) return 0;
+                          if (a.visitDate == null) return 1;
+                          if (b.visitDate == null) return -1;
+                          return a.visitDate!.compareTo(b.visitDate!);
                         });
 
                         // 스케줄이 없는 경우 메시지 표시
@@ -331,31 +327,27 @@ class HomeScreenState extends State<HomeScreen> {
                             final schedule = filteredSchedules[index];
 
                             debugPrint(schedule.companyName);
-                            // 확정 스케줄은 방문확정일자, 그 외에는 요청일자 표시
-                            final displayDate = schedule.computedStatus == '확정' && schedule.visitDate != null
-                                ? schedule.visitDate!
-                                : schedule.requestDate;
-                            final dateLabel = schedule.computedStatus == '확정' && schedule.visitDate != null
-                                ? '방문확정일자'
-                                : '요청일자';
+                            // visitDate가 있으면 방문일자로 표시
+                            final displayDate = schedule.visitDate;
+                            final dateLabel = '방문일자';
 
                             // 날짜 섹션 헤더 표시 여부 확인
                             bool showDateHeader = false;
                             String headerText = '';
 
                             if (schedule.computedStatus == '예정') {
-                              // 요청 스케줄: 첫 번째 요청 스케줄일 때만 헤더 표시
+                              // 미확정 스케줄: 첫 번째 미확정 스케줄일 때만 헤더 표시
                               if (index == 0) {
                                 showDateHeader = true;
-                                headerText = '요청 스케줄';
+                                headerText = '미확정 스케줄';
                               } else {
                                 final prevSchedule = filteredSchedules[index - 1];
                                 if (prevSchedule.computedStatus != '예정') {
                                   showDateHeader = true;
-                                  headerText = '요청 스케줄';
+                                  headerText = '미확정 스케줄';
                                 }
                               }
-                            } else if (schedule.computedStatus == '확정') {
+                            } else if (schedule.computedStatus == '확정' && displayDate != null) {
                               // 확정 스케줄: 날짜별로 헤더 표시
                               if (index == 0) {
                                 showDateHeader = true;
@@ -363,13 +355,12 @@ class HomeScreenState extends State<HomeScreen> {
                               } else {
                                 final prevSchedule = filteredSchedules[index - 1];
                                 if (prevSchedule.computedStatus == '예정') {
-                                  // 이전이 요청 스케줄이면 무조건 헤더 표시
+                                  // 이전이 미확정 스케줄이면 무조건 헤더 표시
                                   showDateHeader = true;
                                   headerText = _formatDateHeader(displayDate);
-                                } else {
+                                } else if (prevSchedule.visitDate != null) {
                                   // 이전도 확정 스케줄이면 날짜가 다를 때만 헤더 표시
-                                  final prevDate = prevSchedule.visitDate ?? prevSchedule.requestDate;
-                                  final prevDateOnly = DateTime(prevDate.year, prevDate.month, prevDate.day);
+                                  final prevDateOnly = DateTime(prevSchedule.visitDate!.year, prevSchedule.visitDate!.month, prevSchedule.visitDate!.day);
                                   final currentDateOnly = DateTime(displayDate.year, displayDate.month, displayDate.day);
 
                                   if (!prevDateOnly.isAtSameMomentAs(currentDateOnly)) {
@@ -519,7 +510,7 @@ class HomeScreenState extends State<HomeScreen> {
                                             const SizedBox(height: 4),
                                             // 주소
                                             Text(
-                                              schedule.address,
+                                              schedule.address ?? '',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 color: textColor,
