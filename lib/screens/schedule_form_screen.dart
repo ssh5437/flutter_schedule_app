@@ -1060,17 +1060,23 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       // 주소를 지번 주소로 변환 (주소가 변경된 경우에만)
       String? jibunAddress = widget.schedule?.jibunAddress; // 기존 값 유지
 
-      // 신규 등록이거나, 주소가 변경된 경우에만 API 호출
-      final addressChanged = widget.schedule == null || widget.schedule!.address != _addressController.text;
+      // 기존 주소와 현재 입력된 주소 비교 (null 처리 포함)
+      final oldAddress = widget.schedule?.address ?? '';
+      final newAddress = _addressController.text;
+      final addressChanged = oldAddress != newAddress;
 
-      if (addressChanged) {
+      // 주소가 비어있지 않고 변경된 경우에만 API 호출
+      if (addressChanged && newAddress.isNotEmpty) {
         try {
-          jibunAddress = await AddressService.convertToJibunAddress(_addressController.text);
+          jibunAddress = await AddressService.convertToJibunAddress(newAddress);
         } catch (e) {
           // 변환 실패 시 무시
           debugPrint('지번 주소 변환 실패: $e');
           jibunAddress = null;
         }
+      } else if (newAddress.isEmpty) {
+        // 주소가 비어있으면 지번주소도 null로 설정
+        jibunAddress = null;
       }
 
       final schedule = Schedule(
@@ -1464,6 +1470,18 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             ),
                             maxLines: 2,
                             minLines: 1,
+                          ),
+                          const SizedBox(height: 8),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              '* 방문일자와 방문시간을 다 입력하셔야 확정스케줄이 됩니다.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.red,
+                                height: 1.3,
+                              ),
+                            ),
                           ),
                         ],
                       ),

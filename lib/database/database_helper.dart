@@ -25,7 +25,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -40,7 +40,7 @@ class DatabaseHelper {
         visitDate TEXT,
         visitTime TEXT,
         phoneNumber TEXT NOT NULL,
-        address TEXT NOT NULL,
+        address TEXT,
         jibunAddress TEXT,
         companyName TEXT,
         workItems TEXT NOT NULL,
@@ -288,7 +288,7 @@ class DatabaseHelper {
           visitDate TEXT,
           visitTime TEXT,
           phoneNumber TEXT NOT NULL,
-          address TEXT NOT NULL,
+          address TEXT,
           jibunAddress TEXT,
           companyName TEXT,
           workItems TEXT NOT NULL,
@@ -311,6 +311,49 @@ class DatabaseHelper {
           COALESCE(visitDate, requestDate) as visitDate,
           visitTime, phoneNumber, address, jibunAddress,
           companyName, workItems, workPrices, workCount, notes, status
+        FROM schedules_old
+      ''');
+
+      // 4. 임시 테이블 삭제
+      await db.execute('DROP TABLE schedules_old');
+    }
+
+    if (oldVersion < 15) {
+      // address 컬럼을 nullable로 변경 (SQLite는 직접 수정을 지원하지 않으므로 테이블 재생성)
+      // 1. 기존 테이블을 임시 테이블로 이름 변경
+      await db.execute('ALTER TABLE schedules RENAME TO schedules_old');
+
+      // 2. address가 nullable인 새 테이블 생성
+      await db.execute('''
+        CREATE TABLE schedules (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId TEXT NOT NULL,
+          customerName TEXT NOT NULL,
+          visitDate TEXT,
+          visitTime TEXT,
+          phoneNumber TEXT NOT NULL,
+          address TEXT,
+          jibunAddress TEXT,
+          companyName TEXT,
+          workItems TEXT NOT NULL,
+          workPrices TEXT NOT NULL,
+          workCount INTEGER NOT NULL,
+          notes TEXT,
+          status TEXT NOT NULL
+        )
+      ''');
+
+      // 3. 데이터 복사
+      await db.execute('''
+        INSERT INTO schedules (
+          id, userId, customerName, visitDate, visitTime, phoneNumber,
+          address, jibunAddress, companyName, workItems, workPrices,
+          workCount, notes, status
+        )
+        SELECT
+          id, userId, customerName, visitDate, visitTime, phoneNumber,
+          address, jibunAddress, companyName, workItems, workPrices,
+          workCount, notes, status
         FROM schedules_old
       ''');
 
@@ -483,7 +526,9 @@ class DatabaseHelper {
     // 개인정보 암호화
     map['customerName'] = await EncryptionHelper.encrypt(map['customerName']);
     map['phoneNumber'] = await EncryptionHelper.encrypt(map['phoneNumber']);
-    map['address'] = await EncryptionHelper.encrypt(map['address']);
+    if (map['address'] != null) {
+      map['address'] = await EncryptionHelper.encrypt(map['address']);
+    }
 
     return await db.insert('schedules', map);
   }
@@ -502,7 +547,9 @@ class DatabaseHelper {
       // 개인정보 복호화
       map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
       map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      if (map['address'] != null) {
+        map['address'] = await EncryptionHelper.decrypt(map['address']);
+      }
 
       return Schedule.fromMap(map);
     } else {
@@ -525,7 +572,9 @@ class DatabaseHelper {
       final map = Map<String, dynamic>.from(item);
       map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
       map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      if (map['address'] != null) {
+        map['address'] = await EncryptionHelper.decrypt(map['address']);
+      }
       schedules.add(Schedule.fromMap(map));
     }
     return schedules;
@@ -569,7 +618,9 @@ class DatabaseHelper {
       final map = Map<String, dynamic>.from(item);
       map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
       map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      if (map['address'] != null) {
+        map['address'] = await EncryptionHelper.decrypt(map['address']);
+      }
       schedules.add(Schedule.fromMap(map));
     }
     return schedules;
@@ -596,7 +647,9 @@ class DatabaseHelper {
       final map = Map<String, dynamic>.from(item);
       map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
       map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      map['address'] = await EncryptionHelper.decrypt(map['address']);
+      if (map['address'] != null) {
+        map['address'] = await EncryptionHelper.decrypt(map['address']);
+      }
       schedules.add(Schedule.fromMap(map));
     }
     return schedules;
@@ -670,7 +723,9 @@ class DatabaseHelper {
     // 개인정보 암호화
     map['customerName'] = await EncryptionHelper.encrypt(map['customerName']);
     map['phoneNumber'] = await EncryptionHelper.encrypt(map['phoneNumber']);
-    map['address'] = await EncryptionHelper.encrypt(map['address']);
+    if (map['address'] != null) {
+      map['address'] = await EncryptionHelper.encrypt(map['address']);
+    }
 
     return await db.update(
       'schedules',
