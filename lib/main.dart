@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:upgrader/upgrader.dart';
 import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
 import 'services/notification_service.dart';
@@ -378,59 +379,64 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color(0xFFFAFAFA),
-        selectedItemColor: const Color(0xFF579bf2),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: '스케줄 목록',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: '캘린더',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.check_circle),
-            label: '완료 내역',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: '매출 분석',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: '설정',
-          ),
-        ],
+    return UpgradeAlert(
+      upgrader: Upgrader(
+        durationUntilAlertAgain: const Duration(days: 1),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ScheduleFormScreen(),
+      child: Scaffold(
+        body: _screens[_currentIndex],
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: const Color(0xFFFAFAFA),
+          selectedItemColor: const Color(0xFF579bf2),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.list),
+              label: '스케줄 목록',
             ),
-          );
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_today),
+              label: '캘린더',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.check_circle),
+              label: '완료 내역',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart),
+              label: '매출 분석',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: '설정',
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ScheduleFormScreen(),
+              ),
+            );
 
-          if (result != null) {
-            // 스케줄이 추가/수정되면 모든 화면 새로고침
-            _homeKey.currentState?.refresh();
-            _calendarKey.currentState?.refresh();
-            setState(() {});
-          }
-        },
-        backgroundColor: const Color.fromARGB(255, 220, 232, 248),
-        child: const Icon(Icons.add, color: Color.fromARGB(255, 53, 48, 48)),
+            if (result != null) {
+              // 스케줄이 추가/수정되면 모든 화면 새로고침
+              _homeKey.currentState?.refresh();
+              _calendarKey.currentState?.refresh();
+              setState(() {});
+            }
+          },
+          backgroundColor: const Color.fromARGB(255, 220, 232, 248),
+          child: const Icon(Icons.add, color: Color.fromARGB(255, 53, 48, 48)),
+        ),
       ),
     );
   }
