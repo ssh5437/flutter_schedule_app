@@ -97,6 +97,28 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // 업체의 작업 내역이 하나라도 있는지 확인
+  Future<bool> _hasAnyWorkItems() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
+
+      // 모든 업체의 작업 내역을 확인
+      for (var company in companies) {
+        if (company.workItems.isNotEmpty) {
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Error checking work items: $e');
+      return true; // 오류 시 기본 메시지 표시
+    }
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return '미정';
     return DateFormat('yyyy-MM-dd(E)', 'ko_KR').format(date);
@@ -296,28 +318,106 @@ class HomeScreenState extends State<HomeScreen> {
 
                         // 스케줄이 없는 경우 메시지 표시
                         if (filteredSchedules.isEmpty) {
-                          return ListView(
-                            children: [
-                              SizedBox(
-                                height: MediaQuery.of(context).size.height * 0.6,
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.calendar_today, size: 64, color: Colors.grey[400]),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        _schedules.isEmpty
-                                            ? '등록된 스케줄이 없습니다'
-                                            : '조건에 맞는 스케줄이 없습니다',
-                                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                          // 전체 스케줄이 비어있는지 확인
+                          if (_schedules.isEmpty) {
+                            // 업체의 작업 내역이 있는지 확인
+                            return FutureBuilder<bool>(
+                              future: _hasAnyWorkItems(),
+                              builder: (context, snapshot) {
+                                final hasWorkItems = snapshot.data ?? true;
+
+                                return ListView(
+                                  children: [
+                                    SizedBox(
+                                      height: MediaQuery.of(context).size.height * 0.6,
+                                      child: Center(
+                                        child: hasWorkItems
+                                            ? Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.calendar_today, size: 64, color: Colors.grey[400]),
+                                                  const SizedBox(height: 16),
+                                                  Text(
+                                                    '등록된 스케줄이 없습니다',
+                                                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                                                  ),
+                                                ],
+                                              )
+                                            : Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 32),
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.business, size: 80, color: Colors.blue[300]),
+                                                    const SizedBox(height: 24),
+                                                    const Text(
+                                                      '업체와 작업항목을 등록하고\n스케줄을 등록해보세요!',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF333333),
+                                                        height: 1.5,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 32),
+                                                    Container(
+                                                      padding: const EdgeInsets.all(16),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.blue[50],
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: Colors.blue[200]!),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [                                                          
+                                                          const SizedBox(width: 8),
+                                                          Flexible(
+                                                            child: Text(
+                                                              '상단의 아이콘을 클릭하시면\n업체 관리 화면으로 이동됩니다',
+                                                              textAlign: TextAlign.center,
+                                                              style: TextStyle(
+                                                                fontSize: 14,
+                                                                color: Colors.blue[900],
+                                                                height: 1.4,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                       ),
-                                    ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          } else {
+                            // 필터링된 결과가 없는 경우
+                            return ListView(
+                              children: [
+                                SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.6,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.calendar_today, size: 64, color: Colors.grey[400]),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          '조건에 맞는 스케줄이 없습니다',
+                                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
+                              ],
+                            );
+                          }
                         }
 
                         // 스케줄 목록 표시

@@ -1472,15 +1472,31 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             minLines: 1,
                           ),
                           const SizedBox(height: 8),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              '* 방문일자와 방문시간을 다 입력하셔야 확정스케줄이 됩니다.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.red,
-                                height: 1.3,
-                              ),
+                          Transform.translate(
+                            offset: const Offset(-40, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  '* 방문일자와 방문시간을 다 입력하셔야 확정스케줄이 됩니다.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.red,
+                                    height: 1.3,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  '* 확정 스케줄만 작업완료 내역과 매출 분석에서 사용됩니다.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.red,
+                                    height: 1.3,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                              ],
                             ),
                           ),
                         ],

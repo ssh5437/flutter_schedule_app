@@ -472,6 +472,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
               child: ListTile(
                 leading: const Icon(Icons.palette),
                 title: const Text('업체 색상'),
+                subtitle: const Text(
+                  '스케줄 내역에 선택한 색상이 표현됩니다. ',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
                 trailing: Container(
                   width: 40,
                   height: 40,
