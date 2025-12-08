@@ -6,18 +6,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
-import 'subscription_service.dart';
 
 class BackupService {
   // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
   static const String _secretKey = 'bizplan_backup_secret_key_v1_2025';
 
-  // 무료 사용자 백업 제한
-  static const int _maxMonthlyBackups = 10; // 한 달 최대 10회
 
   // 백업 데이터에 서명 생성
   String _generateSignature(Map<String, dynamic> data) {
@@ -55,63 +51,11 @@ class BackupService {
     return providedSignature == calculatedSignature;
   }
 
-  // 사용자의 구독 상태 확인 (SubscriptionService 사용)
-  Future<bool> _isPremiumUser() async {
-    try {
-      return await SubscriptionService().hasActiveSubscription();
-    } catch (e) {
-      debugPrint('구독 상태 확인 실패: $e');
-      return false;
-    }
-  }
-
-  // 이번 달 백업 횟수 확인
-  Future<int> _getMonthlyBackupCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now();
-    final monthKey = '${today.year}-${today.month}';
-
-    // 저장된 월과 비교
-    final savedMonth = prefs.getString('last_backup_month');
-    if (savedMonth != monthKey) {
-      // 월이 다르면 카운트 초기화
-      await prefs.setString('last_backup_month', monthKey);
-      await prefs.setInt('monthly_backup_count', 0);
-      return 0;
-    }
-
-    return prefs.getInt('monthly_backup_count') ?? 0;
-  }
-
-  // 백업 횟수 증가 (월간만)
-  Future<void> _incrementBackupCount() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // 월간 카운트 증가
-    final monthlyCount = await _getMonthlyBackupCount();
-    await prefs.setInt('monthly_backup_count', monthlyCount + 1);
-  }
-
-  // 백업 가능 여부 확인 (무료 사용자 제한)
+  // 백업 가능 여부 확인 (제한 없음)
   Future<Map<String, dynamic>> checkBackupLimit() async {
-    // 프리미엄 사용자는 제한 없음
-    if (await _isPremiumUser()) {
-      return {
-        'canBackup': true,
-        'isPremium': true,
-      };
-    }
-
-    // 무료 사용자: 월간 제한만 확인 (일일 제한 제거)
-    final monthlyCount = await _getMonthlyBackupCount();
-
-    final canBackup = monthlyCount < _maxMonthlyBackups;
-
     return {
-      'canBackup': canBackup,
-      'isPremium': false,
-      'monthlyCount': monthlyCount,
-      'monthlyLimit': _maxMonthlyBackups,
+      'canBackup': true,
+      'isPremium': true,
     };
   }
 
@@ -168,16 +112,6 @@ class BackupService {
   // 백업 파일 생성 및 공유
   Future<File> exportBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
-      // 백업 제한 확인
-      final limitCheck = await checkBackupLimit();
-
-      if (!limitCheck['canBackup']) {
-        if (limitCheck['isPremium'] == false) {
-          final monthlyCount = limitCheck['monthlyCount'];
-          throw Exception('이번 달 백업 횟수를 모두 사용했습니다. ($monthlyCount/$_maxMonthlyBackups)\nPlus 구독 시 무제한 백업이 가능합니다.');
-        }
-      }
-
       // 백업 데이터 생성
       final backupData = await createBackupData(startDate: startDate, endDate: endDate);
 
@@ -194,11 +128,6 @@ class BackupService {
       // 파일 저장
       await file.writeAsString(jsonString);
 
-      // 백업 성공 후 카운트 증가 (무료 사용자만)
-      if (limitCheck['isPremium'] == false) {
-        await _incrementBackupCount();
-      }
-
       return file;
     } catch (e) {
       throw Exception('백업 파일 생성 실패: $e');
@@ -214,7 +143,7 @@ class BackupService {
       await Share.shareXFiles(
         [XFile(file.path)],
         subject: '스케줄 백업 파일',
-        text: '비비 앱 백업 데이터입니다.',
+        text: 'BEasy 앱 백업 데이터입니다.',
       );
     } catch (e) {
       throw Exception('백업 파일 공유 실패: $e');

@@ -201,7 +201,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: MaterialApp(
-        title: '비비 관리',
+        title: 'BEasy 관리',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           scaffoldBackgroundColor: const Color(0xFFFAFAFA),

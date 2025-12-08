@@ -196,117 +196,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final now = DateTime.now();
       startDate = DateTime(now.year, now.month, 1); // 이번 달 1일
       endDate = DateTime(now.year, 12, 31); // 올해 12월 31일
-
-      // 백업 제한 확인
-      final backupService = BackupService();
-      final limitCheck = await backupService.checkBackupLimit();
-
-      if (!mounted) return;
-
-      // 무료 사용자에게 제한 안내
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.lock, color: Colors.orange[700], size: 28),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  '무료 회원 백업',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '무료 회원은 이번 달 1일 이후의 데이터만 백업할 수 있습니다.\n\n기간: ${DateFormat('yyyy-MM-dd').format(startDate!)} ~ ${DateFormat('yyyy-MM-dd').format(endDate!)}',
-                style: const TextStyle(fontSize: 16, height: 1.5),
-              ),
-              const SizedBox(height: 16),
-              // 백업 횟수 제한 안내
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange[300]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '백업 횟수 제한',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '이번 달: ${limitCheck['monthlyCount']}/${limitCheck['monthlyLimit']}회 사용',
-                      style: const TextStyle(fontSize: 13, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.workspace_premium, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Plus 회원은 과거 데이터까지 기간을 선택하거나 전체 백업 및 무제한 백업이 가능합니다.',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1976D2),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('백업 시작'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return;
     }
 
     try {
@@ -984,7 +873,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final Uri emailUri = Uri(
                 scheme: 'mailto',
                 path: 'vividlifekr@gmail.com',
-                query: 'subject=${Uri.encodeComponent('비비 관리 앱 문의')}',
+                query: 'subject=${Uri.encodeComponent('BEasy 관리 앱 문의')}',
               );
 
               try {
