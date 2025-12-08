@@ -7,11 +7,23 @@ import android.content.Intent
 import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.os.Build
+import android.os.Bundle
+import androidx.core.view.WindowCompat
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.vividlife.bizplan/widget"
     private var methodChannel: MethodChannel? = null
     private var pendingScheduleId: Int? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Edge-to-edge 활성화 (Android 15+ 권장사항)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

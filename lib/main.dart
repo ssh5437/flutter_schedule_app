@@ -32,6 +32,19 @@ void main() async {
   final startTime = DateTime.now();
   debugPrint('🚀 App initialization started');
 
+  // Edge-to-edge 활성화 (Android 15+ 권장사항)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // 시스템 UI 오버레이 스타일 설정
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   // 날짜 포맷 초기화 (동기)
   await initializeDateFormatting('ko_KR', null);
 
@@ -201,7 +214,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: MaterialApp(
-        title: 'BEasy 관리',
+        title: '비도 관리',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           scaffoldBackgroundColor: const Color(0xFFFAFAFA),
