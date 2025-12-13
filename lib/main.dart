@@ -103,11 +103,13 @@ void _initializeServicesInBackground() {
       // 알림 설정 (로그인된 사용자에 대해서만 실행됨)
       await NotificationService.instance.setupDailyNotifications();
 
-      // 백그라운드 서비스 초기화
-      await BackgroundService.initialize();
+      // 백그라운드 서비스 초기화 (임시 비활성화 - 디버깅용)
+      // 기존 백그라운드 작업 취소 (에러 방지)
+      await BackgroundService.cancelAll();
+      // await BackgroundService.initialize();
 
-      // 백그라운드 작업 등록
-      await BackgroundService.registerDailyTask();
+      // 백그라운드 작업 등록 (임시 비활성화 - 디버깅용)
+      // await BackgroundService.registerDailyTask();
 
       // 위젯 서비스 초기화
       await WidgetService.initialize();

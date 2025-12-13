@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
+import '../models/date_memo.dart';
 import '../utils/encryption_helper.dart';
 
 class DatabaseHelper {
@@ -25,7 +26,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -85,6 +86,22 @@ class DatabaseHelper {
         display_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE date_memos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      )
+    ''');
+
+    // 날짜별 메모 조회 최적화를 위한 인덱스
+    await db.execute('''
+      CREATE INDEX idx_date_memos_user_date ON date_memos(user_id, date)
     ''');
 
     // 새로운 DB 생성 시에는 기본 업체를 삽입하지 않음
@@ -359,6 +376,25 @@ class DatabaseHelper {
 
       // 4. 임시 테이블 삭제
       await db.execute('DROP TABLE schedules_old');
+    }
+
+    if (oldVersion < 16) {
+      // 날짜별 메모 테이블 추가
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS date_memos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          date TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT
+        )
+      ''');
+
+      // 날짜별 메모 조회 최적화를 위한 인덱스
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_date_memos_user_date ON date_memos(user_id, date)
+      ''');
     }
   }
 
@@ -940,6 +976,62 @@ class DatabaseHelper {
     final db = await database;
     return await db.delete(
       'message_templates',
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [id, userId],
+    );
+  }
+
+  // ==================== DateMemo CRUD ====================
+
+  // 메모 생성
+  Future<int> createMemo(DateMemo memo) async {
+    final db = await database;
+    return await db.insert('date_memos', memo.toMap());
+  }
+
+  // 특정 날짜의 메모 조회
+  Future<DateMemo?> readMemoByDate(String userId, DateTime date) async {
+    final db = await database;
+    final dateStr = date.toIso8601String().split('T')[0];
+    final maps = await db.query(
+      'date_memos',
+      where: 'user_id = ? AND date = ?',
+      whereArgs: [userId, dateStr],
+    );
+    if (maps.isEmpty) return null;
+    return DateMemo.fromMap(maps.first);
+  }
+
+  // 날짜 범위의 메모들 조회
+  Future<List<DateMemo>> readMemosByDateRange(String userId, DateTime startDate, DateTime endDate) async {
+    final db = await database;
+    final startDateStr = startDate.toIso8601String().split('T')[0];
+    final endDateStr = endDate.toIso8601String().split('T')[0];
+    final maps = await db.query(
+      'date_memos',
+      where: 'user_id = ? AND date >= ? AND date <= ?',
+      whereArgs: [userId, startDateStr, endDateStr],
+      orderBy: 'date ASC',
+    );
+    return maps.map((map) => DateMemo.fromMap(map)).toList();
+  }
+
+  // 메모 수정
+  Future<int> updateMemo(DateMemo memo) async {
+    final db = await database;
+    return await db.update(
+      'date_memos',
+      memo.toMap(),
+      where: 'id = ?',
+      whereArgs: [memo.id],
+    );
+  }
+
+  // 메모 삭제
+  Future<int> deleteMemo(String userId, int id) async {
+    final db = await database;
+    return await db.delete(
+      'date_memos',
       where: 'id = ? AND user_id = ?',
       whereArgs: [id, userId],
     );

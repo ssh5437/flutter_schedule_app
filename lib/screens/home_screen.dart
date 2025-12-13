@@ -4,9 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:upgrader/upgrader.dart';
 import '../models/schedule.dart';
+import '../models/date_memo.dart';
 import '../database/database_helper.dart';
 import '../services/widget_service.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../widgets/memo_dialog.dart';
 import 'schedule_detail_screen.dart';
 import 'search_screen.dart';
 import 'company_management_screen.dart';
@@ -21,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 class HomeScreenState extends State<HomeScreen> {
   List<Schedule> _schedules = [];
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
+  Map<DateTime, DateMemo> _memosByDate = {}; // 날짜별 메모
   bool _isLoading = true;
   bool _showPendingSchedules = true; // 미확정 스케줄 표시 여부
   bool _showTodayOnly = false; // 오늘 스케줄만 표시 여부
@@ -33,6 +36,7 @@ class HomeScreenState extends State<HomeScreen> {
     debugPrint('🚀 HomeScreen initState called');
     _loadSchedules();
     _loadColors();
+    _loadMemos();
   }
 
   Future<void> _loadColors() async {
@@ -42,6 +46,101 @@ class HomeScreenState extends State<HomeScreen> {
       _pendingColor = Color(prefs.getInt('pending_color') ?? 0xFFFAE6BB);
       _confirmedColor = Color(prefs.getInt('confirmed_color') ?? 0xFFFFFFFF);
     });
+  }
+
+  // 메모 로드
+  Future<void> _loadMemos() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // 오늘부터 3개월치 메모 로드
+      final now = DateTime.now();
+      final startDate = DateTime(now.year, now.month, now.day);
+      final endDate = startDate.add(const Duration(days: 90));
+
+      final memos = await DatabaseHelper.instance.readMemosByDateRange(
+        userId,
+        startDate,
+        endDate,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _memosByDate = {
+          for (var memo in memos)
+            DateTime(memo.date.year, memo.date.month, memo.date.day): memo
+        };
+      });
+    } catch (e) {
+      debugPrint('메모 로드 실패: $e');
+    }
+  }
+
+  // 메모 다이얼로그 표시
+  Future<void> _showMemoDialog(DateTime date) async {
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final existingMemo = _memosByDate[dateKey];
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => MemoDialog(
+        date: date,
+        existingMemo: existingMemo,
+      ),
+    );
+
+    if (result == true) {
+      _loadMemos();
+    }
+  }
+
+  // 메모 삭제 확인
+  Future<void> _deleteMemoWithConfirmation(DateTime date) async {
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final memo = _memosByDate[dateKey];
+    if (memo == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFAFAFA),
+        title: const Text('메모 삭제'),
+        content: const Text('이 메모를 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId == null) return;
+
+        await DatabaseHelper.instance.deleteMemo(userId, memo.id!);
+        _loadMemos();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('메모가 삭제되었습니다')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('메모 삭제 실패: $e')),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _loadSchedules() async {
@@ -420,79 +519,81 @@ class HomeScreenState extends State<HomeScreen> {
                           }
                         }
 
-                        // 스케줄 목록 표시
-                        return ListView.builder(
-                          itemCount: filteredSchedules.length,
-                          itemBuilder: (context, index) {
-                            final schedule = filteredSchedules[index];
+                        // 날짜별 데이터 그룹화 (메모와 스케줄 포함)
+                        final Map<String, List<Schedule>> confirmedByDate = {};
+                        final List<Schedule> pendingSchedules = [];
 
-                            debugPrint(schedule.companyName);
-                            // visitDate가 있으면 방문일자로 표시
-                            final displayDate = schedule.visitDate;
-                            final dateLabel = '방문일자';
+                        for (var schedule in filteredSchedules) {
+                          if (schedule.computedStatus == '예정') {
+                            pendingSchedules.add(schedule);
+                          } else if (schedule.visitDate != null) {
+                            final dateKey = DateTime(
+                              schedule.visitDate!.year,
+                              schedule.visitDate!.month,
+                              schedule.visitDate!.day,
+                            ).toIso8601String();
+                            confirmedByDate.putIfAbsent(dateKey, () => []).add(schedule);
+                          }
+                        }
 
-                            // 날짜 섹션 헤더 표시 여부 확인
-                            bool showDateHeader = false;
-                            String headerText = '';
+                        // 메모만 있는 날짜도 포함
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
 
-                            if (schedule.computedStatus == '예정') {
-                              // 미확정 스케줄: 첫 번째 미확정 스케줄일 때만 헤더 표시
-                              if (index == 0) {
-                                showDateHeader = true;
-                                headerText = '미확정 스케줄';
-                              } else {
-                                final prevSchedule = filteredSchedules[index - 1];
-                                if (prevSchedule.computedStatus != '예정') {
-                                  showDateHeader = true;
-                                  headerText = '미확정 스케줄';
-                                }
-                              }
-                            } else if (schedule.computedStatus == '확정' && displayDate != null) {
-                              // 확정 스케줄: 날짜별로 헤더 표시
-                              if (index == 0) {
-                                showDateHeader = true;
-                                headerText = _formatDateHeader(displayDate);
-                              } else {
-                                final prevSchedule = filteredSchedules[index - 1];
-                                if (prevSchedule.computedStatus == '예정') {
-                                  // 이전이 미확정 스케줄이면 무조건 헤더 표시
-                                  showDateHeader = true;
-                                  headerText = _formatDateHeader(displayDate);
-                                } else if (prevSchedule.visitDate != null) {
-                                  // 이전도 확정 스케줄이면 날짜가 다를 때만 헤더 표시
-                                  final prevDateOnly = DateTime(prevSchedule.visitDate!.year, prevSchedule.visitDate!.month, prevSchedule.visitDate!.day);
-                                  final currentDateOnly = DateTime(displayDate.year, displayDate.month, displayDate.day);
-
-                                  if (!prevDateOnly.isAtSameMomentAs(currentDateOnly)) {
-                                    showDateHeader = true;
-                                    headerText = _formatDateHeader(displayDate);
-                                  }
-                                }
-                              }
+                        for (var dateKey in _memosByDate.keys) {
+                          // 오늘 이후의 메모만 표시
+                          if (!dateKey.isBefore(today)) {
+                            final dateKeyStr = dateKey.toIso8601String();
+                            if (!confirmedByDate.containsKey(dateKeyStr)) {
+                              confirmedByDate[dateKeyStr] = [];
                             }
+                          }
+                        }
 
-                            // 업체별 테두리 색상 가져오기
-                            final borderColor = _companyColors[schedule.companyName] != null
-                                ? Color(_companyColors[schedule.companyName]!)
-                                : Colors.grey;
+                        // 날짜별로 정렬
+                        final sortedDates = confirmedByDate.keys.toList()..sort();
 
-                            // 상태별 배경색 가져오기
-                            final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
+                        // 스케줄 목록 표시
+                        return ListView(
+                          children: [
+                            // 미확정 스케줄 섹션
+                            if (pendingSchedules.isNotEmpty) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                margin: const EdgeInsets.only(top: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+                                  ),
+                                ),
+                                child: const Text(
+                                  '미확정 스케줄',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              ...pendingSchedules.map((schedule) => _buildScheduleCard(schedule, '방문일자')),
+                            ],
 
-                            // 배경색 밝기에 따라 텍스트 색상 자동 조정
-                            final textColor = backgroundColor.computeLuminance() > 0.5
-                                ? Colors.black87
-                                : Colors.white;
+                            // 확정 스케줄 및 메모 섹션 (날짜별)
+                            ...sortedDates.map((dateKeyStr) {
+                              final dateKey = DateTime.parse(dateKeyStr);
+                              final schedulesForDate = confirmedByDate[dateKeyStr]!;
+                              final memo = _memosByDate[dateKey];
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // 날짜 섹션 헤더
-                                if (showDateHeader)
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 날짜 헤더
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                    margin: EdgeInsets.only(top: index == 0 ? 8 : 16),
+                                    margin: const EdgeInsets.only(top: 16),
                                     decoration: BoxDecoration(
                                       color: Colors.grey.shade200,
                                       border: Border(
@@ -500,7 +601,7 @@ class HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     child: Text(
-                                      headerText,
+                                      _formatDateHeader(dateKey),
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -509,135 +610,52 @@ class HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
 
-                                // 스케줄 카드
-                                Card(
-                                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  elevation: 2,
-                                  color: backgroundColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border(
-                                        left: BorderSide(
-                                          color: borderColor,
-                                          width: 6,
-                                        ),
+                                  // 메모 표시 (있는 경우)
+                                  if (memo != null)
+                                    Container(
+                                      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                                      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF9E6),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFFE082)),
                                       ),
-                                    ),
-                                    child: InkWell(
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ScheduleDetailScreen(schedule: schedule),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.note, size: 16, color: Color(0xFFF57C00)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              memo.content,
+                                              style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037)),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                        );
-                                        _loadSchedules();
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(6.0),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // 날짜와 업체명
-                                            Row(
-                                              children: [
-                                                // 확정 스케줄인 경우 날짜/시간을 파란색 볼드로
-                                                if (schedule.computedStatus == '확정')
-                                                  Text(
-                                                    '${_formatDate(displayDate)} ${schedule.visitTime ?? '미정'}',
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      color: Color.fromARGB(255, 3, 66, 117),
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  )
-                                                else
-                                                  Text(
-                                                    '$dateLabel : ${_formatDate(displayDate)}',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: textColor,
-                                                    ),
-                                                  ),
-                                                const Spacer(),
-                                                Text(
-                                                  schedule.companyName.toString() == 'null'  ? '' : schedule.companyName.toString(),
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: borderColor,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ],
+                                          GestureDetector(
+                                            onTap: () => _showMemoDialog(dateKey),
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: Icon(Icons.edit, size: 18, color: Color(0xFF579bf2)),
                                             ),
-                                            const SizedBox(height: 6),
-                                            // 고객명과 전화번호
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  schedule.customerName,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: textColor,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Text(
-                                                  _formatPhoneNumber(schedule.phoneNumber),
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: textColor,
-                                                    decoration: TextDecoration.underline,
-                                                  ),
-                                                ),
-                                              ],
+                                          ),
+                                          GestureDetector(
+                                            onTap: () => _deleteMemoWithConfirmation(dateKey),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Icon(Icons.delete, size: 18, color: Colors.red.shade400),
                                             ),
-                                            const SizedBox(height: 4),
-                                            // 작업 내용
-                                            Text(
-                                              _formatWorkItems(schedule.workItems),
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: textColor,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            // 주소
-                                            Text(
-                                              schedule.address ?? '',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: textColor,
-                                              ),
-                                            ),
-                                            // 비고 (있는 경우만)
-                                            if (schedule.notes != null && schedule.notes!.isNotEmpty) ...[
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                schedule.notes!,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: textColor.withValues(alpha: 0.5),
-                                                ),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+
+                                  // 해당 날짜의 스케줄들
+                                  ...schedulesForDate.map((schedule) => _buildScheduleCard(schedule, '')),
+                                ],
+                              );
+                            }),
+                          ],
                         );
                       },
                     ),
@@ -645,6 +663,150 @@ class HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+      ),
+    );
+  }
+
+  // 스케줄 카드 빌더
+  Widget _buildScheduleCard(Schedule schedule, String dateLabel) {
+    final displayDate = schedule.visitDate;
+
+    // 업체별 테두리 색상 가져오기
+    final borderColor = _companyColors[schedule.companyName] != null
+        ? Color(_companyColors[schedule.companyName]!)
+        : Colors.grey;
+
+    // 상태별 배경색 가져오기
+    final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
+
+    // 배경색 밝기에 따라 텍스트 색상 자동 조정
+    final textColor = backgroundColor.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 2,
+      color: backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: borderColor,
+              width: 6,
+            ),
+          ),
+        ),
+        child: InkWell(
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ScheduleDetailScreen(schedule: schedule),
+              ),
+            );
+            _loadSchedules();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(6.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 날짜와 업체명
+                Row(
+                  children: [
+                    // 확정 스케줄인 경우 날짜/시간을 파란색 볼드로
+                    if (schedule.computedStatus == '확정')
+                      Text(
+                        '${_formatDate(displayDate)} ${schedule.visitTime ?? '미정'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color.fromARGB(255, 3, 66, 117),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else if (dateLabel.isNotEmpty)
+                      Text(
+                        '$dateLabel : ${_formatDate(displayDate)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textColor,
+                        ),
+                      ),
+                    const Spacer(),
+                    Text(
+                      schedule.companyName.toString() == 'null' ? '' : schedule.companyName.toString(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: borderColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // 고객명과 전화번호
+                Row(
+                  children: [
+                    Text(
+                      schedule.customerName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _formatPhoneNumber(schedule.phoneNumber),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textColor,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // 작업 내용
+                Text(
+                  _formatWorkItems(schedule.workItems),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // 주소
+                Text(
+                  schedule.address ?? '',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textColor,
+                  ),
+                ),
+                // 비고 (있는 경우만)
+                if (schedule.notes != null && schedule.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    schedule.notes!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textColor.withValues(alpha: 0.5),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

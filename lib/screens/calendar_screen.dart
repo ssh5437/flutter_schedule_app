@@ -3,7 +3,9 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/schedule.dart';
+import '../models/date_memo.dart';
 import '../database/database_helper.dart';
+import '../widgets/memo_dialog.dart';
 import 'schedule_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   DateTime? _selectedDay;
   Map<DateTime, List<Schedule>> _schedulesByDate = {};
   Map<String, int> _companyColors = {}; // 업체명 -> 색상 매핑
+  Map<DateTime, DateMemo> _memosByDate = {}; // 날짜별 메모 저장
   bool _isLoading = true;
   bool _isPortrait = true; // true: 세로보기, false: 가로보기
   final ScrollController _scrollController = ScrollController();
@@ -53,6 +56,8 @@ class CalendarScreenState extends State<CalendarScreen> {
     _loadSchedules();
     _loadColors();
     _loadCalendarCompactState();
+    // 현재 월의 메모 로드 (await 없이 호출하지만 setState는 내부에서 처리됨)
+    _loadMemosForMonth(_focusedDay);
   }
 
   Future<void> _loadCalendarCompactState() async {
@@ -217,6 +222,97 @@ class CalendarScreenState extends State<CalendarScreen> {
     return _schedulesByDate[key] ?? [];
   }
 
+  // 특정 월의 메모 로드
+  Future<void> _loadMemosForMonth(DateTime month) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final monthStart = DateTime(month.year, month.month, 1);
+    final monthEnd = DateTime(month.year, month.month + 1, 0);
+    final memos = await DatabaseHelper.instance.readMemosByDateRange(userId, monthStart, monthEnd);
+
+    final Map<DateTime, DateMemo> memosByDate = {};
+    for (var memo in memos) {
+      final dateKey = DateTime(memo.date.year, memo.date.month, memo.date.day);
+      memosByDate[dateKey] = memo;
+    }
+
+    if (mounted) {
+      setState(() {
+        _memosByDate = memosByDate;
+      });
+    }
+  }
+
+  // 메모 다이얼로그 표시
+  Future<void> _showMemoDialog(DateTime date) async {
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final existingMemo = _memosByDate[dateKey];
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => MemoDialog(
+        date: date,
+        existingMemo: existingMemo,
+      ),
+    );
+
+    // 메모가 변경되었으면 다시 로드
+    if (result == true) {
+      await _loadMemosForMonth(_focusedDay);
+    }
+  }
+
+  // 메모 삭제 확인 후 삭제
+  Future<void> _deleteMemoWithConfirmation(DateTime date) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFAFAFA),
+        title: const Text('메모 삭제'),
+        content: const Text('이 메모를 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final dateKey = DateTime(date.year, date.month, date.day);
+      final memo = _memosByDate[dateKey];
+      if (memo?.id == null) return;
+
+      try {
+        await DatabaseHelper.instance.deleteMemo(userId, memo!.id!);
+
+        // 메모 목록 다시 로드
+        await _loadMemosForMonth(_focusedDay);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('메모가 삭제되었습니다')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('메모 삭제 실패: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case '확정':
@@ -257,8 +353,43 @@ class CalendarScreenState extends State<CalendarScreen> {
     return itemCount.entries.map((e) => '${e.key} ${e.value}건').join(', ');
   }
 
+  Widget _buildMemoCardForCalendar(DateMemo memo) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9E6),
+        border: Border.all(color: const Color(0xFFFFE082), width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.note,
+            size: 10,
+            color: Color(0xFFF57C00),
+          ),
+          const SizedBox(width: 3),
+          Expanded(
+            child: Text(
+              memo.content,
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF5D4037),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDayCell(DateTime day, bool isToday, bool isSelected, {bool isOutside = false}) {
     final schedules = _getSchedulesForDay(day);
+    final dateKey = DateTime(day.year, day.month, day.day);
+    final memo = _memosByDate[dateKey];
     final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
 
     Color borderColor = Colors.grey.shade300;
@@ -300,18 +431,33 @@ class CalendarScreenState extends State<CalendarScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 날짜
-                      Text(
-                        '${day.day}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                          color: isOutside
-                              ? Colors.grey.shade400
-                              : isWeekend
-                                  ? (day.weekday == DateTime.sunday ? Colors.red : Colors.blue)
-                                  : Colors.black87,
-                        ),
+                      // 날짜와 메모 아이콘
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${day.day}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                              color: isOutside
+                                  ? Colors.grey.shade400
+                                  : isWeekend
+                                      ? (day.weekday == DateTime.sunday ? Colors.red : Colors.blue)
+                                      : Colors.black87,
+                            ),
+                          ),
+                          // 메모 표시 (오른쪽 상단에 동그라미)
+                          if (memo != null)
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF57C00),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
                       ),
                       // 업체별 색상 점 표시
                       if (schedules.isNotEmpty)
@@ -361,55 +507,58 @@ class CalendarScreenState extends State<CalendarScreen> {
               // 스케줄 목록 또는 개수 표시 (확장 모드에서만)
               if (!_isCalendarCompact)
                 Expanded(
-                  child: schedules.isEmpty
+                  child: (schedules.isEmpty && memo == null)
                       ? const SizedBox.shrink()
-                        // 확장 모드: 스케줄 상세 정보 표시
-                        : ListView.builder(
+                        // 확장 모드: 메모 및 스케줄 상세 정보 표시
+                        : ListView(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                             physics: const NeverScrollableScrollPhysics(),
-                            itemCount: schedules.length,
-                            itemBuilder: (context, index) {
-                              final schedule = schedules[index];
-                              // 업체 색상 가져오기 (없으면 기본 회색)
-                              final companyColor = schedule.companyName != null
-                                  ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
-                                  : 0xFF9E9E9E;
-                              final borderColor = Color(companyColor);
+                            children: [
+                              // 메모 카드 (있는 경우 맨 위에 표시)
+                              if (memo != null) _buildMemoCardForCalendar(memo),
+                              // 스케줄 카드들
+                              ...schedules.map((schedule) {
+                                // 업체 색상 가져오기 (없으면 기본 회색)
+                                final companyColor = schedule.companyName != null
+                                    ? _companyColors[schedule.companyName] ?? 0xFF9E9E9E
+                                    : 0xFF9E9E9E;
+                                final borderColor = Color(companyColor);
 
-                              // 상태별 배경색 가져오기
-                              final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
+                                // 상태별 배경색 가져오기
+                                final backgroundColor = _getStatusColor(schedule.computedStatus).withValues(alpha: 1);
 
-                              // 배경색 밝기에 따라 텍스트 색상 자동 조정
-                              final textColor = backgroundColor.computeLuminance() > 0.5
-                                  ? Colors.black87
-                                  : Colors.white;
-                             
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 3),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: backgroundColor,
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: borderColor,
-                                      width: 3,
+                                // 배경색 밝기에 따라 텍스트 색상 자동 조정
+                                final textColor = backgroundColor.computeLuminance() > 0.5
+                                    ? Colors.black87
+                                    : Colors.white;
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: backgroundColor,
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: borderColor,
+                                        width: 3,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                child: Text(
-                                  schedule.visitTime != null
-                                      ? '${schedule.visitTime} ${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}'
-                                      : '${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}',
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
+                                  child: Text(
+                                    schedule.visitTime != null
+                                        ? '${schedule.visitTime} ${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}'
+                                        : '${schedule.computedStatus == '예정' ? '[미확정] ' : ''}${schedule.customerName} ${_formatWorkItems(schedule.workItems)}',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            },
+                                );
+                              }).toList(),
+                            ],
                           ),
                 ),
             ],
@@ -517,6 +666,9 @@ class CalendarScreenState extends State<CalendarScreen> {
     const koreanDays = ['일', '월', '화', '수', '목', '금', '토'];
     final dayOfWeek = koreanDays[_selectedDay!.weekday % 7];
 
+    // 날짜 키 정규화 (시간 제거)
+    final selectedDateKey = DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day);
+
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -551,6 +703,20 @@ class CalendarScreenState extends State<CalendarScreen> {
                     color: Colors.grey.shade800,
                   ),
                 ),
+                const SizedBox(width: 8),
+                // 메모 아이콘
+                GestureDetector(
+                  onTap: () => _showMemoDialog(_selectedDay!),
+                  child: Icon(
+                    _memosByDate.containsKey(selectedDateKey)
+                        ? Icons.edit_note
+                        : Icons.note_add_outlined,
+                    size: 20,
+                    color: _memosByDate.containsKey(selectedDateKey)
+                        ? const Color(0xFF579bf2)
+                        : Colors.grey.shade600,
+                  ),
+                ),
                 const Spacer(),
                 Text(
                   '${schedules.length}건',
@@ -562,6 +728,45 @@ class CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
+          // 메모 표시 (있는 경우)
+          if (_memosByDate.containsKey(selectedDateKey))
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9E6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFE082)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.note, size: 16, color: Color(0xFFF57C00)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _memosByDate[selectedDateKey]!.content,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF5D4037)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _showMemoDialog(_selectedDay!),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.edit, size: 18, color: Color(0xFF579bf2)),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _deleteMemoWithConfirmation(_selectedDay!),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Icon(Icons.delete, size: 18, color: Colors.red.shade400),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // 스케줄이 없을 때
           if (schedules.isEmpty)
             Container(
@@ -716,6 +921,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                 _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
                 _selectedDay = null; // 월 변경 시 선택 초기화
               });
+              _loadMemosForMonth(_focusedDay); // 새로운 월의 메모 로드
             },
           ),
           Text(
@@ -729,6 +935,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                 _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
                 _selectedDay = null; // 월 변경 시 선택 초기화
               });
+              _loadMemosForMonth(_focusedDay); // 새로운 월의 메모 로드
             },
           ),
         ],

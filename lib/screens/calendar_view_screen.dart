@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'calendar_screen.dart';
 import 'weekly_calendar_screen.dart';
+import 'weekly_calendar_v2_screen.dart';
 
 class CalendarViewScreen extends StatefulWidget {
   const CalendarViewScreen({super.key});
@@ -38,12 +39,6 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
     }
   }
 
-  void _toggleOrientation() {
-    if (!_isWeeklyView) {
-      _monthlyKey.currentState?.toggleOrientation();
-    }
-  }
-
   void _toggleCalendarCompact() {
     if (!_isWeeklyView) {
       _monthlyKey.currentState?.toggleCalendarCompactMode();
@@ -57,6 +52,7 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
         title: _isWeeklyView ? '주간 캘린더' : '월간 캘린더',
         toolbarHeight: 40,
         actions: [
+       
           // 월간 캘린더일 때만 확장/축소 버튼 표시
           if (!_isWeeklyView)
             IconButton(
@@ -69,17 +65,6 @@ class CalendarViewScreenState extends State<CalendarViewScreen> {
               tooltip: _monthlyKey.currentState?.isCalendarCompact ?? false
                   ? '캘린더 확장'
                   : '캘린더 축소',
-            ),
-          // 월간 캘린더일 때만 가로/세로 전환 버튼 표시
-          if (!_isWeeklyView)
-            IconButton(
-              icon: Icon(
-                _monthlyKey.currentState?.isPortrait ?? true
-                    ? Icons.screen_rotation
-                    : Icons.stay_current_portrait,
-              ),
-              onPressed: _toggleOrientation,
-              tooltip: _monthlyKey.currentState?.isPortrait ?? true ? '가로보기' : '세로보기',
             ),
           IconButton(
             icon: Icon(_isWeeklyView ? Icons.calendar_month : Icons.calendar_view_week),
