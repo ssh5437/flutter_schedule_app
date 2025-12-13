@@ -31,7 +31,10 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     super.initState();
     _loadSchedules();
     _loadColors();
-    _loadMemosForWeek(DateTime.now()); // 현재 주의 메모 로드
+    // 오늘부터 7일의 메모 로드
+    final today = DateTime.now();
+    final startDate = DateTime(today.year, today.month, today.day);
+    _loadMemosForWeek(startDate);
     // 오늘 날짜를 기본 선택
     _selectedDate = DateTime(
       DateTime.now().year,
@@ -59,9 +62,11 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     return List.generate(7, (index) => startDate.add(Duration(days: index)));
   }
 
-  Future<void> _loadSchedules() async {
+  Future<void> _loadSchedules({bool showLoading = true}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
 
     final userId = Supabase.instance.client.auth.currentUser!.id;
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
@@ -121,16 +126,25 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
         _currentPageIndex = pageIndex;
       });
 
-      // 새로운 주의 메모 로드
+      // 새로운 주의 메모 로드 (오늘 기준으로 offset * 7일 이동)
       final offset = pageIndex - 1000;
-      final startDate = DateTime.now().add(Duration(days: offset * 7));
-      _loadMemosForWeek(startDate);
+      final today = DateTime.now();
+      final startDate = DateTime(today.year, today.month, today.day);
+      final weekStart = startDate.add(Duration(days: offset * 7));
+      _loadMemosForWeek(weekStart);
     }
   }
 
   // 외부에서 호출할 수 있는 refresh 메서드
   void refresh() {
-    _loadSchedules();
+    // 로딩 인디케이터 없이 백그라운드에서 새로고침
+    _loadSchedules(showLoading: false);
+    // 현재 페이지의 메모도 다시 로드 (오늘 기준으로 offset * 7일 이동)
+    final offset = _currentPageIndex - 1000;
+    final today = DateTime.now();
+    final startDate = DateTime(today.year, today.month, today.day);
+    final weekStart = startDate.add(Duration(days: offset * 7));
+    _loadMemosForWeek(weekStart);
   }
 
   // 특정 주의 메모 로드
@@ -747,7 +761,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                         builder: (context) => ScheduleDetailScreen(schedule: schedule),
                       ),
                     );
-                    _loadSchedules();
+                    // 현재 페이지 유지하면서 새로고침
+                    refresh();
                   },
                 ),
               );
@@ -764,7 +779,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
     // 시작일과 종료일의 년월이 같은 경우
     if (startDate.year == endDate.year && startDate.month == endDate.month) {
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
@@ -772,19 +788,40 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                // 이전 주로 이동
+                _pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+            ),
             Text(
               '${startDate.year}년 ${startDate.month}월',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            )
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                // 다음 주로 이동
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+            ),
           ],
         ),
       );
     } else {
       // 두 달에 걸쳐있는 경우
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(
@@ -792,11 +829,31 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                // 이전 주로 이동
+                _pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
+            ),
             Text(
               '${startDate.year}년 ${startDate.month}월 - ${endDate.month}월',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: () {
+                // 다음 주로 이동
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              },
             ),
           ],
         ),
@@ -811,9 +868,11 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
               builder: (context, constraints) {
-                // 현재 페이지의 날짜 계산
+                // 현재 페이지의 날짜 계산 (오늘 기준으로 offset * 7일 이동)
                 final offset = _currentPageIndex - 1000;
-                final startDate = DateTime.now().add(Duration(days: offset * 7));
+                final today = DateTime.now();
+                final todayStart = DateTime(today.year, today.month, today.day);
+                final startDate = todayStart.add(Duration(days: offset * 7));
                 final days = _get7Days(startDate);
                 bool hasMemo = false;
                 // 현재 페이지의 최대 스케줄 개수 + 메모 계산
@@ -851,8 +910,10 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                           onPageChanged: _onPageChanged,
                           itemBuilder: (context, index) {
                             final offset = index - 1000;
-                            final startDate = DateTime.now().add(Duration(days: offset * 7));
-                            final days = _get7Days(startDate);
+                            final today = DateTime.now();
+                            final todayStart = DateTime(today.year, today.month, today.day);
+                            final pageStartDate = todayStart.add(Duration(days: offset * 7));
+                            final days = _get7Days(pageStartDate);
 
                             return Column(
                               children: [

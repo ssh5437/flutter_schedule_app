@@ -310,7 +310,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
             children: [
               Expanded(
                 child: InkWell(
-                  onTap: hasActiveSubscription ? () => _selectDate(true) : _showMembershipRequiredDialog,
+                  onTap: () => _selectDate(true, hasActiveSubscription),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     decoration: BoxDecoration(
@@ -340,7 +340,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
               Expanded(
                 child: InkWell(
-                  onTap: hasActiveSubscription ? () => _selectDate(false) : _showMembershipRequiredDialog,
+                  onTap: () => _selectDate(false, hasActiveSubscription),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     decoration: BoxDecoration(
@@ -367,7 +367,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               const SizedBox(width: 4),
               // 왼쪽 이동 버튼 (한 달 전)
               IconButton(
-                onPressed: hasActiveSubscription ? _movePeriodLeft : _showMembershipRequiredDialog,
+                onPressed: () => _movePeriodLeft(hasActiveSubscription),
                 icon: const Icon(Icons.chevron_left, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -385,7 +385,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               ),
               // 오른쪽 이동 버튼 (한 달 후) - 간격 없이 붙임
               IconButton(
-                onPressed: hasActiveSubscription ? _movePeriodRight : _showMembershipRequiredDialog,
+                onPressed: () => _movePeriodRight(hasActiveSubscription),
                 icon: const Icon(Icons.chevron_right, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -401,7 +401,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
               const SizedBox(width: 4),
               // 올해 년도 버튼
               ElevatedButton(
-                onPressed: hasActiveSubscription ? _setThisYear : _showMembershipRequiredDialog,
+                onPressed: () => _setThisYear(hasActiveSubscription),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF579bf2),
                   foregroundColor: Colors.white,
@@ -421,10 +421,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     );
   }
 
-  void _setThisYear() {
+  void _setThisYear(bool hasActiveSubscription) {
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
     final firstDayOfYear = DateTime(now.year, 1, 1);
+
+    // 무료 사용자: 2달 전 1일 이전인지 확인
+    if (!hasActiveSubscription) {
+      final twoMonthsAgo = DateTime(now.year, now.month - 2, 1);
+      if (firstDayOfYear.isBefore(twoMonthsAgo)) {
+        _showMembershipRequiredDialog();
+        return;
+      }
+    }
 
     setState(() {
       _startDate = firstDayOfYear;
@@ -433,18 +442,29 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     _loadSchedules();
   }
 
-  void _movePeriodLeft() {
+  void _movePeriodLeft(bool hasActiveSubscription) {
+    // 이전 달 1일부터 말일까지
+    final previousMonth = DateTime(_startDate.year, _startDate.month - 1, 1);
+    final previousMonthEnd = DateTime(previousMonth.year, previousMonth.month + 1, 0);
+
+    // 무료 사용자: 2달 전 1일 이전인지 확인
+    if (!hasActiveSubscription) {
+      final now = DateTime.now();
+      final twoMonthsAgo = DateTime(now.year, now.month - 2, 1);
+      if (previousMonth.isBefore(twoMonthsAgo)) {
+        _showMembershipRequiredDialog();
+        return;
+      }
+    }
+
     setState(() {
-      // 이전 달 1일부터 말일까지
-      final previousMonth = DateTime(_startDate.year, _startDate.month - 1, 1);
       _startDate = previousMonth;
-      // 이전 달의 마지막 날 계산 (다음 달 0일 = 이전 달 마지막 날)
-      _endDate = DateTime(previousMonth.year, previousMonth.month + 1, 0);
+      _endDate = previousMonthEnd;
     });
     _loadSchedules();
   }
 
-  void _movePeriodRight() {
+  void _movePeriodRight(bool hasActiveSubscription) {
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
 
@@ -582,7 +602,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     );
   }
 
-  Future<void> _selectDate(bool isStart) async {
+  Future<void> _selectDate(bool isStart, bool hasActiveSubscription) async {
     final now = DateTime.now();
     final dateToShow = isStart ? _startDate : _endDate;
 
@@ -597,6 +617,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     );
 
     if (picked != null && mounted) {
+      // 무료 사용자: 선택한 날짜가 2달 전 1일 이전인지 확인
+      if (!hasActiveSubscription) {
+        final twoMonthsAgo = DateTime(now.year, now.month - 2, 1);
+        if (picked.isBefore(twoMonthsAgo)) {
+          _showMembershipRequiredDialog();
+          return;
+        }
+      }
+
       setState(() {
         if (isStart) {
           _startDate = picked;

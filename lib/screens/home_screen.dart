@@ -298,13 +298,16 @@ class HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.business),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CompanyManagementScreen(),
                 ),
               );
+              // 업체 관리에서 돌아오면 색상 및 스케줄 새로고침
+              _loadColors();
+              _loadSchedules();
             },
             tooltip: '업체 관리',
           ),
