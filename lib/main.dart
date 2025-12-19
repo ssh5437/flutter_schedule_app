@@ -33,15 +33,21 @@ void main() async {
   debugPrint('🚀 App initialization started');
 
   // Edge-to-edge 활성화 (Android 15+ 권장사항)
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: [],
+  );
 
   // 시스템 UI 오버레이 스타일 설정
+  // Android 15 이상에서는 setSystemUIOverlayStyle의 색상 설정이 무시되므로
+  // 투명도만 설정하고 실제 색상은 테마에서 처리
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
     ),
   );
 
