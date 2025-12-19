@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../lib/models/schedule.dart';
-import '../lib/database/database_helper.dart';
+import 'package:bizplan/models/schedule.dart';
+import 'package:bizplan/database/database_helper.dart';
 
 /// 테스트용 스케줄 3000개를 생성하는 스크립트
 /// 2025년 10월 이전 날짜로, 하루에 랜덤으로 0~8개씩 생성

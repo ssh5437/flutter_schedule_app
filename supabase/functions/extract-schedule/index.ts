@@ -15,10 +15,13 @@ serve(async (req) => {
   }
 
   try {
-    // 요청 본문에서 텍스트 추출
-    const { text } = await req.json()
+    // 요청 본문에서 텍스트 및 작업 목록 추출
+    const { text, availableWorkItems } = await req.json()
+
+    console.log('📥 Request received:', { text: text?.substring(0, 100), availableWorkItemsCount: availableWorkItems?.length })
 
     if (!text || typeof text !== 'string') {
+      console.error('❌ Invalid text parameter')
       return new Response(
         JSON.stringify({ error: 'text 파라미터가 필요합니다' }),
         {
@@ -29,6 +32,7 @@ serve(async (req) => {
     }
 
     if (!GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY not found')
       return new Response(
         JSON.stringify({ error: 'GEMINI_API_KEY가 설정되지 않았습니다' }),
         {
@@ -38,13 +42,25 @@ serve(async (req) => {
       )
     }
 
+    console.log('✅ GEMINI_API_KEY exists')
+
     // Gemini API 호출
+    const workItemsPrompt = availableWorkItems && availableWorkItems.length > 0
+      ? `\n- 작업 내용 (workItems) - 문자열 배열 형식. 아래 작업 목록에서만 선택하여 추출하세요. 텍스트에 "3개", "2건" 등의 수량이 있으면 해당 작업명을 그 수량만큼 배열에 반복해서 넣으세요.
+  사용 가능한 작업 목록: ${JSON.stringify(availableWorkItems)}
+  예시: 텍스트에 "실외기 세척 3개"가 있으면 workItems: ["실외기 세척", "실외기 세척", "실외기 세척"]로 반환`
+      : '\n- 작업 내용 (workItems) - 문자열 배열 형식. 에어컨 청소, 세탁기 청소, 이사, 레슨 등 서비스/작업 항목을 추출. 수량이 있으면 해당 수량만큼 배열에 반복'
+
+    const workItemsExample = availableWorkItems && availableWorkItems.length > 0
+      ? availableWorkItems.slice(0, 2)  // 처음 2개만 예시로 사용
+      : ["1way 에어컨 세척", "실외기 세척"]
+
     const prompt = `다음 텍스트에서 스케줄 정보를 추출해주세요. 추출할 정보는 다음과 같습니다:
 - 고객명 (name)
 - 전화번호 (phone) - 숫자만 추출
 - 주소 (address)
 - 날짜 (date) - YYYY-MM-DD 형식
-- 시간 (time) - HH:MM 형식 (24시간제)
+- 시간 (time) - HH:MM 형식 (24시간제)${workItemsPrompt}
 
 JSON 형식으로만 응답해주세요. 값을 찾을 수 없는 경우 null을 사용하세요.
 형식 예시:
@@ -53,7 +69,8 @@ JSON 형식으로만 응답해주세요. 값을 찾을 수 없는 경우 null을
   "phone": "01012345678",
   "address": "서울시 강남구 테헤란로 123",
   "date": "2025-10-15",
-  "time": "14:00"
+  "time": "14:00",
+  "workItems": ${JSON.stringify(workItemsExample)}
 }
 
 텍스트:
@@ -61,8 +78,13 @@ ${text}
 
 JSON 응답:`
 
+    const modelVersion = 'gemini-2.5-flash-lite'
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelVersion}:generateContent?key=${GEMINI_API_KEY}`
+
+    console.log('🚀 Calling Gemini API...', { model: modelVersion })
+
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      apiUrl,
       {
         method: 'POST',
         headers: {
@@ -82,9 +104,11 @@ JSON 응답:`
       }
     )
 
+    console.log('📡 Gemini response status:', geminiResponse.status)
+
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text()
-      console.error('Gemini API 오류:', errorText)
+      console.error('❌ Gemini API 오류:', errorText)
       return new Response(
         JSON.stringify({ error: 'Gemini API 호출 실패', details: errorText }),
         {
@@ -123,6 +147,8 @@ JSON 응답:`
 
     // JSON 파싱
     const extractedData = JSON.parse(jsonText)
+
+    console.log('✅ Successfully extracted data:', extractedData)
 
     return new Response(
       JSON.stringify({ data: extractedData }),

@@ -48,6 +48,17 @@ class TextExtractionLimitHelper {
     }
   }
 
+  /// 사용 횟수 감소 (추출 실패 시 복구용)
+  static Future<void> decrementUsage() async {
+    await _resetIfNewMonth();
+    final prefs = await SharedPreferences.getInstance();
+    final usageCount = prefs.getInt(_usageCountKey) ?? 0;
+
+    if (usageCount > 0) {
+      await prefs.setInt(_usageCountKey, usageCount - 1);
+    }
+  }
+
   /// 테스트용: 사용 횟수 초기화
   static Future<void> resetForTesting() async {
     final prefs = await SharedPreferences.getInstance();

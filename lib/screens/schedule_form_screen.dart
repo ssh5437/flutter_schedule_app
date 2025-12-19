@@ -426,11 +426,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
               Navigator.pop(context);
 
-              // 사용 가능 횟수 확인
-              final canUse = await TextExtractionLimitHelper.incrementUsage();
+              // 사용 가능 횟수 확인 (먼저 체크만 하고 실제 증가는 성공 시에만)
+              final remaining = await TextExtractionLimitHelper.getRemainingCount();
 
-              if (!canUse) {
-                final remaining = await TextExtractionLimitHelper.getRemainingCount();
+              if (remaining <= 0) {
                 if (!mounted) return;
 
                 showDialog(
@@ -452,6 +451,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 );
                 return;
               }
+
+              // 사용 횟수 증가
+              await TextExtractionLimitHelper.incrementUsage();
 
               // 로딩 다이얼로그 표시
               showDialog(
@@ -480,7 +482,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                 ),
               );
 
-              await _extractScheduleInfoDirect(text, true);
+              await _extractScheduleInfoDirect(text, true, shouldDecrementOnError: true);
             },
             icon: const Icon(Icons.auto_fix_high, size: 18),
             label: const Text('추출하기'),
@@ -673,11 +675,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
-    // 사용 가능 횟수 확인 (OCR + Gemini 통합 제한)
-    final canUse = await TextExtractionLimitHelper.incrementUsage();
+    // 사용 가능 횟수 확인 (먼저 체크만 하고 실제 증가는 성공 시에만)
+    final remaining = await TextExtractionLimitHelper.getRemainingCount();
 
-    if (!canUse) {
-      final remaining = await TextExtractionLimitHelper.getRemainingCount();
+    if (remaining <= 0) {
       if (!mounted) return;
 
       showDialog(
@@ -699,6 +700,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       );
       return;
     }
+
+    // 사용 횟수 증가
+    await TextExtractionLimitHelper.incrementUsage();
 
     bool isDialogOpen = false;
 
@@ -766,6 +770,9 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       if (extractedText.trim().isEmpty) {
         debugPrint('⚠️ [ScheduleForm] No text found in image');
 
+        // 추출 실패 시 사용량 복구
+        await TextExtractionLimitHelper.decrementUsage();
+
         // 로딩 다이얼로그 닫기
         if (isDialogOpen) {
           Navigator.of(context, rootNavigator: true).pop();
@@ -828,13 +835,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
       // Gemini API로 정보 추출 (제한 체크 없이 직접 호출)
       debugPrint('🤖 [ScheduleForm] Calling Gemini API');
-      await _extractScheduleInfoDirect(extractedText, isDialogOpen);
+      await _extractScheduleInfoDirect(extractedText, isDialogOpen, shouldDecrementOnError: true);
 
     } catch (e, stack) {
       debugPrint('❌ [ScheduleForm] ERROR in _processImageOCR: $e');
       debugPrint('Stack: $stack');
 
       if (!mounted) return;
+
+      // 추출 실패 시 사용량 복구
+      await TextExtractionLimitHelper.decrementUsage();
 
       // 열려있는 다이얼로그 닫기
       if (isDialogOpen) {
@@ -893,13 +903,19 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 
   // Gemini API로 정보 추출 (제한 체크 없이)
-  Future<void> _extractScheduleInfoDirect(String text, bool isDialogOpen) async {
+  Future<void> _extractScheduleInfoDirect(String text, bool isDialogOpen, {bool shouldDecrementOnError = false}) async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     try {
-      final result = await GeminiHelper.extractScheduleInfo(text);
+      // 선택된 업체의 작업 목록 준비
+      List<String>? availableWorkItems;
+      if (_selectedCompany != null && _selectedCompany!.workItems.isNotEmpty) {
+        availableWorkItems = _selectedCompany!.workItems.map((item) => item.name).toList();
+      }
+
+      final result = await GeminiHelper.extractScheduleInfo(text, availableWorkItems: availableWorkItems);
 
       if (!mounted) return;
 
@@ -913,6 +929,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       }
 
       if (result == null) {
+        // 추출 실패 시 사용량 복구
+        if (shouldDecrementOnError) {
+          await TextExtractionLimitHelper.decrementUsage();
+        }
+
         messenger.showSnackBar(
           const SnackBar(
             content: Text('정보 추출에 실패했습니다. Gemini API 키를 확인해주세요.'),
@@ -965,8 +986,55 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           }
         }
 
-        // 방문시간은 null로 설정 (예정 상태)
-        _visitTime = null;
+        // 시간 추출
+        if (result['time'] != null && result['time'].toString().isNotEmpty) {
+          _visitTime = result['time'].toString();
+        } else {
+          // 방문시간은 null로 설정 (예정 상태)
+          _visitTime = null;
+        }
+
+        // 작업 내용 추출
+        if (result['workItems'] != null && result['workItems'] is List) {
+          final extractedWorkItems = result['workItems'] as List;
+          if (extractedWorkItems.isNotEmpty && _selectedCompany != null) {
+            // 추출된 작업 항목을 현재 업체의 작업 항목과 매칭
+            _workItemsWithCount.clear();
+            _workPrices.clear();
+
+            for (var extractedItem in extractedWorkItems) {
+              final itemName = extractedItem.toString();
+
+              // 현재 업체의 작업 항목에서 정확히 일치하는 항목 찾기
+              final matchedWorkItem = _selectedCompany!.workItems.firstWhere(
+                (workItem) => workItem.name == itemName,
+                orElse: () {
+                  // 정확히 일치하지 않으면 유사한 항목 찾기
+                  try {
+                    return _selectedCompany!.workItems.firstWhere(
+                      (workItem) => workItem.name.toLowerCase().contains(itemName.toLowerCase()) ||
+                                    itemName.toLowerCase().contains(workItem.name.toLowerCase()),
+                    );
+                  } catch (e) {
+                    // 유사한 항목도 없으면 첫 번째 항목 사용 (또는 새 항목 생성)
+                    return _selectedCompany!.workItems.isNotEmpty
+                      ? _selectedCompany!.workItems.first
+                      : WorkItem(name: itemName, price: 0);
+                  }
+                },
+              );
+
+              // 작업 항목 추가 (수량만큼 카운트 증가)
+              _workItemsWithCount[matchedWorkItem.name] =
+                  (_workItemsWithCount[matchedWorkItem.name] ?? 0) + 1;
+              _workPrices[matchedWorkItem.name] = matchedWorkItem.price;
+            }
+
+            // 총 건수 업데이트
+            int total = _workItemsWithCount.values.fold(0, (sum, count) => sum + count);
+            _workCountController.text = total.toString();
+          }
+        }
       });
 
       messenger.showSnackBar(
@@ -985,6 +1053,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+
+      // 추출 실패 시 사용량 복구
+      if (shouldDecrementOnError) {
+        await TextExtractionLimitHelper.decrementUsage();
+      }
 
       // 로딩 다이얼로그 닫기
       if (isDialogOpen) {

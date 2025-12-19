@@ -43,7 +43,8 @@
       "Bash(tee:*)",
       "Bash(cat:*)",
       "Bash(supabase secrets:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

@@ -507,7 +507,7 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
                       // 스케줄 카드들
                       ...schedules.map((schedule) {
                         return _buildScheduleCard(schedule);
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),

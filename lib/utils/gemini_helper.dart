@@ -2,12 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GeminiHelper {
-  static Future<Map<String, dynamic>?> extractScheduleInfo(String text) async {
+  static Future<Map<String, dynamic>?> extractScheduleInfo(String text, {List<String>? availableWorkItems}) async {
     try {
       // Supabase Edge Function 호출
       final response = await Supabase.instance.client.functions.invoke(
         'extract-schedule',
-        body: {'text': text},
+        body: {
+          'text': text,
+          'availableWorkItems': availableWorkItems,
+        },
       );
 
       if (response.data == null) {

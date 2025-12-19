@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'calendar_screen.dart';
 import 'weekly_calendar_screen.dart';
-import 'weekly_calendar_v2_screen.dart';
 
 class CalendarViewScreen extends StatefulWidget {
   const CalendarViewScreen({super.key});

@@ -557,7 +557,7 @@ class CalendarScreenState extends State<CalendarScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ],
                           ),
                 ),
