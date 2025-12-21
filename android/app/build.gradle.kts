@@ -35,8 +35,8 @@ android {
         applicationId = "com.vividlife.bizplan"
         minSdk = 24  // Android 7.0 이상
         targetSdk = 36  // Android 16
-        versionCode = 28
-        versionName = "1.1.14"
+        versionCode = 29
+        versionName = "1.1.15"
         multiDexEnabled = true
     }
 

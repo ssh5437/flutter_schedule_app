@@ -873,7 +873,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final Uri emailUri = Uri(
                 scheme: 'mailto',
                 path: 'vividlifekr@gmail.com',
-                query: 'subject=${Uri.encodeComponent('비도 관리 앱 문의')}',
+                query: 'subject=${Uri.encodeComponent('B-EZ 관리 앱 문의')}',
               );
 
               try {

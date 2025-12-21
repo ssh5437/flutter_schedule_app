@@ -264,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    '비도',
+                    'B-EZ',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
