@@ -15,13 +15,16 @@ serve(async (req) => {
   }
 
   try {
+    // 고유 요청 ID 생성 (중복 호출 추적용)
+    const requestId = crypto.randomUUID()
+
     // 요청 본문에서 텍스트 및 작업 목록 추출
     const { text, availableWorkItems } = await req.json()
 
-    console.log('📥 Request received:', { text: text?.substring(0, 100), availableWorkItemsCount: availableWorkItems?.length })
+    console.log(`📥 [${requestId}] Request received:`, { text: text?.substring(0, 100), availableWorkItemsCount: availableWorkItems?.length })
 
     if (!text || typeof text !== 'string') {
-      console.error('❌ Invalid text parameter')
+      console.error(`❌ [${requestId}] Invalid text parameter`)
       return new Response(
         JSON.stringify({ error: 'text 파라미터가 필요합니다' }),
         {
@@ -32,7 +35,7 @@ serve(async (req) => {
     }
 
     if (!GEMINI_API_KEY) {
-      console.error('❌ GEMINI_API_KEY not found')
+      console.error(`❌ [${requestId}] GEMINI_API_KEY not found`)
       return new Response(
         JSON.stringify({ error: 'GEMINI_API_KEY가 설정되지 않았습니다' }),
         {
@@ -42,9 +45,9 @@ serve(async (req) => {
       )
     }
 
-    console.log('✅ GEMINI_API_KEY exists')
+    console.log(`✅ [${requestId}] GEMINI_API_KEY exists`)
 
-    // Gemini API 호출
+    // Gemini API 호출 (1회만 호출되어야 함)
     const workItemsPrompt = availableWorkItems && availableWorkItems.length > 0
       ? `\n- 작업 내용 (workItems) - 문자열 배열 형식. 아래 작업 목록에서만 선택하여 추출하세요. 텍스트에 "3개", "2건" 등의 수량이 있으면 해당 작업명을 그 수량만큼 배열에 반복해서 넣으세요.
   사용 가능한 작업 목록: ${JSON.stringify(availableWorkItems)}
@@ -81,7 +84,7 @@ JSON 응답:`
     const modelVersion = 'gemini-2.5-flash-lite'
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelVersion}:generateContent?key=${GEMINI_API_KEY}`
 
-    console.log('🚀 Calling Gemini API...', { model: modelVersion })
+    console.log(`🚀 [${requestId}] Calling Gemini API (generateContent only)...`, { model: modelVersion })
 
     const geminiResponse = await fetch(
       apiUrl,
@@ -104,11 +107,11 @@ JSON 응답:`
       }
     )
 
-    console.log('📡 Gemini response status:', geminiResponse.status)
+    console.log(`📡 [${requestId}] Gemini response status:`, geminiResponse.status)
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text()
-      console.error('❌ Gemini API 오류:', errorText)
+      console.error(`❌ [${requestId}] Gemini API 오류:`, errorText)
       return new Response(
         JSON.stringify({ error: 'Gemini API 호출 실패', details: errorText }),
         {
@@ -148,7 +151,8 @@ JSON 응답:`
     // JSON 파싱
     const extractedData = JSON.parse(jsonText)
 
-    console.log('✅ Successfully extracted data:', extractedData)
+    console.log(`✅ [${requestId}] Successfully extracted data:`, extractedData)
+    console.log(`🎯 [${requestId}] Total Gemini API calls: 1 (generateContent only)`)
 
     return new Response(
       JSON.stringify({ data: extractedData }),

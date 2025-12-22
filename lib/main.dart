@@ -134,13 +134,34 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final _appLinks = AppLinks();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _handleDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('🔄 App lifecycle changed: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아올 때 강제 리빌드
+      debugPrint('✅ App resumed - forcing rebuild');
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   // Deep Link 처리
@@ -291,7 +312,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
@@ -302,6 +323,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _screens = [
       HomeScreen(key: _homeKey),
       CalendarViewScreen(key: _calendarKey),
@@ -317,6 +339,28 @@ class _MainScreenState extends State<MainScreen> {
       _initializeSubscription();
       _updateLastSeen();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('🔄 MainScreen lifecycle changed: $state');
+
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아올 때 화면 새로고침
+      debugPrint('✅ MainScreen resumed - refreshing screens');
+      if (mounted) {
+        _homeKey.currentState?.refresh();
+        _calendarKey.currentState?.refresh();
+        setState(() {});
+      }
+    }
   }
 
   // 구독 상태 초기화

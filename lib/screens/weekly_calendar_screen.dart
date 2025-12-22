@@ -894,7 +894,8 @@ class WeeklyCalendarScreenState extends State<WeeklyCalendarScreen> {
 
                 // 스케줄+메모 개수에 따른 카드 영역 높이 계산
                 final minHeight = 200.0;
-                final calculatedHeight = 82.0 + (maxItemCount * 59.0) + (hasMemo ? 40.0 : 0);
+                //final calculatedHeight = 82.0 + (maxItemCount * 59.0) + (hasMemo ? 40.0 : 0);
+                final calculatedHeight = 80.0 + (maxItemCount * 53.0) + (hasMemo ? 0 : 0);
                 final cardAreaHeight = calculatedHeight.clamp(minHeight, 500.0);
 
                 return SingleChildScrollView(

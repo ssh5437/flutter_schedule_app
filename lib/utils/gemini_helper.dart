@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class GeminiHelper {
   static Future<Map<String, dynamic>?> extractScheduleInfo(String text, {List<String>? availableWorkItems}) async {
     try {
+      debugPrint('🚀 [GeminiHelper] Calling Edge Function...');
+
       // Supabase Edge Function 호출
       final response = await Supabase.instance.client.functions.invoke(
         'extract-schedule',
@@ -12,6 +14,8 @@ class GeminiHelper {
           'availableWorkItems': availableWorkItems,
         },
       );
+
+      debugPrint('✅ [GeminiHelper] Edge Function response received');
 
       if (response.data == null) {
         debugPrint('Edge Function 응답 없음');

@@ -692,6 +692,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const Divider(),
 
+               // 알림 설정
+          ListTile(
+            leading: const Icon(Icons.notifications),
+            title: const Text('알림 설정'),
+            subtitle: const Text('스케줄 알림 시간을 설정합니다'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
+          ), 
+          
+          const Divider(),
+          
           ListTile(
             leading: Icon(Icons.widgets, color: _widgetBackgroundColor),
             title: const Text('위젯 배경색'),
@@ -787,21 +805,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // 알림 설정
-          ListTile(
-            leading: const Icon(Icons.notifications),
-            title: const Text('알림 설정'),
-            subtitle: const Text('스케줄 알림 시간을 설정합니다'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationSettingsScreen(),
-                ),
-              );
-            },
-          ),
+     
 
           // 디버그 정보 (ssh5437@gmail.com만 접근 가능)
           if (Supabase.instance.client.auth.currentUser?.email == 'ssh5437@gmail.com')

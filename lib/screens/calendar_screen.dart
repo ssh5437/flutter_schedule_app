@@ -27,6 +27,8 @@ class CalendarScreenState extends State<CalendarScreen> {
   Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
   bool _isCalendarCompact = false; // 캘린더 축소 모드 여부
+  late PageController _pageController; // 월간 스와이프용 PageController
+  final int _initialPage = 12000; // 중간 지점 (100년 * 12개월 = 1200개월)
 
   // 외부에서 호출 가능한 새로고침 메서드
   void refresh() {
@@ -52,6 +54,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _initialPage);
     _selectedDay = _focusedDay;
     _loadSchedules();
     _loadColors();
@@ -88,6 +91,7 @@ class CalendarScreenState extends State<CalendarScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -101,9 +105,11 @@ class CalendarScreenState extends State<CalendarScreen> {
       final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
       final today = DateTime.now();
 
-      // 마지막 날짜가 포함된 주의 인덱스 계산
-      final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
-      final maxWeeks = lastDayWeekIndex;
+      // 캘린더 종료일 (마지막 날이 속한 주의 토요일)
+      final calendarEndDay = lastDay.add(Duration(days: 6 - (lastDay.weekday % 7)));
+
+      // 전체 주 수 계산 (시작일부터 종료일까지)
+      final maxWeeks = ((calendarEndDay.difference(calendarStartDay).inDays) / 7).ceil();
 
       // 현재 날짜가 속한 주 찾기
       int currentWeek = 0;
@@ -575,10 +581,32 @@ class CalendarScreenState extends State<CalendarScreen> {
         : LayoutBuilder(
               builder: (context, constraints) {
                 if (_isPortrait) {
-                  // 세로보기: 스크롤 가능
-                  return SingleChildScrollView(
-                    controller: _scrollController,
-                    child: _buildDynamicCalendar(constraints.maxWidth),
+                  // 세로보기: PageView로 좌우 스와이프 지원 (index 기반)
+                  return PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      final monthOffset = index - _initialPage;
+                      final newMonth = DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month + monthOffset,
+                      );
+                      setState(() {
+                        _focusedDay = newMonth;
+                        _selectedDay = null; // 월 변경 시 선택 초기화
+                      });
+                      _loadMemosForMonth(newMonth); // 새로운 월의 메모 로드
+                    },
+                    itemBuilder: (context, index) {
+                      // 주간 캘린더처럼 각 페이지가 index 기반으로 독립적인 달 생성
+                      final monthOffset = index - _initialPage;
+                      final targetMonth = DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month + monthOffset,
+                      );
+                      return SingleChildScrollView(
+                        child: _buildMonthCalendar(targetMonth, constraints.maxWidth),
+                      );
+                    },
                   );
                 } else {
                   // 가로보기: 화면을 90도 회전하고 스크롤 가능
@@ -599,15 +627,22 @@ class CalendarScreenState extends State<CalendarScreen> {
 
   // 각 주의 최대 스케줄 개수를 계산하여 동적 높이 적용
   List<double> _calculateRowHeights() {
-    final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    final lastDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 0); // 해당 월의 마지막 날
+    return _calculateRowHeightsForMonth(_focusedDay);
+  }
+
+  // 특정 월의 행 높이를 계산하는 공통 메서드
+  List<double> _calculateRowHeightsForMonth(DateTime targetMonth) {
+    final firstDay = DateTime(targetMonth.year, targetMonth.month, 1);
+    final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0); // 해당 월의 마지막 날
 
     // 캘린더 시작일 (첫 주의 일요일)
     final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
 
-    // 마지막 날짜가 포함된 주의 인덱스 계산
-    final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
-    final maxWeeks = lastDayWeekIndex;
+    // 캘린더 종료일 (마지막 날이 속한 주의 토요일)
+    final calendarEndDay = lastDay.add(Duration(days: 6 - (lastDay.weekday % 7)));
+
+    // 전체 주 수 계산 (시작일부터 종료일까지)
+    final maxWeeks = ((calendarEndDay.difference(calendarStartDay).inDays) / 7).ceil();
 
     List<double> rowHeights = [];
     DateTime currentWeekStart = calendarStartDay;
@@ -633,8 +668,8 @@ class CalendarScreenState extends State<CalendarScreen> {
         // 스케줄이 2개 이상이면 기본 높이 없이 스케줄 개수만큼만 계산
         // 스케줄이 0~1개면 기본 높이 80px 사용
         final rowHeight = maxSchedulesInWeek >= 2
-            ? (maxSchedulesInWeek * 25.0) + 50.0  // 날짜 표시 공간 50px만 추가
-            : 80.0 + (maxSchedulesInWeek * 25.0);
+            ? (maxSchedulesInWeek * 22.0) + 50.0  // 날짜 표시 공간 50px만 추가
+            : 80.0 + (maxSchedulesInWeek * 22.0);
         rowHeights.add(rowHeight);
       }
 
@@ -655,6 +690,24 @@ class CalendarScreenState extends State<CalendarScreen> {
         _buildDaysOfWeekRow(),
         // 동적 높이를 가진 캘린더 행들
         ..._buildCalendarRows(rowHeights, width),
+        // 선택된 날짜의 스케줄 목록
+        if (_selectedDay != null) _buildSelectedDaySchedules(),
+      ],
+    );
+  }
+
+  // index 기반으로 특정 달의 캘린더를 빌드 (주간 캘린더 방식)
+  Widget _buildMonthCalendar(DateTime targetMonth, double width) {
+    final rowHeights = _calculateRowHeightsForMonth(targetMonth);
+
+    return Column(
+      children: [
+        // 캘린더 헤더
+        _buildCalendarHeader(),
+        // 요일 행
+        _buildDaysOfWeekRow(),
+        // 동적 높이를 가진 캘린더 행들
+        ..._buildCalendarRowsForMonth(targetMonth, rowHeights, width),
         // 선택된 날짜의 스케줄 목록
         if (_selectedDay != null) _buildSelectedDaySchedules(),
       ],
@@ -917,11 +970,13 @@ class CalendarScreenState extends State<CalendarScreen> {
           IconButton(
             icon: const Icon(Icons.chevron_left),
             onPressed: () {
-              setState(() {
-                _focusedDay = DateTime(_focusedDay.year, _focusedDay.month - 1);
-                _selectedDay = null; // 월 변경 시 선택 초기화
-              });
-              _loadMemosForMonth(_focusedDay); // 새로운 월의 메모 로드
+              // PageView의 이전 페이지로 이동
+              if (_pageController.hasClients) {
+                _pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
             },
           ),
           Text(
@@ -931,11 +986,13 @@ class CalendarScreenState extends State<CalendarScreen> {
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: () {
-              setState(() {
-                _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + 1);
-                _selectedDay = null; // 월 변경 시 선택 초기화
-              });
-              _loadMemosForMonth(_focusedDay); // 새로운 월의 메모 로드
+              // PageView의 다음 페이지로 이동
+              if (_pageController.hasClients) {
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
             },
           ),
         ],
@@ -975,22 +1032,29 @@ class CalendarScreenState extends State<CalendarScreen> {
   }
 
   List<Widget> _buildCalendarRows(List<double> rowHeights, double width) {
-    final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    final lastDay = DateTime(_focusedDay.year, _focusedDay.month + 1, 0); // 해당 월의 마지막 날
+    return _buildCalendarRowsForMonth(_focusedDay, rowHeights, width);
+  }
+
+  // 특정 월의 캘린더 행들을 빌드하는 공통 메서드
+  List<Widget> _buildCalendarRowsForMonth(DateTime targetMonth, List<double> rowHeights, double width) {
+    final firstDay = DateTime(targetMonth.year, targetMonth.month, 1);
+    final lastDay = DateTime(targetMonth.year, targetMonth.month + 1, 0); // 해당 월의 마지막 날
     final calendarStartDay = firstDay.subtract(Duration(days: firstDay.weekday % 7));
 
-    List<Widget> rows = [];
+    // 캘린더 종료일 (마지막 날이 속한 주의 토요일)
+    final calendarEndDay = lastDay.add(Duration(days: 6 - (lastDay.weekday % 7)));
 
-    // 마지막 날짜가 포함된 주의 인덱스 계산
-    final lastDayWeekIndex = ((lastDay.difference(calendarStartDay).inDays) / 7).ceil();
-    final maxWeeks = lastDayWeekIndex;
+    // 전체 주 수 계산 (시작일부터 종료일까지)
+    final maxWeeks = ((calendarEndDay.difference(calendarStartDay).inDays) / 7).ceil();
+
+    List<Widget> rows = [];
 
     for (int week = 0; week < maxWeeks; week++) {
       List<Widget> dayCells = [];
 
       for (int day = 0; day < 7; day++) {
         final currentDay = calendarStartDay.add(Duration(days: week * 7 + day));
-        final isCurrentMonth = currentDay.month == _focusedDay.month;
+        final isCurrentMonth = currentDay.month == targetMonth.month;
         final isToday = isSameDay(currentDay, DateTime.now());
         final isSelected = isSameDay(currentDay, _selectedDay);
 
