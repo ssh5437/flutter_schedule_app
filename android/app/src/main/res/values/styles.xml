@@ -20,5 +20,8 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
+        <!-- 천지인 키보드 등 한글 IME 지원을 위한 설정 -->
+        <!-- 소프트 입력 모드를 adjustResize로 설정하여 키보드가 화면을 밀어올림 -->
+        <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
 </resources>

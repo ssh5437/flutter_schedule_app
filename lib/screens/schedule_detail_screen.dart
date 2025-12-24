@@ -307,6 +307,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
               if (_schedule.visitDate != null && _schedule.visitTime != null) ...[
                 const SizedBox(height: 12),
                 _buildRepeatButton(),
+                const SizedBox(height: 40), // 하단 네비게이션 버튼 간섭 방지를 위한 여백
               ],
             ],
           ),

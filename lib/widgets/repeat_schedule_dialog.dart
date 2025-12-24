@@ -40,7 +40,7 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
     } else {
       _startDate = widget.initialDate.add(const Duration(days: 1));
     }
-    _endDate = _startDate.add(const Duration(days: 30));
+    _endDate = _startDate; // 종료일을 시작일과 동일하게 설정
 
     // 주간 반복과 월간 반복 설정은 원본 스케줄 날짜 기준
     _selectedWeekdays.add(widget.initialDate.weekday);
@@ -79,6 +79,14 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    color: Colors.grey.shade700,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
@@ -453,14 +461,14 @@ class _RepeatScheduleDialogState extends State<RepeatScheduleDialog> {
                       (date) => setState(() {
                         _startDate = date;
                         if (_endDate != null && _endDate!.isBefore(date)) {
-                          _endDate = date.add(const Duration(days: 30));
+                          _endDate = date;
                         }
                       }),
                     ),
                     const SizedBox(height: 12),
                     _buildDatePickerRow(
                       '종료일',
-                      _endDate ?? _startDate.add(const Duration(days: 30)),
+                      _endDate ?? _startDate,
                       (date) => setState(() => _endDate = date),
                     ),
                   ],

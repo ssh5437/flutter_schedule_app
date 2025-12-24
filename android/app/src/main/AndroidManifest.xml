@@ -77,6 +77,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- 천지인 키보드 등 한글 IME 지원을 위한 설정 -->
+        <!-- Delta text input 강제 활성화 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableDeltaTextInput"
+            android:value="true" />
+
         <!-- Firebase Analytics 설정 (디버그: false, 릴리스: true) -->
         <meta-data
             android:name="firebase_analytics_collection_enabled"

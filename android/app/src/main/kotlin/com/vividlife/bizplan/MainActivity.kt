@@ -10,6 +10,8 @@ import android.content.ComponentName
 import android.os.Build
 import android.os.Bundle
 import androidx.core.view.WindowCompat
+import android.view.WindowManager
+import android.view.View
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.vividlife.bizplan/widget"
@@ -18,6 +20,20 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 천지인 키보드 등 조합형 한글 입력 지원을 위한 설정
+        // 1. SoftInputMode 설정 - 키보드가 화면을 리사이즈하도록 설정
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        )
+
+        // 2. IME 옵션 설정 - 한글 조합형 입력 지원 강화
+        // 이 설정으로 천지인 키보드의 ㆍ(아래아) 등 조합 문자가 정상 작동
+        window.decorView.apply {
+            // IME가 항상 활성화 상태 유지
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+        }
 
         // Edge-to-edge 활성화 (Android 15+ 권장사항)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

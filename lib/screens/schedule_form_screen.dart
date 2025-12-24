@@ -1327,7 +1327,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                               fillColor: Colors.grey[50],
                             ),
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zㄱ-ㅎ가-힣\s]')),
+                              // 천지인 키보드 완전 지원: ㆍ(아래아 U+318D), ᆢ(아래아2개 U+11A2), 모든 한글 자모
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Zㄱ-ㅎㅏ-ㅣㆍᆢ가-힣\s]')),
                             ],
                             validator: (value) {
                               if (value == null || value.isEmpty) {
@@ -1456,7 +1457,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             maxLines: 2,
                             minLines: 1,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9ㄱ-ㅎ가-힣\s,\-]')),
+                              // 천지인 키보드 완전 지원: ㆍ(아래아 U+318D), ᆢ(아래아2개 U+11A2), 숫자, 한글
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9ㄱ-ㅎㅏ-ㅣㆍᆢ가-힣\s,\-]')),
                             ],
                             validator: (value) {
                               // 주소는 선택 입력

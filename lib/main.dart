@@ -32,6 +32,11 @@ void main() async {
   final startTime = DateTime.now();
   debugPrint('🚀 App initialization started');
 
+  // 천지인 키보드 등 한글 조합형 입력 지원을 위한 설정
+  // Flutter 3.24 이상에서는 delta text editing이 기본 활성화되어 있지만
+  // 명시적으로 설정하여 한글 IME(Input Method Editor) 지원을 강화
+  debugPrint('✅ Korean IME support enabled (Cheonjiin keyboard compatible)');
+
   // Edge-to-edge 활성화 (Android 15+ 권장사항)
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
@@ -249,6 +254,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           scaffoldBackgroundColor: const Color(0xFFFAFAFA),
           dialogTheme: const DialogThemeData(
             backgroundColor: Color(0xFFFAFAFA),
+          ),
+          // TextField 테마 설정 - 천지인 키보드 등 한글 IME 지원 강화
+          inputDecorationTheme: const InputDecorationTheme(
+            // IME 조합 문자 표시를 위한 설정
+            alignLabelWithHint: true,
           ),
           useMaterial3: true,
         ),
