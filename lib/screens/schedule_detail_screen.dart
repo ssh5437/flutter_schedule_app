@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
@@ -198,6 +199,65 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     );
   }
 
+  // 스케줄 공유 기능
+  Future<void> _shareSchedule() async {
+    try {
+      // 스케줄 정보를 텍스트로 포맷팅
+      final StringBuffer message = StringBuffer();
+
+      message.writeln('📋 스케줄 정보');
+      message.writeln('━━━━━━━━━━━━━━━━');
+      message.writeln('📅 날짜: ${_formatDate(_schedule.visitDate)}');
+
+      if (_schedule.visitTime != null && _schedule.visitTime!.isNotEmpty && _schedule.visitTime != '미정') {
+        message.writeln('🕐 시간: ${_schedule.visitTime}');
+      }
+
+      message.writeln('👤 고객명: ${_schedule.customerName}');
+      message.writeln('📞 연락처: ${_schedule.phoneNumber}');
+
+      if (_schedule.address != null && _schedule.address!.isNotEmpty) {
+        message.writeln('📍 주소: ${_schedule.address}');
+      }
+
+      if (_schedule.workItems.isNotEmpty) {
+        message.writeln('🔧 작업 항목:');
+        message.writeln(_formatWorkItemsWithPrices(_schedule.workItems, _schedule.workPrices));
+      }
+
+      if (_schedule.notes != null && _schedule.notes!.isNotEmpty) {
+        message.writeln('📝 메모: ${_schedule.notes}');
+      }
+
+      message.writeln('━━━━━━━━━━━━━━━━');
+      message.writeln();
+      message.writeln('🤖 B-EZ 관리 앱에서 공유됨');
+      message.writeln('📲 Google Play: https://play.google.com/store/apps/details?id=com.vividlife.bizplan');
+      message.writeln('🌐 더 알아보기: https://vividlife.kr/bizplan');
+
+      // Analytics 기록
+      await AnalyticsService().logFeatureUsed(
+        featureName: 'schedule_share',
+        parameters: {
+          'schedule_id': _schedule.id ?? 0,
+          'has_work_items': _schedule.workItems.isNotEmpty,
+        },
+      );
+
+      // share_plus를 사용하여 공유
+      await Share.share(
+        message.toString(),
+        subject: '${_schedule.customerName}님 스케줄 - B-EZ 관리',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유 중 오류가 발생했습니다: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteSchedule() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -268,7 +328,13 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         toolbarHeight: 40,
         actions: [
           IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: '공유하기',
+            onPressed: _shareSchedule,
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
+            tooltip: '수정',
             onPressed: () async {
               await Navigator.push(
                 context,
@@ -290,6 +356,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.delete),
+            tooltip: '삭제',
             onPressed: _deleteSchedule,
           ),
         ],
