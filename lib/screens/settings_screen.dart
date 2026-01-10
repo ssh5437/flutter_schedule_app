@@ -403,119 +403,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 백업 복구
   Future<void> _performRestore() async {
     try {
+      debugPrint('========================================');
+      debugPrint('🔄 백업 복구 프로세스 시작');
       final backupService = BackupService();
       final filePath = await backupService.pickBackupFile();
 
-      if (filePath == null) return;
+      debugPrint('선택된 파일 경로: $filePath');
 
-      // 백업 정보 조회
-      final backupInfo = await backupService.getBackupInfo(filePath);
-      final exportDate = backupInfo['exportDate'] as DateTime?;
-      final schedulesCount = backupInfo['schedulesCount'] as int;
-      final companiesCount = backupInfo['companiesCount'] as int;
+      if (filePath == null) {
+        debugPrint('❌ 파일이 선택되지 않음');
+        return;
+      }
 
-      if (!mounted) return;
+      debugPrint('✅ 파일 선택됨, 복구 다이얼로그 표시');
 
-      // 복구 옵션 선택
-      final restoreOption = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('백업 복구'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('백업 일시: ${exportDate != null ? DateFormat('yyyy-MM-dd HH:mm').format(exportDate) : '알 수 없음'}'),
-              Text('스케줄: $schedulesCount개'),
-              Text('업체: $companiesCount개'),
-              const SizedBox(height: 16),
-              const Text('복구 방법을 선택하세요:'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'add'),
-              child: const Text('기존 데이터에 추가'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, 'replace'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('기존 데이터 삭제 후 복구'),
-            ),
-          ],
-        ),
-      );
+      if (!mounted) {
+        debugPrint('❌ Widget이 unmounted 상태 (파일 선택 후)');
+        return;
+      }
 
-      if (restoreOption == null) return;
+      // 복구 진행 다이얼로그 표시 (백업 정보 조회부터 복구까지 모두 다이얼로그 내부에서)
+      final beforeDialog = DateTime.now();
+      debugPrint('🕐 showDialog 호출 직전');
 
-      if (!mounted) return;
-
-      // 최종 확인
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('복구 확인'),
-          content: Text(
-            restoreOption == 'replace'
-                ? '기존 데이터를 모두 삭제하고 백업 데이터로 복구합니다.\n이 작업은 되돌릴 수 없습니다.'
-                : '백업 데이터를 기존 데이터에 추가합니다.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: TextButton.styleFrom(
-                foregroundColor: restoreOption == 'replace' ? Colors.red : null,
-              ),
-              child: const Text('복구'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return;
-
-      if (!mounted) return;
-
-      // 복구 실행
-      showDialog(
+      final result = await showDialog<Map<String, dynamic>>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                '데이터를 복구중입니다...\n잠시만 기다려주세요.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+        builder: (context) => _RestoreProgressDialog(
+          filePath: filePath,
         ),
       );
 
-      final result = await backupService.restoreBackup(
-        filePath,
-        replaceAll: restoreOption == 'replace',
-      );
+      final afterDialog = DateTime.now();
+      debugPrint('🕐 showDialog 완료 (${afterDialog.difference(beforeDialog).inMilliseconds}ms)');
 
-      if (!mounted) return;
-      Navigator.pop(context); // 로딩 닫기
+      if (result == null) {
+        debugPrint('❌ 복구 다이얼로그에서 null 반환');
+        return;
+      }
+
+      if (!mounted) {
+        debugPrint('⚠️ 복구 완료했지만 Widget이 unmounted 상태 - UI 업데이트 생략');
+        return;
+      }
 
       // 결과 메시지 생성
       final schedulesSuccess = result['schedules'] as int;
       final companiesSuccess = result['companies'] as int;
+      final memosSuccess = result['memos'] as int? ?? 0;
       final schedulesFailed = result['schedulesFailed'] as int;
       final companiesFailed = result['companiesFailed'] as int;
+      final memosFailed = result['memosFailed'] as int? ?? 0;
       final errors = result['errors'] as List<String>;
 
       String message = '복구 완료\n';
@@ -526,6 +464,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       message += '\n업체: $companiesSuccess개 성공';
       if (companiesFailed > 0) {
         message += ', $companiesFailed개 실패';
+      }
+      if (memosSuccess > 0 || memosFailed > 0) {
+        message += '\n메모: $memosSuccess개 성공';
+        if (memosFailed > 0) {
+          message += ', $memosFailed개 실패';
+        }
       }
 
       // 에러가 있으면 상세 정보 다이얼로그 표시
@@ -569,8 +513,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       }
-    } catch (e) {
-      if (!mounted) return;
+    } catch (e, stackTrace) {
+      debugPrint('========================================');
+      debugPrint('❌❌❌ 복구 프로세스 에러 발생 ❌❌❌');
+      debugPrint('에러: $e');
+      debugPrint('스택트레이스: $stackTrace');
+      debugPrint('========================================');
+
+      if (!mounted) {
+        debugPrint('❌ Widget unmounted 상태에서 에러 발생');
+        return;
+      }
+
       if (Navigator.canPop(context)) {
         Navigator.pop(context); // 로딩 닫기
       }
@@ -925,6 +879,234 @@ class _SettingsScreenState extends State<SettingsScreen> {
           //   ),
           // ),
         ],
+      ),
+    );
+  }
+}
+
+// 복구 진행 다이얼로그 (독립적인 StatefulWidget)
+class _RestoreProgressDialog extends StatefulWidget {
+  final String filePath;
+
+  const _RestoreProgressDialog({
+    required this.filePath,
+  });
+
+  @override
+  State<_RestoreProgressDialog> createState() => _RestoreProgressDialogState();
+}
+
+class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
+  bool _showOptions = true; // 옵션 선택 화면 표시 여부
+  String _statusMessage = '백업 정보 조회 중...';
+  double _progress = 0.0;
+  bool _isComplete = false;
+
+  // 백업 정보
+  int _schedulesCount = 0;
+  int _companiesCount = 0;
+  int _memosCount = 0;
+  DateTime? _exportDate;
+  bool _backupInfoLoaded = false;
+  Map<String, dynamic>? _cachedBackupData; // 백업 데이터 캐싱
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBackupInfo();
+  }
+
+  Future<void> _loadBackupInfo() async {
+    try {
+      final dialogStartTime = DateTime.now();
+      debugPrint('🕐 다이얼로그 _loadBackupInfo 시작');
+
+      final backupService = BackupService();
+
+      // 백업 파일을 읽어서 캐싱 (한 번만 읽음)
+      final beforeRead = DateTime.now();
+      _cachedBackupData = await backupService.readBackupFile(widget.filePath);
+      final afterRead = DateTime.now();
+      debugPrint('🕐 readBackupFile 완료 (${afterRead.difference(beforeRead).inMilliseconds}ms)');
+
+      // 백업 정보 추출
+      final schedules = _cachedBackupData!['schedules'] as List?;
+      final companies = _cachedBackupData!['companies'] as List?;
+      final memos = _cachedBackupData!['memos'] as List?;
+      final exportDate = _cachedBackupData!['exportDate'] as String?;
+
+      if (mounted) {
+        setState(() {
+          _schedulesCount = schedules?.length ?? 0;
+          _companiesCount = companies?.length ?? 0;
+          _memosCount = memos?.length ?? 0;
+          _exportDate = exportDate != null ? DateTime.parse(exportDate) : null;
+          _backupInfoLoaded = true;
+          _statusMessage = '백업 정보 조회 완료';
+        });
+        final totalTime = DateTime.now().difference(dialogStartTime).inMilliseconds;
+        debugPrint('🕐 다이얼로그 _loadBackupInfo 완료 (총 ${totalTime}ms)');
+      }
+    } catch (e) {
+      debugPrint('백업 정보 조회 실패: $e');
+      if (mounted) {
+        setState(() {
+          _statusMessage = '백업 정보 조회 실패: ${e.toString()}';
+          _isComplete = true;
+        });
+
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          Navigator.pop(context, null);
+        }
+      }
+    }
+  }
+
+  Future<void> _performRestore(bool replaceAll) async {
+    final performRestoreStartTime = DateTime.now();
+    debugPrint('🕐 _performRestore 시작 (replaceAll: $replaceAll)');
+
+    setState(() {
+      _showOptions = false;
+      _statusMessage = replaceAll ? '기존 데이터 삭제 중...' : '데이터 복구 중...';
+      _progress = 0.1;
+    });
+
+    try {
+      final backupService = BackupService();
+
+      // replaceAll일 경우 삭제 진행 중 메시지 표시
+      if (replaceAll) {
+        await Future.delayed(const Duration(milliseconds: 100)); // UI 업데이트 시간
+        setState(() {
+          _statusMessage = '데이터 복구 중...';
+          _progress = 0.3;
+        });
+      }
+
+      final beforeRestore = DateTime.now();
+      debugPrint('🕐 restoreBackup 호출 직전');
+
+      // 캐싱된 데이터를 사용하므로 파일 읽기 단계 생략
+      final result = await backupService.restoreBackup(
+        widget.filePath,
+        replaceAll: replaceAll,
+        cachedData: _cachedBackupData, // 캐싱된 데이터 전달
+      );
+
+      final afterRestore = DateTime.now();
+      debugPrint('🕐 restoreBackup 완료 (${afterRestore.difference(beforeRestore).inMilliseconds}ms)');
+      debugPrint('🕐 _performRestore 총 시간: ${afterRestore.difference(performRestoreStartTime).inMilliseconds}ms');
+
+      setState(() {
+        _statusMessage = '복구 완료!';
+        _progress = 1.0;
+        _isComplete = true;
+      });
+
+      // 1초 대기 후 결과 반환
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (mounted) {
+        Navigator.pop(context, result);
+      }
+    } catch (e) {
+      debugPrint('복구 다이얼로그 에러: $e');
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = '복구 실패: ${e.toString()}';
+          _isComplete = true;
+        });
+
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          Navigator.pop(context, null);
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _showOptions, // 옵션 선택 화면에서만 뒤로가기 가능
+      child: AlertDialog(
+        title: Text(_showOptions ? '백업 복구' : '데이터 복구'),
+        content: _showOptions
+          ? !_backupInfoLoaded
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(_statusMessage),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('백업 일시: ${_exportDate != null ? DateFormat('yyyy-MM-dd HH:mm').format(_exportDate!) : '알 수 없음'}'),
+                    Text('스케줄: $_schedulesCount개'),
+                    Text('업체: $_companiesCount개'),
+                    if (_memosCount > 0) Text('메모: $_memosCount개'),
+                    const SizedBox(height: 16),
+                    const Text('복구 방법을 선택하세요:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('• 기존 데이터에 추가: 현재 데이터 유지', style: TextStyle(fontSize: 12)),
+                    const Text('• 전체 교체: 현재 데이터 삭제 후 복구', style: TextStyle(fontSize: 12, color: Colors.red)),
+                  ],
+                )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_isComplete) ...[
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  Icon(
+                    _statusMessage.contains('실패') ? Icons.error : Icons.check_circle,
+                    color: _statusMessage.contains('실패') ? Colors.red : Colors.green,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                Text(
+                  _statusMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                if (!_isComplete) ...[
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(value: _progress),
+                ],
+              ],
+            ),
+        actions: _showOptions && _backupInfoLoaded ? [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              debugPrint('✅ 사용자가 "기존 데이터에 추가" 선택');
+              _performRestore(false);
+            },
+            child: const Text('기존 데이터에 추가'),
+          ),
+          TextButton(
+            onPressed: () {
+              debugPrint('✅ 사용자가 "전체 교체" 선택');
+              _performRestore(true);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('전체 교체'),
+          ),
+        ] : null,
       ),
     );
   }

@@ -44,7 +44,10 @@
       "Bash(cat:*)",
       "Bash(supabase secrets:*)",
       "Bash(dir:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(.gradlew --stop)",
+      "Bash(taskkill:*)",
+      "Bash(gradlew.bat --stop:*)"
     ],
     "deny": [],
     "ask": []

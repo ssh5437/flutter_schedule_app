@@ -40,4 +40,23 @@ class DateMemo {
       'updated_at': updatedAt?.toIso8601String(),
     };
   }
+
+  // copyWith 메서드
+  DateMemo copyWith({
+    int? id,
+    String? userId,
+    DateTime? date,
+    String? content,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return DateMemo(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      date: date ?? this.date,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

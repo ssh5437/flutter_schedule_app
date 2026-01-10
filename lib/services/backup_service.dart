@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
+import '../models/date_memo.dart';
 
 class BackupService {
   // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
@@ -95,12 +96,16 @@ class BackupService {
     // 모든 업체 조회
     final companies = await db.readAllCompanies(userId);
 
+    // 모든 날짜별 메모 조회
+    final memos = await db.readAllMemos(userId);
+
     // JSON 형식으로 변환
     final backupData = {
-      'version': '1.0',
+      'version': '1.1', // 날짜별 메모 추가로 버전 업
       'exportDate': DateTime.now().toIso8601String(),
       'schedules': schedules.map((s) => s.toMap()).toList(),
       'companies': companies.map((c) => c.toMap()).toList(),
+      'memos': memos.map((m) => m.toMap()).toList(),
     };
 
     // 서명 추가
@@ -179,27 +184,54 @@ class BackupService {
   // 백업 파일에서 데이터 읽기
   Future<Map<String, dynamic>> readBackupFile(String filePath) async {
     try {
+      final startTime = DateTime.now();
+      debugPrint('========================================');
+      debugPrint('📂 백업 파일 읽기 시작');
+      debugPrint('파일 경로: $filePath');
+
       final file = File(filePath);
 
       if (!await file.exists()) {
+        debugPrint('❌ 파일이 존재하지 않음');
         throw Exception('백업 파일을 찾을 수 없습니다');
       }
 
+      final afterExistsCheck = DateTime.now();
+      debugPrint('✅ 파일 존재 확인 (${afterExistsCheck.difference(startTime).inMilliseconds}ms)');
+
       final jsonString = await file.readAsString();
+      final afterReadString = DateTime.now();
+      debugPrint('✅ JSON 문자열 읽기 완료 (${jsonString.length} 바이트, ${afterReadString.difference(afterExistsCheck).inMilliseconds}ms)');
+
       final backupData = jsonDecode(jsonString) as Map<String, dynamic>;
+      final afterJsonDecode = DateTime.now();
+      debugPrint('✅ JSON 파싱 완료 (${afterJsonDecode.difference(afterReadString).inMilliseconds}ms)');
 
       // 버전 확인
       if (!backupData.containsKey('version')) {
+        debugPrint('❌ version 필드 없음');
         throw Exception('유효하지 않은 백업 파일입니다');
       }
+
+      debugPrint('✅ 버전: ${backupData['version']}');
+      debugPrint('✅ 스케줄 개수: ${(backupData['schedules'] as List?)?.length ?? 0}');
+      debugPrint('✅ 업체 개수: ${(backupData['companies'] as List?)?.length ?? 0}');
 
       // 서명 검증
       if (!_verifySignature(backupData)) {
         throw Exception('유효하지 않은 백업 파일입니다.\n앱에서 생성된 정식 백업 파일만 복원할 수 있습니다.');
       }
 
+      final totalTime = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint('✅ 백업 파일 읽기 완료 (총 ${totalTime}ms)');
+      debugPrint('========================================');
       return backupData;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('========================================');
+      debugPrint('❌ 백업 파일 읽기 실패');
+      debugPrint('에러: $e');
+      debugPrint('스택트레이스: $stackTrace');
+      debugPrint('========================================');
       if (e.toString().contains('유효하지 않은 백업 파일')) {
         rethrow;
       }
@@ -208,9 +240,17 @@ class BackupService {
   }
 
   // 백업 복구 (기존 데이터 유지하고 추가)
-  Future<Map<String, dynamic>> restoreBackup(String filePath, {bool replaceAll = false}) async {
+  Future<Map<String, dynamic>> restoreBackup(String filePath, {bool replaceAll = false, Map<String, dynamic>? cachedData}) async {
     try {
-      final backupData = await readBackupFile(filePath);
+      final restoreStartTime = DateTime.now();
+      debugPrint('========================================');
+      debugPrint('🔄 restoreBackup 시작 (replaceAll: $replaceAll)');
+
+      // 캐싱된 데이터가 있으면 사용, 없으면 파일 읽기
+      final backupData = cachedData ?? await readBackupFile(filePath);
+      final afterDataLoad = DateTime.now();
+      debugPrint('✅ 백업 데이터 로드 완료 (${afterDataLoad.difference(restoreStartTime).inMilliseconds}ms)');
+
       final db = DatabaseHelper.instance;
       final userId = Supabase.instance.client.auth.currentUser!.id;
 
@@ -222,21 +262,36 @@ class BackupService {
 
       // 전체 교체 모드인 경우 기존 데이터 삭제
       if (replaceAll) {
+        final deleteStartTime = DateTime.now();
+        debugPrint('🗑️ 기존 데이터 삭제 시작...');
+
         // 모든 스케줄 삭제
         final existingSchedules = await db.readAllSchedules(userId);
-        for (final schedule in existingSchedules) {
+        debugPrint('📋 삭제할 스케줄: ${existingSchedules.length}개');
+
+        for (int i = 0; i < existingSchedules.length; i++) {
+          final schedule = existingSchedules[i];
           if (schedule.id != null) {
             await db.deleteSchedule(userId, schedule.id!);
+            if ((i + 1) % 50 == 0 || i == existingSchedules.length - 1) {
+              debugPrint('  스케줄 삭제 중... ${i + 1}/${existingSchedules.length}');
+            }
           }
         }
 
         // 모든 업체 삭제 (기본 업체 제외)
         final existingCompanies = await db.readAllCompanies(userId);
-        for (final company in existingCompanies) {
-          if (company.id != null && company.name != '개인') {
+        final companiesToDelete = existingCompanies.where((c) => c.name != '개인').toList();
+        debugPrint('🏢 삭제할 업체: ${companiesToDelete.length}개');
+
+        for (final company in companiesToDelete) {
+          if (company.id != null) {
             await db.deleteCompany(userId, company.id!);
           }
         }
+
+        final deleteEndTime = DateTime.now();
+        debugPrint('✅ 기존 데이터 삭제 완료 (${deleteEndTime.difference(deleteStartTime).inMilliseconds}ms)');
       }
 
       // 업체 복구
@@ -337,6 +392,16 @@ class BackupService {
               scheduleMap['companyName'] = null;
             }
 
+            // address null 처리
+            if (scheduleMap['address'] == null || scheduleMap['address'].toString() == 'null' || scheduleMap['address'].toString().isEmpty) {
+              scheduleMap['address'] = null;
+            }
+
+            // jibunAddress null 처리
+            if (scheduleMap['jibunAddress'] == null || scheduleMap['jibunAddress'].toString() == 'null' || scheduleMap['jibunAddress'].toString().isEmpty) {
+              scheduleMap['jibunAddress'] = null;
+            }
+
             // workPrices 필드가 없으면 빈 문자열로 설정 (버전 9 이전 백업 대응)
             if (!scheduleMap.containsKey('workPrices') || scheduleMap['workPrices'] == null) {
               scheduleMap['workPrices'] = '';
@@ -368,6 +433,9 @@ class BackupService {
               scheduleMap['status'] = '예정';
             }
 
+            // ID 제거 - 데이터베이스가 자동으로 새 ID 생성하도록
+            scheduleMap.remove('id');
+
             final schedule = Schedule.fromMap(scheduleMap);
             await db.createSchedule(schedule);
             schedulesImported++;
@@ -398,11 +466,76 @@ class BackupService {
         debugPrint('========================================');
       }
 
+      // 날짜별 메모 복구 (버전 1.1 이상)
+      int memosImported = 0;
+      int memosFailed = 0;
+      if (backupData.containsKey('memos')) {
+        final memos = backupData['memos'] as List<dynamic>;
+        debugPrint('========================================');
+        debugPrint('📝 메모 복구 시작: 총 ${memos.length}개');
+        debugPrint('========================================');
+
+        // 전체 교체 모드인 경우 기존 메모 삭제
+        if (replaceAll) {
+          final existingMemos = await db.readAllMemos(userId);
+          debugPrint('🗑️ 기존 메모 삭제: ${existingMemos.length}개');
+          for (final memo in existingMemos) {
+            if (memo.id != null) {
+              await db.deleteMemo(userId, memo.id!);
+            }
+          }
+        }
+
+        for (int i = 0; i < memos.length; i++) {
+          try {
+            final memoMap = memos[i] as Map<String, dynamic>;
+
+            // userId를 현재 사용자 ID로 덮어쓰기
+            memoMap['user_id'] = userId;
+
+            // ID 제거 - 데이터베이스가 자동으로 새 ID 생성하도록
+            memoMap.remove('id');
+
+            final memo = DateMemo.fromMap(memoMap);
+
+            // 중복 확인: 같은 날짜에 이미 메모가 있는지 확인
+            final existing = await db.readMemoByDate(userId, memo.date);
+            if (existing == null) {
+              await db.createMemo(memo);
+              memosImported++;
+              debugPrint('✅ 메모 복구 성공 [${i + 1}/${memos.length}]: ${memo.date.toString().split(' ')[0]}');
+            } else if (replaceAll) {
+              // 교체 모드에서는 업데이트
+              await db.updateMemo(memo.copyWith(id: existing.id));
+              memosImported++;
+              debugPrint('✅ 메모 업데이트 [${i + 1}/${memos.length}]: ${memo.date.toString().split(' ')[0]}');
+            } else {
+              // 병합 모드에서는 건너뛰기
+              debugPrint('⏭️ 메모 건너뛰기 (중복) [${i + 1}/${memos.length}]: ${memo.date.toString().split(' ')[0]}');
+            }
+          } catch (e) {
+            memosFailed++;
+            final memoMap = memos[i] as Map<String, dynamic>;
+            final date = memoMap['date'] ?? '알 수 없음';
+            errors.add('메모 "$date" 복구 실패: $e');
+            debugPrint('❌ 메모 복구 실패 [${i + 1}/${memos.length}]: $date - $e');
+          }
+        }
+
+        debugPrint('========================================');
+        debugPrint('📊 메모 복구 완료:');
+        debugPrint('   성공: $memosImported개');
+        debugPrint('   실패: $memosFailed개');
+        debugPrint('========================================');
+      }
+
       return {
         'schedules': schedulesImported,
         'companies': companiesImported,
+        'memos': memosImported,
         'schedulesFailed': schedulesFailed,
         'companiesFailed': companiesFailed,
+        'memosFailed': memosFailed,
         'errors': errors,
       };
     } catch (e) {
@@ -447,11 +580,13 @@ class BackupService {
 
       final schedulesCount = (backupData['schedules'] as List?)?.length ?? 0;
       final companiesCount = (backupData['companies'] as List?)?.length ?? 0;
+      final memosCount = (backupData['memos'] as List?)?.length ?? 0;
       final exportDate = backupData['exportDate'] as String?;
 
       return {
         'schedulesCount': schedulesCount,
         'companiesCount': companiesCount,
+        'memosCount': memosCount,
         'exportDate': exportDate != null ? DateTime.parse(exportDate) : null,
         'version': backupData['version'],
       };

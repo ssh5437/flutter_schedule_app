@@ -1016,6 +1016,18 @@ class DatabaseHelper {
     return maps.map((map) => DateMemo.fromMap(map)).toList();
   }
 
+  // 모든 메모 조회 (백업용)
+  Future<List<DateMemo>> readAllMemos(String userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'date_memos',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'date ASC',
+    );
+    return maps.map((map) => DateMemo.fromMap(map)).toList();
+  }
+
   // 메모 수정
   Future<int> updateMemo(DateMemo memo) async {
     final db = await database;
