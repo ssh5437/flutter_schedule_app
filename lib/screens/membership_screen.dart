@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/subscription_provider.dart';
 import '../models/subscription.dart';
 import '../widgets/gradient_app_bar.dart';
+import '../services/coupon_service.dart';
 // import '../widgets/subscription_processing_overlay.dart'; // 낙관적 업데이트 방식으로 변경되어 비활성화
 
 class MembershipScreen extends StatefulWidget {
@@ -52,7 +53,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         if (mounted) {
           _showSuccessDialog(
             '구독이 완료되었습니다!',
-            'Plus 기능을 무제한으로 이용하실 수 있습니다.',
+            'Plus 기능을 이용하실 수 있습니다.',
           );
         }
       });
@@ -448,9 +449,175 @@ class _MembershipScreenState extends State<MembershipScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+        // 쿠폰 등록 섹션
+        _buildCouponSection(),
         const SizedBox(height: 12),
         _buildRestoreInfoCard(),
       ],
+    );
+  }
+
+  Widget _buildCouponSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Icon(Icons.card_giftcard, color: Colors.orange[700], size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              '쿠폰으로 등록하기',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _showCouponDialog(),
+          icon: const Icon(Icons.confirmation_number),
+          label: const Text(
+            '쿠폰 코드 입력',
+            style: TextStyle(fontSize: 16),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            side: BorderSide(
+              color: Colors.orange[700]!,
+              width: 1.5,
+            ),
+            foregroundColor: Colors.orange[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCouponDialog() {
+    final couponController = TextEditingController();
+    bool isProcessing = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.card_giftcard, color: Colors.orange[700], size: 28),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '쿠폰 등록',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '쿠폰 코드를 입력하세요',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: couponController,
+                  enabled: !isProcessing,
+                  decoration: InputDecoration(
+                    hintText: '',
+                    prefixIcon: const Icon(Icons.confirmation_number),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.orange[700]!, width: 2),
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  autofocus: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isProcessing ? null : () => Navigator.pop(dialogContext),
+                child: const Text('취소'),
+              ),
+              FilledButton.icon(
+                onPressed: isProcessing
+                    ? null
+                    : () async {
+                        final code = couponController.text.trim();
+                        if (code.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('쿠폰 코드를 입력해주세요')),
+                          );
+                          return;
+                        }
+
+                        setState(() => isProcessing = true);
+
+                        final result = await CouponService().redeemCoupon(code);
+
+                        if (!mounted) return;
+
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+
+                        if (result.success) {
+                          // 구독 상태 새로고침
+                          if (mounted) {
+                            await this.context.read<SubscriptionProvider>().refreshSubscription();
+                            _showSuccessDialog('쿠폰 등록 성공', result.message);
+                          }
+                        } else {
+                          if (mounted) {
+                            _showErrorDialog('쿠폰 등록 실패', result.message);
+                          }
+                        }
+                      },
+                icon: isProcessing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.check),
+                label: Text(isProcessing ? '처리 중...' : '등록'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orange[700],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 

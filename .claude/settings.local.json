@@ -47,7 +47,13 @@
       "Bash(echo:*)",
       "Bash(.gradlew --stop)",
       "Bash(taskkill:*)",
-      "Bash(gradlew.bat --stop:*)"
+      "Bash(gradlew.bat --stop:*)",
+      "Bash(supabase db diff:*)",
+      "Bash(supabase db remote commit:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db remote exec:*)",
+      "Bash(supabase db remote execute:*)",
+      "Bash(move \"20260117_ensure_jscare2026_coupon.sql\" \"20260117000002_ensure_jscare2026_coupon.sql\")"
     ],
     "deny": [],
     "ask": []

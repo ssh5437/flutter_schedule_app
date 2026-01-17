@@ -6,6 +6,7 @@ import '../models/schedule.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
 import '../models/date_memo.dart';
+import '../models/subscription.dart';
 import '../utils/encryption_helper.dart';
 
 class DatabaseHelper {
@@ -26,7 +27,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -395,6 +396,16 @@ class DatabaseHelper {
       await db.execute('''
         CREATE INDEX IF NOT EXISTS idx_date_memos_user_date ON date_memos(user_id, date)
       ''');
+    }
+
+    if (oldVersion < 17) {
+      // subscriptions 테이블에 user_id 컬럼 추가
+      try {
+        await db.execute('ALTER TABLE subscriptions ADD COLUMN user_id TEXT');
+      } catch (e) {
+        // 컬럼이 이미 존재하는 경우 무시
+        debugPrint('user_id 컬럼 추가 실패 (이미 존재할 수 있음): $e');
+      }
     }
   }
 
@@ -1046,6 +1057,54 @@ class DatabaseHelper {
       'date_memos',
       where: 'id = ? AND user_id = ?',
       whereArgs: [id, userId],
+    );
+  }
+
+  // ========================================
+  // 구독 (Subscription) 관련 메서드
+  // ========================================
+
+  // 구독 정보 저장/업데이트
+  Future<void> saveSubscription(String userId, Subscription subscription) async {
+    final db = await database;
+
+    // 기존 구독 정보 삭제 후 새로 삽입
+    await db.delete(
+      'subscriptions',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+
+    await db.insert(
+      'subscriptions',
+      {
+        'user_id': userId,
+        ...subscription.toMap(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // 구독 정보 조회
+  Future<Subscription?> getSubscription(String userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'subscriptions',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+
+    if (maps.isEmpty) return null;
+    return Subscription.fromMap(maps.first);
+  }
+
+  // 구독 정보 삭제
+  Future<int> deleteSubscription(String userId) async {
+    final db = await database;
+    return await db.delete(
+      'subscriptions',
+      where: 'user_id = ?',
+      whereArgs: [userId],
     );
   }
 
