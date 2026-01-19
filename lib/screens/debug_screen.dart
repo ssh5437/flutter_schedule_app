@@ -2,11 +2,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../providers/subscription_provider.dart';
 import '../services/subscription_service.dart';
+import '../services/error_log_service.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -411,6 +415,14 @@ class _DebugScreenState extends State<DebugScreen> {
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
+            _buildFirebaseStatusSection(),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            _buildCrashlyticsTestSection(),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
             _buildTestDataSection(),
             const SizedBox(height: 24),
             const Divider(),
@@ -420,6 +432,338 @@ class _DebugScreenState extends State<DebugScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildFirebaseStatusSection() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _getFirebaseStatus(),
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? {};
+        final isInitialized = status['initialized'] ?? false;
+        final projectId = status['projectId'] ?? 'N/A';
+        final appId = status['appId'] ?? 'N/A';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '🔥 Firebase 연결 상태',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isInitialized ? Colors.green[50] : Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isInitialized ? Colors.green : Colors.red,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        isInitialized ? Icons.check_circle : Icons.error,
+                        color: isInitialized ? Colors.green : Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isInitialized ? 'Firebase 초기화 완료' : 'Firebase 초기화 실패',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isInitialized ? Colors.green[900] : Colors.red[900],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    'Project ID: $projectId\n'
+                    'App ID: $appId\n'
+                    'Apps count: ${status['appsCount'] ?? 0}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _testFirebaseAnalytics,
+                icon: const Icon(Icons.analytics),
+                label: const Text('Analytics 테스트 이벤트 전송'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> _getFirebaseStatus() async {
+    try {
+      final apps = Firebase.apps;
+      if (apps.isEmpty) {
+        return {'initialized': false};
+      }
+
+      final app = Firebase.app();
+      return {
+        'initialized': true,
+        'projectId': app.options.projectId,
+        'appId': app.options.appId,
+        'appsCount': apps.length,
+      };
+    } catch (e) {
+      return {
+        'initialized': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  Future<void> _testFirebaseAnalytics() async {
+    try {
+      final analytics = FirebaseAnalytics.instance;
+
+      // 테스트 이벤트 전송
+      await analytics.logEvent(
+        name: 'debug_test_event',
+        parameters: {
+          'timestamp': DateTime.now().toIso8601String(),
+          'source': 'debug_screen',
+        },
+      );
+
+      // 화면 조회 이벤트
+      await analytics.logScreenView(
+        screenName: 'debug_screen_test',
+        screenClass: 'DebugScreen',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Analytics 테스트 이벤트 전송 완료!\nFirebase Console > Analytics > DebugView에서 확인하세요.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Analytics 전송 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildCrashlyticsTestSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '🔥 Firebase Crashlytics 테스트',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _sendTestCrashlytics,
+            icon: const Icon(Icons.bug_report),
+            label: const Text('테스트 에러 전송 (non-fatal)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _forceCrash,
+            icon: const Icon(Icons.warning_amber),
+            label: const Text('앱 강제 크래시 (fatal)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _sendTestToSupabase,
+            icon: const Icon(Icons.cloud_upload),
+            label: const Text('Supabase 에러 로그 전송'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.orange[200]!),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Firebase Console에서 SDK를 인식하려면 최소 한 번 테스트 에러를 전송해야 합니다. "테스트 에러 전송" 버튼을 누른 후 앱을 완전히 종료하고 다시 실행하세요.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange[900],
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _sendTestCrashlytics() async {
+    try {
+      // Crashlytics에 테스트 에러 전송 (non-fatal)
+      await FirebaseCrashlytics.instance.recordError(
+        Exception('테스트 에러 - Firebase Crashlytics 연결 확인'),
+        StackTrace.current,
+        reason: 'Debug screen test error',
+        fatal: false,
+      );
+
+      // 사용자 정보 설정
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await FirebaseCrashlytics.instance.setUserIdentifier(user.id);
+      }
+
+      // 커스텀 키 추가
+      await FirebaseCrashlytics.instance.setCustomKey('test_timestamp', DateTime.now().toIso8601String());
+      await FirebaseCrashlytics.instance.setCustomKey('screen', 'debug_screen');
+
+      // 로그 메시지 추가
+      await FirebaseCrashlytics.instance.log('테스트 에러 전송됨 from debug_screen');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 테스트 에러가 Firebase Crashlytics로 전송되었습니다!\n앱을 종료 후 다시 실행하면 Firebase Console에 나타납니다.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Crashlytics 전송 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _forceCrash() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ 앱 크래시 경고'),
+        content: const Text(
+          '이 버튼은 앱을 강제로 크래시시킵니다.\n\n'
+          'Firebase Console에서 Crashlytics SDK를 인식시키는 가장 확실한 방법입니다.\n\n'
+          '크래시 후 앱을 다시 실행하면 Firebase에 리포트가 전송됩니다.\n\n'
+          '계속하시겠습니까?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('크래시 실행'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Firebase Crashlytics 강제 크래시
+      FirebaseCrashlytics.instance.crash();
+    }
+  }
+
+  Future<void> _sendTestToSupabase() async {
+    try {
+      await ErrorLogService().logError(
+        errorType: 'test',
+        message: '테스트 에러 - Supabase 에러 로깅 확인',
+        screenName: 'debug_screen',
+        additionalData: {
+          'test_timestamp': DateTime.now().toIso8601String(),
+          'purpose': 'connection_test',
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 테스트 에러가 Supabase error_logs 테이블로 전송되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Supabase 전송 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildTestDataSection() {

@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+import 'dart:ui';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -6,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:upgrader/upgrader.dart';
 import 'config/supabase_config.dart';
 import 'database/database_helper.dart';
@@ -14,6 +17,7 @@ import 'services/background_service.dart';
 import 'services/widget_service.dart';
 import 'services/analytics_service.dart';
 import 'services/last_seen_service.dart';
+import 'services/error_log_service.dart';
 import 'providers/subscription_provider.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
@@ -26,63 +30,110 @@ import 'screens/login_screen.dart';
 import 'screens/statistics_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   // 앱 시작 시간 측정
   final startTime = DateTime.now();
-  debugPrint('🚀 App initialization started');
 
-  // 천지인 키보드 등 한글 조합형 입력 지원을 위한 설정
-  // Flutter 3.24 이상에서는 delta text editing이 기본 활성화되어 있지만
-  // 명시적으로 설정하여 한글 IME(Input Method Editor) 지원을 강화
-  debugPrint('✅ Korean IME support enabled (Cheonjiin keyboard compatible)');
+  // 전역 에러 핸들링 설정
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Edge-to-edge 활성화 (Android 15+ 권장사항)
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
-    overlays: [],
-  );
+    debugPrint('🚀 App initialization started');
 
-  // 시스템 UI 오버레이 스타일 설정
-  // Android 15 이상에서는 setSystemUIOverlayStyle의 색상 설정이 무시되므로
-  // 투명도만 설정하고 실제 색상은 테마에서 처리
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      systemNavigationBarContrastEnforced: false,
-    ),
-  );
+    // 천지인 키보드 등 한글 조합형 입력 지원을 위한 설정
+    debugPrint('✅ Korean IME support enabled (Cheonjiin keyboard compatible)');
 
-  // 날짜 포맷 초기화 (동기)
-  await initializeDateFormatting('ko_KR', null);
+    // Edge-to-edge 활성화 (Android 15+ 권장사항)
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: [],
+    );
 
-  // Firebase 초기화 (Analytics 사용) - 비차단
-  Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  ).then((_) {
-    debugPrint('✅ Firebase initialized');
-    // Analytics 초기 이벤트 로깅 (Firebase 연결 확인용)
+    // 시스템 UI 오버레이 스타일 설정
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
+    );
+
+    // 날짜 포맷 초기화 (동기)
+    await initializeDateFormatting('ko_KR', null);
+
+    // Firebase 초기화 (Crashlytics 포함)
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      debugPrint('✅ Firebase initialized');
+    } catch (e) {
+      debugPrint('⚠️ Firebase initialization skipped: $e');
+    }
+
+    // Crashlytics 설정
+    FlutterError.onError = (errorDetails) {
+      debugPrint('🔥 Flutter error caught: ${errorDetails.exception}');
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+
+    // 비동기 에러 핸들링 (PlatformDispatcher)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      debugPrint('🔥 Platform error caught: $error');
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
+    // Analytics 초기 이벤트 로깅
     _logAppStart();
-  }).catchError((e) {
-    debugPrint('⚠️ Firebase initialization failed: $e');
+
+    // Supabase 초기화 (필수)
+    final supabaseStartTime = DateTime.now();
+    await Supabase.initialize(
+      url: SupabaseConfig.supabaseUrl,
+      anonKey: SupabaseConfig.supabaseAnonKey,
+    );
+    final supabaseDuration = DateTime.now().difference(supabaseStartTime).inMilliseconds;
+    debugPrint('✅ Supabase initialized in ${supabaseDuration}ms');
+
+    // ErrorLogService 초기화
+    await ErrorLogService().initialize();
+
+    // 나머지 서비스들은 백그라운드에서 초기화
+    _initializeServicesInBackground();
+
+    final duration = DateTime.now().difference(startTime);
+    debugPrint('✅ App initialization completed in ${duration.inMilliseconds}ms');
+
+    // 앱 시작 성능 로그 (5초 이상 걸리면 기록)
+    if (duration.inMilliseconds > 5000) {
+      ErrorLogService().logSlowLoading(
+        operation: 'app_initialization',
+        durationMs: duration.inMilliseconds,
+        thresholdMs: 5000,
+        screenName: 'main',
+      );
+    }
+
+    runApp(const MyApp());
+  }, (error, stackTrace) {
+    // Zone 에러 핸들링 (runZonedGuarded에서 잡힌 에러)
+    debugPrint('🔥 Uncaught error: $error');
+    debugPrint('Stack trace: $stackTrace');
+    FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
+
+    // Supabase에도 로깅 시도
+    try {
+      ErrorLogService().logException(
+        exception: error,
+        stackTrace: stackTrace,
+        context: 'Uncaught zone error',
+      );
+    } catch (_) {
+      // 로깅 실패 무시
+    }
   });
-
-  // Supabase 초기화 (필수)
-  await Supabase.initialize(
-    url: SupabaseConfig.supabaseUrl,
-    anonKey: SupabaseConfig.supabaseAnonKey,
-  );
-
-  // 나머지 서비스들은 백그라운드에서 초기화
-  _initializeServicesInBackground();
-
-  final duration = DateTime.now().difference(startTime);
-  debugPrint('✅ App initialization completed in ${duration.inMilliseconds}ms');
-
-  runApp(const MyApp());
 }
 
 /// 앱 시작 이벤트 로깅 (Firebase Analytics 연결 확인)
