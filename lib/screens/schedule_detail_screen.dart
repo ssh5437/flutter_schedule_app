@@ -178,10 +178,10 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   void _copyTemplateMessage(MessageTemplate template) {
     // 템플릿 변수를 실제 값으로 치환
     final message = template.replaceVariables(
-      visitDate: _schedule.visitDate != null ? _formatDate(_schedule.visitDate!) : '미정',
+      visitDate: _schedule.visitDate != null ? DateFormat('M월 d일', 'ko_KR').format(_schedule.visitDate!) : '미정',
       visitTime: _schedule.visitTime ?? '미정',
       customerName: _schedule.customerName,
-      companyName: _schedule.companyName ?? '',
+      phoneNumber: _schedule.phoneNumber,
     );
 
     Clipboard.setData(ClipboardData(text: message));

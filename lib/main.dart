@@ -546,19 +546,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
-            final result = await Navigator.push(
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const ScheduleFormScreen(),
               ),
             );
 
-            if (result != null) {
-              // 스케줄이 추가/수정되면 모든 화면 새로고침
-              _homeKey.currentState?.refresh();
-              _calendarKey.currentState?.refresh();
-              setState(() {});
-            }
+            // 저장 여부와 무관하게 항상 새로고침 (취소 시에도 안전)
+            if (!mounted) return;
+            _homeKey.currentState?.refresh();
+            _calendarKey.currentState?.refresh();
+            setState(() {});
           },
           backgroundColor: const Color.fromARGB(255, 220, 232, 248),
           child: const Icon(Icons.add, color: Color.fromARGB(255, 53, 48, 48)),

@@ -42,12 +42,15 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Color.fromARGB(255, 34, 36, 39),
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Color.fromARGB(255, 34, 36, 39),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 if (hasActiveSubscription) ...[

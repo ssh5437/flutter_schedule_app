@@ -215,7 +215,7 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
                           '• #{일자} - 방문 날짜\n'
                           '• #{시간} - 방문 시간\n'
                           '• #{고객명} - 고객 이름\n'
-                          '• #{업체명} - 업체 이름',
+                          '• #{전화번호} - 고객 전화번호',
                           style: TextStyle(fontSize: 13, height: 1.5),
                         ),                        
                       ],
@@ -497,8 +497,8 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
                   onPressed: () => _insertVariable('#{고객명}'),
                 ),
                 ActionChip(
-                  label: const Text('#{업체명}'),
-                  onPressed: () => _insertVariable('#{업체명}'),
+                  label: const Text('#{전화번호}'),
+                  onPressed: () => _insertVariable('#{전화번호}'),
                 ),
               ],
             ),
@@ -513,7 +513,7 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             TextField(
               controller: _contentController,
               decoration: const InputDecoration(
-                hintText: '예:\n#{고객명}님, #{업체명} #{일자} #{시간} 방문 확정되었습니다.\n확인 부탁드립니다.',
+                hintText: '예:\n#{고객명}님, #{일자} #{시간} 방문 확정되었습니다.\n확인 부탁드립니다.',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),

@@ -3,7 +3,7 @@ class MessageTemplate {
   String userId;
   int companyId;
   String name;        // 템플릿 이름 (예: "확정 안내", "일정 변경", "부재 알림")
-  String content;     // 메시지 내용 (변수 포함 가능: #{일자}, #{시간}, #{고객명}, #{업체명})
+  String content;     // 메시지 내용 (변수 포함 가능: #{일자}, #{시간}, #{고객명}, #{전화번호})
   int displayOrder;   // 표시 순서
   DateTime createdAt;
 
@@ -48,7 +48,7 @@ class MessageTemplate {
     String? visitDate,
     String? visitTime,
     String? customerName,
-    String? companyName,
+    String? phoneNumber,
   }) {
     String result = content;
 
@@ -61,8 +61,8 @@ class MessageTemplate {
     if (customerName != null) {
       result = result.replaceAll('#{고객명}', customerName);
     }
-    if (companyName != null) {
-      result = result.replaceAll('#{업체명}', companyName);
+    if (phoneNumber != null) {
+      result = result.replaceAll('#{전화번호}', phoneNumber);
     }
 
     return result;

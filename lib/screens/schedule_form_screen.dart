@@ -498,89 +498,128 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
     if (!mounted) return;
 
+    Company? dialogSelectedCompany = _selectedCompany;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Expanded(
-              child: Text('이미지에서 스케줄 추출'),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: remaining > 0 ? Colors.green.shade50 : Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: remaining > 0 ? Colors.green : Colors.red,
-                  width: 1,
-                ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Expanded(
+                child: Text('이미지에서 스케줄 추출'),
               ),
-              child: Text(
-                '$remaining/${TextExtractionLimitHelper.monthlyLimit}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '문서 사진이나 캡처 이미지에서\n스케줄 정보를 추출합니다.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // 갤러리에서 선택
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await _requestPermissionAndPick(fromCamera: false);
-                    },
-                    icon: const Icon(Icons.photo_library, size: 32),
-                    label: const Text('갤러리', style: TextStyle(fontSize: 14)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: const BorderSide(color: _primaryColor),
-                    ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: remaining > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: remaining > 0 ? Colors.green : Colors.red,
+                    width: 1,
                   ),
                 ),
-                const SizedBox(width: 12),
-                // 카메라로 촬영
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await _requestPermissionAndPick(fromCamera: true);
-                    },
-                    icon: const Icon(Icons.camera_alt, size: 32),
-                    label: const Text('카메라', style: TextStyle(fontSize: 14)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: const BorderSide(color: _primaryColor),
-                    ),
+                child: Text(
+                  '$remaining/${TextExtractionLimitHelper.monthlyLimit}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: remaining > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+              ),
+            ],
           ),
-        ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '문서 사진이나 캡처 이미지에서\n스케줄 정보를 추출합니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              // 업체 선택 드롭박스
+              if (_companies.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<Company>(
+                      value: dialogSelectedCompany,
+                      isExpanded: true,
+                      hint: const Text('업체 선택'),
+                      items: _companies.map((company) {
+                        return DropdownMenuItem<Company>(
+                          value: company,
+                          child: Text(company.name),
+                        );
+                      }).toList(),
+                      onChanged: (company) {
+                        setDialogState(() {
+                          dialogSelectedCompany = company;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 갤러리에서 선택
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        if (dialogSelectedCompany != null) {
+                          setState(() => _selectedCompany = dialogSelectedCompany);
+                        }
+                        Navigator.pop(context);
+                        await _requestPermissionAndPick(fromCamera: false);
+                      },
+                      icon: const Icon(Icons.photo_library, size: 32),
+                      label: const Text('갤러리', style: TextStyle(fontSize: 14)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        side: const BorderSide(color: _primaryColor),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 카메라로 촬영
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        if (dialogSelectedCompany != null) {
+                          setState(() => _selectedCompany = dialogSelectedCompany);
+                        }
+                        Navigator.pop(context);
+                        await _requestPermissionAndPick(fromCamera: true);
+                      },
+                      icon: const Icon(Icons.camera_alt, size: 32),
+                      label: const Text('카메라', style: TextStyle(fontSize: 14)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        side: const BorderSide(color: _primaryColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -986,13 +1025,8 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           }
         }
 
-        // 시간 추출
-        if (result['time'] != null && result['time'].toString().isNotEmpty) {
-          _visitTime = result['time'].toString();
-        } else {
-          // 방문시간은 null로 설정 (예정 상태)
-          _visitTime = null;
-        }
+        // 시간은 항상 미정으로 설정
+        _visitTime = null;
 
         // 작업 내용 추출
         if (result['workItems'] != null && result['workItems'] is List) {
