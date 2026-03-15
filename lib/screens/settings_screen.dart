@@ -451,9 +451,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final schedulesSuccess = result['schedules'] as int;
       final companiesSuccess = result['companies'] as int;
       final memosSuccess = result['memos'] as int? ?? 0;
+      final templatesSuccess = result['messageTemplates'] as int? ?? 0;
       final schedulesFailed = result['schedulesFailed'] as int;
       final companiesFailed = result['companiesFailed'] as int;
       final memosFailed = result['memosFailed'] as int? ?? 0;
+      final templatesFailed = result['templatesFailed'] as int? ?? 0;
       final errors = result['errors'] as List<String>;
 
       String message = '복구 완료\n';
@@ -469,6 +471,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         message += '\n메모: $memosSuccess개 성공';
         if (memosFailed > 0) {
           message += ', $memosFailed개 실패';
+        }
+      }
+      if (templatesSuccess > 0 || templatesFailed > 0) {
+        message += '\n메시지 템플릿: $templatesSuccess개 성공';
+        if (templatesFailed > 0) {
+          message += ', $templatesFailed개 실패';
         }
       }
 
@@ -906,6 +914,7 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
   int _schedulesCount = 0;
   int _companiesCount = 0;
   int _memosCount = 0;
+  int _messageTemplatesCount = 0;
   DateTime? _exportDate;
   bool _backupInfoLoaded = false;
   Map<String, dynamic>? _cachedBackupData; // 백업 데이터 캐싱
@@ -933,6 +942,7 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
       final schedules = _cachedBackupData!['schedules'] as List?;
       final companies = _cachedBackupData!['companies'] as List?;
       final memos = _cachedBackupData!['memos'] as List?;
+      final messageTemplates = _cachedBackupData!['messageTemplates'] as List?;
       final exportDate = _cachedBackupData!['exportDate'] as String?;
 
       if (mounted) {
@@ -940,6 +950,7 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
           _schedulesCount = schedules?.length ?? 0;
           _companiesCount = companies?.length ?? 0;
           _memosCount = memos?.length ?? 0;
+          _messageTemplatesCount = messageTemplates?.length ?? 0;
           _exportDate = exportDate != null ? DateTime.parse(exportDate) : null;
           _backupInfoLoaded = true;
           _statusMessage = '백업 정보 조회 완료';
@@ -1054,6 +1065,7 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
                     Text('스케줄: $_schedulesCount개'),
                     Text('업체: $_companiesCount개'),
                     if (_memosCount > 0) Text('메모: $_memosCount개'),
+                    if (_messageTemplatesCount > 0) Text('메시지 템플릿: $_messageTemplatesCount개'),
                     const SizedBox(height: 16),
                     const Text('복구 방법을 선택하세요:', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),

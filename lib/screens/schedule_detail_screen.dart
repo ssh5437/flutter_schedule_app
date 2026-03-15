@@ -182,6 +182,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       visitTime: _schedule.visitTime ?? '미정',
       customerName: _schedule.customerName,
       phoneNumber: _schedule.phoneNumber,
+      address: _schedule.address,
     );
 
     Clipboard.setData(ClipboardData(text: message));

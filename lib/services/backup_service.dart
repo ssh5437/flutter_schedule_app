@@ -10,6 +10,7 @@ import '../database/database_helper.dart';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../models/date_memo.dart';
+import '../models/message_template.dart';
 
 class BackupService {
   // 앱 전용 비밀 키 (실제 배포 시에는 더 안전한 방법으로 관리해야 함)
@@ -99,13 +100,17 @@ class BackupService {
     // 모든 날짜별 메모 조회
     final memos = await db.readAllMemos(userId);
 
+    // 모든 메시지 템플릿 조회
+    final messageTemplates = await db.readAllMessageTemplatesForUser(userId);
+
     // JSON 형식으로 변환
     final backupData = {
-      'version': '1.1', // 날짜별 메모 추가로 버전 업
+      'version': '1.2', // 메시지 템플릿 추가로 버전 업
       'exportDate': DateTime.now().toIso8601String(),
       'schedules': schedules.map((s) => s.toMap()).toList(),
       'companies': companies.map((c) => c.toMap()).toList(),
       'memos': memos.map((m) => m.toMap()).toList(),
+      'messageTemplates': messageTemplates.map((t) => t.toMap()).toList(),
     };
 
     // 서명 추가
@@ -259,6 +264,8 @@ class BackupService {
       int schedulesFailed = 0;
       int companiesFailed = 0;
       final List<String> errors = [];
+      // 백업 업체 ID → 복구 후 실제 업체 ID 매핑
+      final Map<int, int> companyIdMap = {};
 
       // 전체 교체 모드인 경우 기존 데이터 삭제
       if (replaceAll) {
@@ -307,25 +314,28 @@ class BackupService {
             // 중복 확인
             final existing = await db.readCompanyByName(userId, company.name);
             if (existing == null) {
-              await db.createCompany(company);
+              final newId = await db.createCompany(company);
+              if (company.id != null) companyIdMap[company.id!] = newId;
               companiesImported++;
             } else if (replaceAll) {
               // 교체 모드에서는 업데이트 (색상 포함)
               await db.updateCompany(company.copyWith(
                 id: existing.id,
                 userId: userId,
-                color: company.color, // 백업된 색상으로 복원
-                displayOrder: company.displayOrder, // 표시 순서도 복원
+                color: company.color,
+                displayOrder: company.displayOrder,
               ));
+              if (company.id != null) companyIdMap[company.id!] = existing.id!;
               companiesImported++;
             } else {
               // 병합 모드에서도 색상과 작업 항목 업데이트
               await db.updateCompany(company.copyWith(
                 id: existing.id,
                 userId: userId,
-                color: company.color, // 백업된 색상으로 업데이트
+                color: company.color,
                 displayOrder: company.displayOrder,
               ));
+              if (company.id != null) companyIdMap[company.id!] = existing.id!;
               companiesImported++;
             }
           } catch (e) {
@@ -529,13 +539,85 @@ class BackupService {
         debugPrint('========================================');
       }
 
+      // 메시지 템플릿 복구 (버전 1.2 이상)
+      int templatesImported = 0;
+      int templatesFailed = 0;
+      if (backupData.containsKey('messageTemplates')) {
+        final templates = backupData['messageTemplates'] as List<dynamic>;
+        debugPrint('========================================');
+        debugPrint('💬 메시지 템플릿 복구 시작: 총 ${templates.length}개');
+        debugPrint('========================================');
+
+        // 전체 교체 모드인 경우 기존 템플릿 삭제
+        if (replaceAll) {
+          for (final companyId in companyIdMap.values) {
+            await db.deleteAllMessageTemplatesByCompany(userId, companyId);
+          }
+        }
+
+        for (int i = 0; i < templates.length; i++) {
+          try {
+            final templateMap = Map<String, dynamic>.from(templates[i] as Map<String, dynamic>);
+
+            // 백업된 company_id를 현재 DB의 company_id로 변환
+            final backupCompanyId = templateMap['company_id'] as int?;
+            if (backupCompanyId == null) {
+              templatesFailed++;
+              errors.add('템플릿 ${i + 1}: company_id 없음');
+              continue;
+            }
+            final currentCompanyId = companyIdMap[backupCompanyId];
+            if (currentCompanyId == null) {
+              templatesFailed++;
+              errors.add('템플릿 "${templateMap['name']}": 매핑된 업체 없음 (backup company_id: $backupCompanyId)');
+              continue;
+            }
+
+            templateMap['user_id'] = userId;
+            templateMap['company_id'] = currentCompanyId;
+            templateMap.remove('id');
+
+            final template = MessageTemplate.fromMap(templateMap);
+
+            // 중복 확인: 같은 업체에 같은 이름의 템플릿이 있는지 확인
+            final existing = await db.readAllMessageTemplates(userId, currentCompanyId);
+            final duplicate = existing.where((t) => t.name == template.name).firstOrNull;
+
+            if (duplicate == null) {
+              await db.createMessageTemplate(template);
+              templatesImported++;
+              debugPrint('✅ 템플릿 복구 성공 [${i + 1}/${templates.length}]: ${template.name}');
+            } else if (replaceAll) {
+              await db.updateMessageTemplate(template.copyWith(id: duplicate.id));
+              templatesImported++;
+              debugPrint('✅ 템플릿 업데이트 [${i + 1}/${templates.length}]: ${template.name}');
+            } else {
+              debugPrint('⏭️ 템플릿 건너뛰기 (중복) [${i + 1}/${templates.length}]: ${template.name}');
+            }
+          } catch (e) {
+            templatesFailed++;
+            final templateMap = templates[i] as Map<String, dynamic>;
+            errors.add('템플릿 "${templateMap['name'] ?? '알 수 없음'}" 복구 실패: $e');
+            debugPrint('❌ 템플릿 복구 실패 [${i + 1}/${templates.length}]: $e');
+          }
+        }
+
+        debugPrint('========================================');
+        debugPrint('📊 메시지 템플릿 복구 완료:');
+        debugPrint('   성공: $templatesImported개');
+        debugPrint('   실패: $templatesFailed개');
+        debugPrint('========================================');
+      }
+
       return {
         'schedules': schedulesImported,
         'companies': companiesImported,
         'memos': memosImported,
+        'messageTemplates': templatesImported,
         'schedulesFailed': schedulesFailed,
         'companiesFailed': companiesFailed,
         'memosFailed': memosFailed,
+        'templatesFailed': templatesFailed,
         'errors': errors,
       };
     } catch (e) {
@@ -581,12 +663,14 @@ class BackupService {
       final schedulesCount = (backupData['schedules'] as List?)?.length ?? 0;
       final companiesCount = (backupData['companies'] as List?)?.length ?? 0;
       final memosCount = (backupData['memos'] as List?)?.length ?? 0;
+      final messageTemplatesCount = (backupData['messageTemplates'] as List?)?.length ?? 0;
       final exportDate = backupData['exportDate'] as String?;
 
       return {
         'schedulesCount': schedulesCount,
         'companiesCount': companiesCount,
         'memosCount': memosCount,
+        'messageTemplatesCount': messageTemplatesCount,
         'exportDate': exportDate != null ? DateTime.parse(exportDate) : null,
         'version': backupData['version'],
       };

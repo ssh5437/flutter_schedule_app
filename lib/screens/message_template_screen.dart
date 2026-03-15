@@ -215,7 +215,8 @@ class _MessageTemplateScreenState extends State<MessageTemplateScreen> {
                           '• #{일자} - 방문 날짜\n'
                           '• #{시간} - 방문 시간\n'
                           '• #{고객명} - 고객 이름\n'
-                          '• #{전화번호} - 고객 전화번호',
+                          '• #{전화번호} - 고객 전화번호\n'
+                          '• #{주소} - 고객 주소',
                           style: TextStyle(fontSize: 13, height: 1.5),
                         ),                        
                       ],
@@ -499,6 +500,10 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
                 ActionChip(
                   label: const Text('#{전화번호}'),
                   onPressed: () => _insertVariable('#{전화번호}'),
+                ),
+                ActionChip(
+                  label: const Text('#{주소}'),
+                  onPressed: () => _insertVariable('#{주소}'),
                 ),
               ],
             ),

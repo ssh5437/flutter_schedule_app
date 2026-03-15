@@ -49,6 +49,7 @@ class MessageTemplate {
     String? visitTime,
     String? customerName,
     String? phoneNumber,
+    String? address,
   }) {
     String result = content;
 
@@ -63,6 +64,9 @@ class MessageTemplate {
     }
     if (phoneNumber != null) {
       result = result.replaceAll('#{전화번호}', phoneNumber);
+    }
+    if (address != null) {
+      result = result.replaceAll('#{주소}', address);
     }
 
     return result;

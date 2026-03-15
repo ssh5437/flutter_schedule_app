@@ -911,6 +911,26 @@ class DatabaseHelper {
   }
 
   // MessageTemplate CRUD operations
+  Future<List<MessageTemplate>> readAllMessageTemplatesForUser(String userId) async {
+    final db = await database;
+    final result = await db.query(
+      'message_templates',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'company_id ASC, display_order ASC, id ASC',
+    );
+    return result.map((map) => MessageTemplate.fromMap(map)).toList();
+  }
+
+  Future<void> deleteAllMessageTemplatesByCompany(String userId, int companyId) async {
+    final db = await database;
+    await db.delete(
+      'message_templates',
+      where: 'user_id = ? AND company_id = ?',
+      whereArgs: [userId, companyId],
+    );
+  }
+
   Future<List<MessageTemplate>> readAllMessageTemplates(String userId, int companyId) async {
     final db = await database;
     final result = await db.query(

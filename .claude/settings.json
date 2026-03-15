@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"d:/MyApp/bizPlan/lib/screens\"/*.dart)"
+    ]
+  }
+}
