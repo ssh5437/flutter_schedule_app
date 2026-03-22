@@ -217,6 +217,7 @@ class MapScreenState extends State<MapScreen> {
     // 마커 위치에 맞게 카메라 이동 (최대 zoom 13 = 약 1km 축척)
     const double maxAutoZoom = 13.0;
     if (positions.isNotEmpty) {
+      // 스케줄 있으면 스케줄 위치 기준
       if (positions.length == 1) {
         await _mapController!.updateCamera(
           NCameraUpdate.withParams(target: positions.first, zoom: maxAutoZoom),
@@ -241,6 +242,9 @@ class MapScreenState extends State<MapScreen> {
           );
         }
       }
+    } else {
+      // 스케줄 없으면 현재 위치 기준
+      await _goToCurrentLocation();
     }
 
     setState(() => _isGeocoding = false);
