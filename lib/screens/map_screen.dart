@@ -211,8 +211,8 @@ class _MapScreenState extends State<MapScreen> {
       ..clear()
       ..addAll(positions);
 
-    // 마커 위치에 맞게 카메라 이동 (최대 zoom 14 = 약 1km, 500m 축적 이상)
-    const double maxAutoZoom = 14.0;
+    // 마커 위치에 맞게 카메라 이동 (최대 zoom 13 = 약 1km 축척)
+    const double maxAutoZoom = 13.0;
     if (positions.isNotEmpty) {
       if (positions.length == 1) {
         await _mapController!.updateCamera(
@@ -269,7 +269,7 @@ class _MapScreenState extends State<MapScreen> {
 
     if (allPoints.length == 1) {
       await _mapController!.updateCamera(
-        NCameraUpdate.withParams(target: allPoints.first, zoom: 14),
+        NCameraUpdate.withParams(target: allPoints.first, zoom: 13),
       );
       return;
     }
@@ -286,8 +286,30 @@ class _MapScreenState extends State<MapScreen> {
       NCameraUpdate.fitBounds(bounds, padding: const EdgeInsets.all(80)),
     );
     final pos = await _mapController!.getCameraPosition();
-    if (pos.zoom > 14) {
-      await _mapController!.updateCamera(NCameraUpdate.withParams(zoom: 14));
+    if (pos.zoom > 13) {
+      await _mapController!.updateCamera(NCameraUpdate.withParams(zoom: 13));
+    }
+  }
+
+  // 현재 위치로만 이동
+  Future<void> _goToCurrentLocation() async {
+    if (_mapController == null) return;
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      await _mapController!.updateCamera(
+        NCameraUpdate.withParams(
+          target: NLatLng(position.latitude, position.longitude),
+          zoom: 13,
+        ),
+      );
+    } catch (e) {
+      debugPrint('현재 위치 이동 실패: $e');
     }
   }
 
@@ -589,7 +611,7 @@ class _MapScreenState extends State<MapScreen> {
                   options: NaverMapViewOptions(
                     initialCameraPosition: NCameraPosition(
                       target: _initialCameraTarget,
-                      zoom: 12,
+                      zoom: 13,
                     ),
                     mapType: NMapType.basic,
                     activeLayerGroups: const [NLayerGroup.building, NLayerGroup.transit],
@@ -607,17 +629,32 @@ class _MapScreenState extends State<MapScreen> {
                 ),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator()),
-                // 현재 위치 + 스케줄 전체 보기 버튼
+                // 버튼 두 개: 현재 위치 이동 + 전체 보기
                 if (_locationReady)
                   Positioned(
                     right: 12,
                     bottom: 24,
-                    child: FloatingActionButton.small(
-                      onPressed: _fitToCurrentLocationAndMarkers,
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF579bf2),
-                      tooltip: '현재 위치 + 스케줄 전체 보기',
-                      child: const Icon(Icons.my_location),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: 'fit_all',
+                          onPressed: _fitToCurrentLocationAndMarkers,
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF579bf2),
+                          tooltip: '현재 위치 + 스케줄 전체 보기',
+                          child: const Icon(Icons.zoom_out_map),
+                        ),
+                        const SizedBox(height: 8),
+                        FloatingActionButton.small(
+                          heroTag: 'go_location',
+                          onPressed: _goToCurrentLocation,
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF579bf2),
+                          tooltip: '현재 위치로 이동',
+                          child: const Icon(Icons.my_location),
+                        ),
+                      ],
                     ),
                   ),
               ],
