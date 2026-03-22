@@ -13,10 +13,13 @@ class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  State<MapScreen> createState() => MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class MapScreenState extends State<MapScreen> {
+  void refresh() {
+    if (_mapReady) _loadSchedules();
+  }
   static const String _clientId = 'rx7kr4kzw2';
   static const String _clientSecret = 'lUPTbH9hFmIEZ1AYrBky006ZPcPScZgvSuMcbKGG';
 
@@ -192,9 +195,9 @@ class _MapScreenState extends State<MapScreen> {
           haloColor: Colors.white,
         ),
         subCaption: NOverlayCaption(
-          text: schedule.visitTime ?? '시간 미정',
-          textSize: 11,
-          color: Colors.black54,
+          text: '[${_weekdayLabel(schedule.visitDate!.weekday)}] ${schedule.visitTime ?? '시간 미정'}',
+          textSize: 13,
+          color: Colors.black87,
           haloColor: Colors.white,
         ),
       );
@@ -398,6 +401,11 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  String _weekdayLabel(int weekday) {
+    const labels = {1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일'};
+    return labels[weekday] ?? '';
+  }
+
   // 요일별 마커 색상: 일(빨) 월(주황) 화(노) 수(초) 목(파) 금(남) 토(보라)
   Color _dayOfWeekColor(int weekday) {
     switch (weekday) {
@@ -494,7 +502,10 @@ class _MapScreenState extends State<MapScreen> {
                     ButtonSegment(value: true, label: Text('기간'), icon: Icon(Icons.date_range, size: 16)),
                   ],
                   selected: {_isRangeMode},
-                  onSelectionChanged: (v) => setState(() => _isRangeMode = v.first),
+                  onSelectionChanged: (v) {
+                    setState(() => _isRangeMode = v.first);
+                    _loadSchedules();
+                  },
                   style: ButtonStyle(
                     backgroundColor: WidgetStateProperty.resolveWith((states) {
                       if (states.contains(WidgetState.selected)) return const Color(0xFF579bf2);
@@ -555,19 +566,6 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  child: ElevatedButton(
-                    onPressed: _isLoading || _isGeocoding ? null : _loadSchedules,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF579bf2),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Text('조회', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ),
               ],
             ),
           ),

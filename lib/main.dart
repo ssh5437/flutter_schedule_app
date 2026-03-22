@@ -377,6 +377,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<CalendarViewScreenState> _calendarKey = GlobalKey<CalendarViewScreenState>();
+  final GlobalKey<MapScreenState> _mapKey = GlobalKey<MapScreenState>();
   static const platform = MethodChannel('com.vividlife.bizplan/widget');
 
   late final List<Widget> _screens;
@@ -388,7 +389,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _screens = [
       HomeScreen(key: _homeKey),
       CalendarViewScreen(key: _calendarKey),
-      const MapScreen(),
+      MapScreen(key: _mapKey),
       const CompletedSchedulesScreen(),
       const StatisticsScreen(),
       const SettingsScreen(),
@@ -511,13 +512,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         durationUntilAlertAgain: const Duration(days: 1),
       ),
       child: Scaffold(
-        body: _screens[_currentIndex],
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
             setState(() {
               _currentIndex = index;
             });
+            if (index == 2) {
+              _mapKey.currentState?.refresh();
+            }
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: const Color(0xFFFAFAFA),
@@ -549,7 +556,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
+        floatingActionButton: _currentIndex <= 1 ? FloatingActionButton(
           onPressed: () async {
             await Navigator.push(
               context,
@@ -566,7 +573,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           },
           backgroundColor: const Color.fromARGB(255, 220, 232, 248),
           child: const Icon(Icons.add, color: Color.fromARGB(255, 53, 48, 48)),
-        ),
+        ) : null,
       ),
     );
   }
