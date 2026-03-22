@@ -174,7 +174,13 @@ class HomeScreenState extends State<HomeScreen> {
         if (a.visitDate == null && b.visitDate == null) return 0;
         if (a.visitDate == null) return 1;
         if (b.visitDate == null) return -1;
-        return a.visitDate!.compareTo(b.visitDate!);
+        final dateCmp = a.visitDate!.compareTo(b.visitDate!);
+        if (dateCmp != 0) return dateCmp;
+        // 같은 날짜면 visitTime 오름차순 (미정은 뒤로)
+        if (a.visitTime == null && b.visitTime == null) return 0;
+        if (a.visitTime == null) return 1;
+        if (b.visitTime == null) return -1;
+        return a.visitTime!.compareTo(b.visitTime!);
       });
 
       if (!mounted) return;
@@ -415,7 +421,13 @@ class HomeScreenState extends State<HomeScreen> {
                           if (a.visitDate == null && b.visitDate == null) return 0;
                           if (a.visitDate == null) return 1;
                           if (b.visitDate == null) return -1;
-                          return a.visitDate!.compareTo(b.visitDate!);
+                          final dateCmp = a.visitDate!.compareTo(b.visitDate!);
+                          if (dateCmp != 0) return dateCmp;
+                          // 같은 날짜면 visitTime 오름차순 (미정은 뒤로)
+                          if (a.visitTime == null && b.visitTime == null) return 0;
+                          if (a.visitTime == null) return 1;
+                          if (b.visitTime == null) return -1;
+                          return a.visitTime!.compareTo(b.visitTime!);
                         });
 
                         // 스케줄이 없는 경우 메시지 표시

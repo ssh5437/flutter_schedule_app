@@ -426,6 +426,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final beforeDialog = DateTime.now();
       debugPrint('🕐 showDialog 호출 직전');
 
+      if (!mounted) return;
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
         barrierDismissible: false,
@@ -909,6 +910,8 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
   String _statusMessage = '백업 정보 조회 중...';
   double _progress = 0.0;
   bool _isComplete = false;
+  bool _bypassSignature = false; // 서명 검증 우회 (직접 편집 복구)
+  bool _isSignatureError = false; // 서명 오류 여부
 
   // 백업 정보
   int _schedulesCount = 0;
@@ -934,7 +937,7 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
 
       // 백업 파일을 읽어서 캐싱 (한 번만 읽음)
       final beforeRead = DateTime.now();
-      _cachedBackupData = await backupService.readBackupFile(widget.filePath);
+      _cachedBackupData = await backupService.readBackupFile(widget.filePath, bypassSignature: _bypassSignature);
       final afterRead = DateTime.now();
       debugPrint('🕐 readBackupFile 완료 (${afterRead.difference(beforeRead).inMilliseconds}ms)');
 
@@ -961,18 +964,29 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
     } catch (e) {
       debugPrint('백업 정보 조회 실패: $e');
       if (mounted) {
+        final errorStr = e.toString();
+        final isSignatureError = errorStr.contains('서명 불일치') || errorStr.contains('서명') || errorStr.contains('signature');
         setState(() {
-          _statusMessage = '백업 정보 조회 실패: ${e.toString()}';
+          _showOptions = false;
+          _isSignatureError = isSignatureError;
+          _statusMessage = '파일 읽기 실패\n$errorStr';
           _isComplete = true;
         });
-
-        await Future.delayed(const Duration(seconds: 2));
-
-        if (mounted) {
-          Navigator.pop(context, null);
-        }
       }
     }
+  }
+
+  Future<void> _retryWithBypass() async {
+    setState(() {
+      _bypassSignature = true;
+      _isSignatureError = false;
+      _showOptions = true;
+      _backupInfoLoaded = false;
+      _isComplete = false;
+      _statusMessage = '백업 정보 조회 중...';
+      _cachedBackupData = null;
+    });
+    await _loadBackupInfo();
   }
 
   Future<void> _performRestore(bool replaceAll) async {
@@ -1004,7 +1018,8 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
       final result = await backupService.restoreBackup(
         widget.filePath,
         replaceAll: replaceAll,
-        cachedData: _cachedBackupData, // 캐싱된 데이터 전달
+        bypassSignature: _bypassSignature,
+        cachedData: _cachedBackupData,
       );
 
       final afterRestore = DateTime.now();
@@ -1028,15 +1043,11 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
 
       if (mounted) {
         setState(() {
-          _statusMessage = '복구 실패: ${e.toString()}';
+          _statusMessage = '복구 실패\n${e.toString()}';
           _isComplete = true;
+          // _showOptions = false 는 이미 _performRestore 시작 시 설정됨
         });
-
-        await Future.delayed(const Duration(seconds: 2));
-
-        if (mounted) {
-          Navigator.pop(context, null);
-        }
+        // 자동 닫힘 제거 → 닫기 버튼으로만 닫을 수 있음
       }
     }
   }
@@ -1117,6 +1128,19 @@ class _RestoreProgressDialogState extends State<_RestoreProgressDialog> {
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('전체 교체'),
+          ),
+        ] : (!_showOptions && _isComplete) ? [
+          // 에러 또는 완료 상태에서 닫기 버튼
+          if (_isSignatureError &&
+              Supabase.instance.client.auth.currentUser?.email == 'ssh5437@gmail.com')
+            TextButton(
+              onPressed: _retryWithBypass,
+              style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              child: const Text('직접 편집 복구'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('닫기'),
           ),
         ] : null,
       ),

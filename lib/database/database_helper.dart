@@ -610,7 +610,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ?',
       whereArgs: [userId],
-      orderBy: 'visitDate DESC',
+      orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -638,13 +638,19 @@ class DatabaseHelper {
       ..sort((a, b) {
         // visitDate로 정렬 (null인 경우 가장 뒤로)
         if (a.visitDate != null && b.visitDate != null) {
-          return b.visitDate!.compareTo(a.visitDate!); // 최신순
+          final dateCmp = b.visitDate!.compareTo(a.visitDate!); // 최신순
+          if (dateCmp != 0) return dateCmp;
+          // 같은 날짜면 visitTime ASC (미정은 마지막)
+          if (a.visitTime == null && b.visitTime == null) return 0;
+          if (a.visitTime == null) return 1;
+          if (b.visitTime == null) return -1;
+          return a.visitTime!.compareTo(b.visitTime!);
         } else if (a.visitDate != null) {
           return -1;
         } else if (b.visitDate != null) {
           return 1;
         } else {
-          return 0; // 둘 다 null인 경우
+          return 0;
         }
       });
   }
@@ -656,7 +662,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ? AND visitDate < ? AND status != ?',
       whereArgs: [userId, now.toIso8601String(), '취소'],
-      orderBy: 'visitDate DESC',
+      orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -685,7 +691,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ? AND visitDate < ? AND visitDate >= ? AND visitDate <= ? AND status != ?',
       whereArgs: [userId, now.toIso8601String(), startDate.toIso8601String(), endDate.toIso8601String(), '취소'],
-      orderBy: 'visitDate DESC',
+      orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -711,7 +717,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ? AND visitDate < ? AND status != ?',
       whereArgs: [userId, now.toIso8601String(), '취소'],
-      orderBy: 'visitDate DESC',
+      orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
 
     // 모든 스케줄의 개인정보 복호화
@@ -740,7 +746,7 @@ class DatabaseHelper {
       'schedules',
       where: 'userId = ?',
       whereArgs: [userId],
-      orderBy: 'visitDate DESC',
+      orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
 
     // 모든 스케줄의 개인정보 복호화

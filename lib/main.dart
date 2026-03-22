@@ -28,6 +28,8 @@ import 'screens/schedule_detail_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/statistics_screen.dart';
+import 'screens/map_screen.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 void main() async {
   // 앱 시작 시간 측정
@@ -176,6 +178,13 @@ void _initializeServicesInBackground() {
       // 위젯 서비스 초기화
       await WidgetService.initialize();
 
+      // 네이버 지도 SDK 초기화 (앱 시작 차단 방지를 위해 백그라운드에서 실행)
+      await FlutterNaverMap().init(
+        clientId: 'rx7kr4kzw2',
+        onAuthFailed: (e) => debugPrint('⚠️ 네이버 지도 인증 실패: $e'),
+      );
+      debugPrint('✅ NaverMap SDK initialized');
+
       debugPrint('✅ All background services initialized');
     } catch (e) {
       debugPrint('⚠️ Background service initialization error: $e');
@@ -190,34 +199,20 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp> {
   final _appLinks = AppLinks();
+  Future<void>? _initFuture;
+  String? _lastInitUserId;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _handleDeepLinks();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    debugPrint('🔄 App lifecycle changed: $state');
-
-    if (state == AppLifecycleState.resumed) {
-      // 앱이 포그라운드로 돌아올 때 강제 리빌드
-      debugPrint('✅ App resumed - forcing rebuild');
-      if (mounted) {
-        setState(() {});
-      }
-    }
   }
 
   // Deep Link 처리
@@ -342,8 +337,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           // 로그인 여부에 따라 화면 분기
           if (session != null) {
             // 로그인 상태 - 기본 업체 초기화 후 메인 화면으로
+            // Future를 캐싱하여 rebuild 시 재실행 방지
+            if (_initFuture == null || _lastInitUserId != session.user.id) {
+              _lastInitUserId = session.user.id;
+              _initFuture = _initializeDefaultCompanies(session.user.id, session.user.email);
+            }
             return FutureBuilder(
-              future: _initializeDefaultCompanies(session.user.id, session.user.email),
+              future: _initFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(
@@ -388,6 +388,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _screens = [
       HomeScreen(key: _homeKey),
       CalendarViewScreen(key: _calendarKey),
+      const MapScreen(),
       const CompletedSchedulesScreen(),
       const StatisticsScreen(),
       const SettingsScreen(),
@@ -529,6 +530,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             BottomNavigationBarItem(
               icon: Icon(Icons.calendar_today),
               label: '캘린더',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined),
+              label: '지도',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.check_circle),

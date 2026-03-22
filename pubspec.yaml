@@ -71,6 +71,8 @@ dependencies:
   google_mlkit_text_recognition: ^0.13.1
   upgrader: ^11.3.0
   package_info_plus: ^8.0.0
+  flutter_naver_map: ^1.2.3
+  geolocator: ^13.0.1
 
 dev_dependencies:
   flutter_test:

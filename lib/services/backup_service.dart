@@ -187,7 +187,7 @@ class BackupService {
   }
 
   // 백업 파일에서 데이터 읽기
-  Future<Map<String, dynamic>> readBackupFile(String filePath) async {
+  Future<Map<String, dynamic>> readBackupFile(String filePath, {bool bypassSignature = false}) async {
     try {
       final startTime = DateTime.now();
       debugPrint('========================================');
@@ -222,9 +222,12 @@ class BackupService {
       debugPrint('✅ 스케줄 개수: ${(backupData['schedules'] as List?)?.length ?? 0}');
       debugPrint('✅ 업체 개수: ${(backupData['companies'] as List?)?.length ?? 0}');
 
-      // 서명 검증
-      if (!_verifySignature(backupData)) {
-        throw Exception('유효하지 않은 백업 파일입니다.\n앱에서 생성된 정식 백업 파일만 복원할 수 있습니다.');
+      // 서명 검증 (bypassSignature가 true이면 건너뜀)
+      if (!bypassSignature && !_verifySignature(backupData)) {
+        throw Exception('서명 불일치: 파일이 수정되었거나 앱 외부에서 생성된 파일입니다.\n직접 편집 복구를 사용하세요.');
+      }
+      if (bypassSignature) {
+        debugPrint('⚠️ 서명 검증 우회 모드 - 직접 편집 복구');
       }
 
       final totalTime = DateTime.now().difference(startTime).inMilliseconds;
@@ -237,22 +240,19 @@ class BackupService {
       debugPrint('에러: $e');
       debugPrint('스택트레이스: $stackTrace');
       debugPrint('========================================');
-      if (e.toString().contains('유효하지 않은 백업 파일')) {
-        rethrow;
-      }
-      throw Exception('백업 파일 읽기 실패: $e');
+      rethrow;
     }
   }
 
   // 백업 복구 (기존 데이터 유지하고 추가)
-  Future<Map<String, dynamic>> restoreBackup(String filePath, {bool replaceAll = false, Map<String, dynamic>? cachedData}) async {
+  Future<Map<String, dynamic>> restoreBackup(String filePath, {bool replaceAll = false, bool bypassSignature = false, Map<String, dynamic>? cachedData}) async {
     try {
       final restoreStartTime = DateTime.now();
       debugPrint('========================================');
       debugPrint('🔄 restoreBackup 시작 (replaceAll: $replaceAll)');
 
       // 캐싱된 데이터가 있으면 사용, 없으면 파일 읽기
-      final backupData = cachedData ?? await readBackupFile(filePath);
+      final backupData = cachedData ?? await readBackupFile(filePath, bypassSignature: bypassSignature);
       final afterDataLoad = DateTime.now();
       debugPrint('✅ 백업 데이터 로드 완료 (${afterDataLoad.difference(restoreStartTime).inMilliseconds}ms)');
 
