@@ -7,6 +7,7 @@ import '../models/schedule.dart';
 import '../models/date_memo.dart';
 import '../database/database_helper.dart';
 import '../services/widget_service.dart';
+import '../utils/naver_navigation_helper.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../widgets/memo_dialog.dart';
 import 'schedule_detail_screen.dart';
@@ -176,10 +177,10 @@ class HomeScreenState extends State<HomeScreen> {
         if (b.visitDate == null) return -1;
         final dateCmp = a.visitDate!.compareTo(b.visitDate!);
         if (dateCmp != 0) return dateCmp;
-        // 같은 날짜면 visitTime 오름차순 (미정은 뒤로)
+        // 같은 날짜면 미정(null)이 앞으로, 그 다음 visitTime 오름차순
         if (a.visitTime == null && b.visitTime == null) return 0;
-        if (a.visitTime == null) return 1;
-        if (b.visitTime == null) return -1;
+        if (a.visitTime == null) return -1;
+        if (b.visitTime == null) return 1;
         return a.visitTime!.compareTo(b.visitTime!);
       });
 
@@ -423,10 +424,10 @@ class HomeScreenState extends State<HomeScreen> {
                           if (b.visitDate == null) return -1;
                           final dateCmp = a.visitDate!.compareTo(b.visitDate!);
                           if (dateCmp != 0) return dateCmp;
-                          // 같은 날짜면 visitTime 오름차순 (미정은 뒤로)
+                          // 같은 날짜면 미정(null)이 앞으로, 그 다음 visitTime 오름차순
                           if (a.visitTime == null && b.visitTime == null) return 0;
-                          if (a.visitTime == null) return 1;
-                          if (b.visitTime == null) return -1;
+                          if (a.visitTime == null) return -1;
+                          if (b.visitTime == null) return 1;
                           return a.visitTime!.compareTo(b.visitTime!);
                         });
 
@@ -537,9 +538,12 @@ class HomeScreenState extends State<HomeScreen> {
                         // 날짜별 데이터 그룹화 (메모와 스케줄 포함)
                         final Map<String, List<Schedule>> confirmedByDate = {};
                         final List<Schedule> pendingSchedules = [];
+                        final List<Schedule> noTimeSchedules = [];
 
                         for (var schedule in filteredSchedules) {
-                          if (schedule.computedStatus == '예정') {
+                          if (schedule.visitTime == null) {
+                            noTimeSchedules.add(schedule);
+                          } else if (schedule.computedStatus == '예정') {
                             pendingSchedules.add(schedule);
                           } else if (schedule.visitDate != null) {
                             final dateKey = DateTime(
@@ -571,6 +575,30 @@ class HomeScreenState extends State<HomeScreen> {
                         // 스케줄 목록 표시
                         return ListView(
                           children: [
+                            // 시간 미정 섹션 (최상단)
+                            if (noTimeSchedules.isNotEmpty) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                margin: const EdgeInsets.only(top: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.orange.shade200, width: 1),
+                                  ),
+                                ),
+                                child: const Text(
+                                  '시간 미정',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              ...noTimeSchedules.map((schedule) => _buildScheduleCard(schedule, '방문일자')),
+                            ],
+
                             // 미확정 스케줄 섹션
                             if (pendingSchedules.isNotEmpty) ...[
                               Container(
@@ -665,8 +693,8 @@ class HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
 
-                                  // 해당 날짜의 스케줄들
-                                  ...schedulesForDate.map((schedule) => _buildScheduleCard(schedule, '')),
+                                  // 해당 날짜의 스케줄들 (연속 스케줄 사이 이동 버튼 포함)
+                                  ..._buildScheduleCardsWithNavigation(schedulesForDate),
                                 ],
                               );
                             }),
@@ -678,6 +706,94 @@ class HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+      ),
+    );
+  }
+
+  // 같은 날짜 스케줄 목록을 카드 + 이동 버튼 혼합으로 빌드
+  List<Widget> _buildScheduleCardsWithNavigation(List<Schedule> schedules) {
+    final widgets = <Widget>[];
+    for (int i = 0; i < schedules.length; i++) {
+      widgets.add(_buildScheduleCard(schedules[i], ''));
+
+      // 다음 스케줄이 있고, 두 스케줄 모두 주소가 있는 경우 이동 버튼 추가
+      if (i < schedules.length - 1) {
+        final current = schedules[i];
+        final next = schedules[i + 1];
+        final hasAddresses = (current.address?.isNotEmpty ?? false) &&
+            (next.address?.isNotEmpty ?? false);
+
+        if (hasAddresses) {
+          widgets.add(_buildNavigationButton(current, next));
+        }
+      }
+    }
+    return widgets;
+  }
+
+  // 두 스케줄 사이 이동 버튼
+  Widget _buildNavigationButton(Schedule from, Schedule to) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          // 세로 연결선
+          Column(
+            children: [
+              Container(width: 1.5, height: 6, color: Colors.grey.shade300),
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey.shade100,
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Icon(Icons.arrow_downward, size: 13, color: Colors.grey.shade500),
+              ),
+              Container(width: 1.5, height: 6, color: Colors.grey.shade300),
+            ],
+          ),
+          const SizedBox(width: 10),
+          // 이동 버튼
+          Expanded(
+            child: GestureDetector(
+              onTap: () => NaverNavigationHelper.openNavigation(
+                context: context,
+                fromAddress: from.address!,
+                fromName: from.customerName,
+                toAddress: to.address!,
+                toName: to.customerName,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF4FF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFBDD0FF)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.directions_car, size: 14, color: Color(0xFF3D6FE8)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        '${from.customerName} → ${to.customerName} 길 안내',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF3D6FE8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

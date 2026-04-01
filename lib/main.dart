@@ -29,6 +29,10 @@ import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/statistics_screen.dart';
 import 'screens/map_screen.dart';
+import 'screens/data_migration_screen.dart';
+import 'services/data_migration_service.dart';
+import 'services/pull_service.dart';
+import 'services/anr_monitor.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 void main() async {
@@ -199,20 +203,36 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final _appLinks = AppLinks();
-  Future<void>? _initFuture;
+  Future<bool>? _initFuture; // bool: 마이그레이션 필요 여부
   String? _lastInitUserId;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _handleDeepLinks();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아올 때 세션 유효성 재확인
+      debugPrint('🔄 App resumed - refreshing session');
+      Supabase.instance.client.auth.refreshSession().then((_) {
+        debugPrint('✅ Session refreshed');
+      }).catchError((e) {
+        debugPrint('⚠️ Session refresh failed: $e');
+        return null;
+      });
+    }
   }
 
   // Deep Link 처리
@@ -269,8 +289,8 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // 사용자의 기본 업체 초기화
-  Future<void> _initializeDefaultCompanies(String userId, String? email) async {
+  // 사용자의 기본 업체 초기화 + Supabase 마이그레이션 필요 여부 반환
+  Future<bool> _initializeDefaultCompanies(String userId, String? email) async {
     try {
       // 0. 먼저 프로필이 존재하는지 확인하고 없으면 생성
       await _ensureUserProfile(userId, email);
@@ -281,9 +301,12 @@ class _MyAppState extends State<MyApp> {
       // 2. 기본 업체 초기화 (새 사용자인 경우에만)
       await DatabaseHelper.instance.initializeDefaultCompaniesForUser(userId);
 
-      // Note: 알림 설정 및 백그라운드 작업은 _initializeServicesInBackground()에서 처리됨
+      // 3. Supabase 마이그레이션 필요 여부 확인
+      final migrationDone = await DataMigrationService.instance.isMigrationCompleted();
+      return !migrationDone; // true = 마이그레이션 화면 표시 필요
     } catch (e) {
       debugPrint('Failed to initialize default companies: $e');
+      return false;
     }
   }
 
@@ -322,17 +345,19 @@ class _MyAppState extends State<MyApp> {
         home: StreamBuilder<AuthState>(
         stream: Supabase.instance.client.auth.onAuthStateChange,
         builder: (context, snapshot) {
-          // 로딩 중
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // 인증 상태 확인 (스트림 대기 중에도 현재 세션을 동기적으로 먼저 확인)
+          final session = snapshot.hasData
+              ? snapshot.data!.session
+              : Supabase.instance.client.auth.currentSession;
+
+          // 스트림 대기 중이고 세션도 없으면 로딩 표시
+          if (snapshot.connectionState == ConnectionState.waiting && session == null) {
             return const Scaffold(
               body: Center(
                 child: CircularProgressIndicator(),
               ),
             );
           }
-
-          // 인증 상태 확인
-          final session = snapshot.hasData ? snapshot.data!.session : null;
 
           // 로그인 여부에 따라 화면 분기
           if (session != null) {
@@ -342,14 +367,23 @@ class _MyAppState extends State<MyApp> {
               _lastInitUserId = session.user.id;
               _initFuture = _initializeDefaultCompanies(session.user.id, session.user.email);
             }
-            return FutureBuilder(
+            return FutureBuilder<bool>(
               future: _initFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(
-                    body: Center(
-                      child: CircularProgressIndicator(),
-                    ),
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final needsMigration = snapshot.data ?? false;
+                if (needsMigration) {
+                  return DataMigrationScreen(
+                    onComplete: () {
+                      // 마이그레이션 완료 후 initFuture를 재실행하여 MainScreen으로 이동
+                      setState(() {
+                        _initFuture = Future.value(false);
+                      });
+                    },
                   );
                 }
                 return const MainScreen();
@@ -397,10 +431,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _setupMethodChannel();
     _checkForWidgetScheduleId();
 
-    // 빌드 완료 후 구독 상태 초기화 및 last_seen 업데이트
+    // 빌드 완료 후 초기화
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeSubscription();
       _updateLastSeen();
+      // 이전 세션 ANR/비정상 종료 여부 확인
+      AnrMonitor.instance.checkPreviousSession();
+      // 앱 시작 시 웹 변경사항 pull (로그인 유지 상태로 콜드 스타트할 때도 반영)
+      _pullOnStartup();
     });
   }
 
@@ -415,14 +453,39 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     debugPrint('🔄 MainScreen lifecycle changed: $state');
 
+    if (state == AppLifecycleState.paused) {
+      // 백그라운드 진입 시각 기록
+      AnrMonitor.instance.onBackground();
+    }
+
     if (state == AppLifecycleState.resumed) {
-      // 앱이 포그라운드로 돌아올 때 화면 새로고침
       debugPrint('✅ MainScreen resumed - refreshing screens');
+
+      // resume 시작 시각 기록
+      AnrMonitor.instance.onResumeStart();
+
+      // 1) UI 새로고침은 즉시 실행 (pull 대기 없이)
       if (mounted) {
         _homeKey.currentState?.refresh();
         _calendarKey.currentState?.refresh();
         setState(() {});
       }
+
+      // 2) pull은 500ms 뒤 백그라운드에서 조용히 실행
+      Future.delayed(const Duration(milliseconds: 500), () {
+        PullService.instance.pullIfNeeded().then((count) {
+          if (count > 0 && mounted) {
+            debugPrint('🔄 [Pull] $count건 변경 - 화면 재갱신');
+            _homeKey.currentState?.refresh();
+            _calendarKey.currentState?.refresh();
+          }
+        });
+      });
+
+      // 3) resume 완료 후 소요시간 측정 (ANR 감지)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AnrMonitor.instance.onResumeComplete();
+      });
     }
   }
 
@@ -437,6 +500,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   // Last seen 업데이트 (하루에 한 번)
   Future<void> _updateLastSeen() async {
     await LastSeenService.updateLastSeenIfNeeded();
+  }
+
+  // 앱 시작 시 웹 변경사항 pull
+  Future<void> _pullOnStartup() async {
+    final count = await PullService.instance.pull();
+    if (count > 0 && mounted) {
+      debugPrint('🔄 [Startup Pull] $count건 변경 - 화면 갱신');
+      _homeKey.currentState?.refresh();
+      _calendarKey.currentState?.refresh();
+    }
   }
 
   // MethodChannel 설정 - Android에서 보내는 메시지 수신

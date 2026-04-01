@@ -547,6 +547,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _sendDiagnosticReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    // 로딩 표시
+    messenger.showSnackBar(
+      const SnackBar(content: Text('로그 수집 중...'), duration: Duration(seconds: 2)),
+    );
+
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final userEmail = Supabase.instance.client.auth.currentUser?.email ?? '';
+
+      // 최근 error_logs 20건 조회
+      final logs = await Supabase.instance.client
+          .from('error_logs')
+          .select('error_type, message, app_version, platform_version, additional_data, created_at')
+          .eq('user_id', userId as Object)
+          .order('created_at', ascending: false)
+          .limit(20);
+
+      // 이메일 본문 구성
+      final buffer = StringBuffer();
+      buffer.writeln('=== 비즈플랜 앱 오류 신고 ===');
+      buffer.writeln('사용자: $userEmail');
+      buffer.writeln('신고 시각: ${DateTime.now()}');
+      buffer.writeln('');
+      buffer.writeln('--- 최근 오류 로그 (최대 20건) ---');
+
+      for (final log in logs) {
+        buffer.writeln('');
+        buffer.writeln('[${log['created_at']}]');
+        buffer.writeln('유형: ${log['error_type']}');
+        buffer.writeln('내용: ${log['message']}');
+        buffer.writeln('앱버전: ${log['app_version']} / OS: ${log['platform_version']}');
+        if (log['additional_data'] != null) {
+          buffer.writeln('상세: ${log['additional_data']}');
+        }
+      }
+
+      if (logs.isEmpty) {
+        buffer.writeln('(최근 오류 로그 없음)');
+      }
+
+      final subject = Uri.encodeComponent('[비즈플랜] 앱 오류 신고 - $userEmail');
+      final body = Uri.encodeComponent(buffer.toString());
+      final mailUri = Uri.parse('mailto:ssh5437@gmail.com?subject=$subject&body=$body');
+
+      if (await canLaunchUrl(mailUri)) {
+        await launchUrl(mailUri);
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('이메일 앱을 열 수 없습니다')),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('오류 신고 실패: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -786,6 +847,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+
+          // 오류 신고
+          ListTile(
+            leading: const Icon(Icons.bug_report_outlined, color: Colors.orange),
+            title: const Text('오류 신고'),
+            subtitle: const Text('앱 응답 없음 등 문제 발생 시 로그를 전송합니다'),
+            onTap: () => _sendDiagnosticReport(context),
+          ),
 
           // 로그아웃
           ListTile(

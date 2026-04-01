@@ -1,13 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:convert';
 import '../models/schedule.dart';
 import '../models/company.dart';
 import '../models/message_template.dart';
 import '../models/date_memo.dart';
 import '../models/subscription.dart';
 import '../utils/encryption_helper.dart';
+import '../services/sync_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -577,7 +579,10 @@ class DatabaseHelper {
       map['address'] = await EncryptionHelper.encrypt(map['address']);
     }
 
-    return await db.insert('schedules', map);
+    final id = await db.insert('schedules', map);
+    // Supabase 동기화 (비동기, 실패해도 무시)
+    unawaited(SyncService.instance.upsertSchedule(schedule.copyWith(id: id)));
+    return id;
   }
 
   Future<Schedule?> readSchedule(String userId, int id) async {
@@ -780,21 +785,59 @@ class DatabaseHelper {
       map['address'] = await EncryptionHelper.encrypt(map['address']);
     }
 
-    return await db.update(
+    final result = await db.update(
       'schedules',
       map,
       where: 'id = ? AND userId = ?',
       whereArgs: [schedule.id, schedule.userId],
     );
+    unawaited(SyncService.instance.upsertSchedule(schedule));
+    return result;
+  }
+
+  /// Supabase row(snake_case)를 받아 로컬 DB에 upsert (Supabase 재동기화 없음)
+  Future<void> upsertScheduleFromSupabase(Map<String, dynamic> row) async {
+    final db = await database;
+
+    // snake_case → camelCase 변환 + 암호화
+    final customerName = row['customer_name']?.toString() ?? '';
+    final phoneNumber = row['phone_number']?.toString() ?? '';
+    final address = row['address']?.toString();
+
+    final map = <String, dynamic>{
+      'id': row['id'],
+      'userId': row['user_id'],
+      'customerName': await EncryptionHelper.encrypt(customerName),
+      'visitDate': row['visit_date'],
+      'visitTime': row['visit_time'],
+      'phoneNumber': await EncryptionHelper.encrypt(phoneNumber),
+      'address': address != null ? await EncryptionHelper.encrypt(address) : null,
+      'jibunAddress': row['jibun_address'],
+      'companyName': row['company_name'],
+      'workItems': row['work_items'] ?? '',
+      'workPrices': row['work_prices'] ?? '',
+      'workCount': row['work_count'] ?? 1,
+      'notes': row['notes'],
+      'status': row['status'] ?? '예정',
+    };
+
+    // INSERT OR REPLACE: ID가 같으면 덮어쓰기, 없으면 삽입
+    await db.insert(
+      'schedules',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<int> deleteSchedule(String userId, int id) async {
     final db = await database;
-    return await db.delete(
+    final result = await db.delete(
       'schedules',
       where: 'id = ? AND userId = ?',
       whereArgs: [id, userId],
     );
+    unawaited(SyncService.instance.deleteSchedule(id, userId));
+    return result;
   }
 
   // Company CRUD operations
@@ -853,19 +896,22 @@ class DatabaseHelper {
       [company.userId],
     );
     final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
+    final newOrder = maxOrder + 1;
 
-    return await db.insert('companies', {
+    final id = await db.insert('companies', {
       'userId': company.userId,
       'name': company.name,
       'workItems': jsonEncode(company.workItems.map((item) => item.toMap()).toList()),
       'color': company.color,
-      'displayOrder': maxOrder + 1,
+      'displayOrder': newOrder,
     });
+    unawaited(SyncService.instance.upsertCompany(company.copyWith(id: id, displayOrder: newOrder)));
+    return id;
   }
 
   Future<int> updateCompany(Company company) async {
     final db = await database;
-    return await db.update(
+    final result = await db.update(
       'companies',
       {
         'userId': company.userId,
@@ -877,6 +923,8 @@ class DatabaseHelper {
       where: 'id = ? AND userId = ?',
       whereArgs: [company.id, company.userId],
     );
+    unawaited(SyncService.instance.upsertCompany(company));
+    return result;
   }
 
   // 업체 순서 일괄 업데이트
@@ -894,26 +942,33 @@ class DatabaseHelper {
     }
 
     await batch.commit(noResult: true);
+    // 순서 변경된 업체 목록을 Supabase에 반영
+    final updated = [for (int i = 0; i < companies.length; i++) companies[i].copyWith(displayOrder: i)];
+    unawaited(SyncService.instance.upsertCompanies(updated));
   }
 
   Future<int> deleteCompany(String userId, int id) async {
     final db = await database;
-    return await db.delete(
+    final result = await db.delete(
       'companies',
       where: 'id = ? AND userId = ?',
       whereArgs: [id, userId],
     );
+    unawaited(SyncService.instance.deleteCompany(id, userId));
+    return result;
   }
 
   // 스케줄의 업체명 일괄 변경
   Future<int> updateScheduleCompanyNames(String userId, String oldCompanyName, String newCompanyName) async {
     final db = await database;
-    return await db.update(
+    final result = await db.update(
       'schedules',
       {'companyName': newCompanyName},
       where: 'userId = ? AND companyName = ?',
       whereArgs: [userId, oldCompanyName],
     );
+    unawaited(SyncService.instance.updateScheduleCompanyName(userId, oldCompanyName, newCompanyName));
+    return result;
   }
 
   // MessageTemplate CRUD operations
@@ -935,6 +990,7 @@ class DatabaseHelper {
       where: 'user_id = ? AND company_id = ?',
       whereArgs: [userId, companyId],
     );
+    unawaited(SyncService.instance.deleteMessageTemplatesByCompany(userId, companyId));
   }
 
   Future<List<MessageTemplate>> readAllMessageTemplates(String userId, int companyId) async {
@@ -971,25 +1027,30 @@ class DatabaseHelper {
       [template.userId, template.companyId],
     );
     final maxOrder = (result.first['maxOrder'] as int?) ?? -1;
+    final newOrder = maxOrder + 1;
 
-    return await db.insert('message_templates', {
+    final id = await db.insert('message_templates', {
       'user_id': template.userId,
       'company_id': template.companyId,
       'name': template.name,
       'content': template.content,
-      'display_order': maxOrder + 1,
+      'display_order': newOrder,
       'created_at': template.createdAt.toIso8601String(),
     });
+    unawaited(SyncService.instance.upsertMessageTemplate(template.copyWith(id: id, displayOrder: newOrder)));
+    return id;
   }
 
   Future<int> updateMessageTemplate(MessageTemplate template) async {
     final db = await database;
-    return await db.update(
+    final result = await db.update(
       'message_templates',
       template.toMap(),
       where: 'id = ? AND user_id = ?',
       whereArgs: [template.id, template.userId],
     );
+    unawaited(SyncService.instance.upsertMessageTemplate(template));
+    return result;
   }
 
   // 메시지 템플릿 순서 일괄 업데이트
@@ -1007,15 +1068,19 @@ class DatabaseHelper {
     }
 
     await batch.commit(noResult: true);
+    final updated = [for (int i = 0; i < templates.length; i++) templates[i].copyWith(displayOrder: i)];
+    unawaited(SyncService.instance.upsertMessageTemplates(updated));
   }
 
   Future<int> deleteMessageTemplate(String userId, int id) async {
     final db = await database;
-    return await db.delete(
+    final result = await db.delete(
       'message_templates',
       where: 'id = ? AND user_id = ?',
       whereArgs: [id, userId],
     );
+    unawaited(SyncService.instance.deleteMessageTemplate(id, userId));
+    return result;
   }
 
   // ==================== DateMemo CRUD ====================
@@ -1023,7 +1088,9 @@ class DatabaseHelper {
   // 메모 생성
   Future<int> createMemo(DateMemo memo) async {
     final db = await database;
-    return await db.insert('date_memos', memo.toMap());
+    final id = await db.insert('date_memos', memo.toMap());
+    unawaited(SyncService.instance.upsertMemo(memo.copyWith(id: id)));
+    return id;
   }
 
   // 특정 날짜의 메모 조회
@@ -1068,22 +1135,26 @@ class DatabaseHelper {
   // 메모 수정
   Future<int> updateMemo(DateMemo memo) async {
     final db = await database;
-    return await db.update(
+    final result = await db.update(
       'date_memos',
       memo.toMap(),
       where: 'id = ?',
       whereArgs: [memo.id],
     );
+    unawaited(SyncService.instance.upsertMemo(memo));
+    return result;
   }
 
   // 메모 삭제
   Future<int> deleteMemo(String userId, int id) async {
     final db = await database;
-    return await db.delete(
+    final result = await db.delete(
       'date_memos',
       where: 'id = ? AND user_id = ?',
       whereArgs: [id, userId],
     );
+    unawaited(SyncService.instance.deleteMemo(id, userId));
+    return result;
   }
 
   // ========================================
