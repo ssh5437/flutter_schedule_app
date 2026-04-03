@@ -509,6 +509,7 @@ class _MessageTemplateFormScreenState extends State<MessageTemplateFormScreen> {
             ),
             const SizedBox(height: 24),
 
+
             // 메시지 내용
             const Text(
               '메시지 내용',

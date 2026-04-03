@@ -162,8 +162,8 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
                     ),
                     trailing: const Icon(Icons.content_copy, color: Colors.blue),
                     onTap: () {
-                      _copyTemplateMessage(template);
                       Navigator.pop(context);
+                      _sendTemplateMessage(template);
                     },
                   ),
                 );
@@ -175,8 +175,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     );
   }
 
-  void _copyTemplateMessage(MessageTemplate template) {
-    // 템플릿 변수를 실제 값으로 치환
+  Future<void> _sendTemplateMessage(MessageTemplate template) async {
     final message = template.replaceVariables(
       visitDate: _schedule.visitDate != null ? DateFormat('M월 d일', 'ko_KR').format(_schedule.visitDate!) : '미정',
       visitTime: _schedule.visitTime ?? '미정',
@@ -185,12 +184,17 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       address: _schedule.address,
     );
 
-    Clipboard.setData(ClipboardData(text: message));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${template.name}" 메시지가 복사되었습니다')),
-    );
+    await Clipboard.setData(ClipboardData(text: message));
 
-    // Analytics 로그
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${template.name}" 메시지가 복사되었습니다'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+
     AnalyticsService().logFeatureUsed(
       featureName: 'message_copied',
       parameters: {

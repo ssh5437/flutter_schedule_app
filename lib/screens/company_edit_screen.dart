@@ -26,8 +26,8 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   late TextEditingController _nameController;
   late List<WorkItem> _workItems;
   late Color _selectedColor;
-  late String _originalCompanyName; // 원래 업체명 저장
-  bool _updateScheduleCompanyNames = false; // 스케줄 업체명 변경 여부
+  late String _originalCompanyName;
+  bool _updateScheduleCompanyNames = false;
 
   @override
   void initState() {
@@ -45,7 +45,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 앱이 다시 활성화될 때 데이터 새로고침
     if (state == AppLifecycleState.resumed) {
       _reloadCompanyData();
     }
@@ -53,13 +52,12 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
 
   void _loadCompanyData() {
     _nameController = TextEditingController(text: widget.company?.name);
-    _originalCompanyName = widget.company?.name ?? ''; // 원래 업체명 저장
+    _originalCompanyName = widget.company?.name ?? '';
     _workItems = widget.company?.workItems.map((item) => WorkItem(name: item.name, price: item.price)).toList() ?? [];
     _selectedColor = widget.company != null ? Color(widget.company!.color) : const Color(0xFF2196F3);
   }
 
   Future<void> _reloadCompanyData() async {
-    // 기존 업체가 있는 경우에만 DB에서 최신 데이터 로드
     if (widget.company?.id != null) {
       final userId = Supabase.instance.client.auth.currentUser!.id;
       final companies = await DatabaseHelper.instance.readAllCompanies(userId);
@@ -108,12 +106,10 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
     );
   }
 
-  // 작업 항목 추가 핸들러 (무료 사용자 제한 적용)
   void _handleAddWorkItem() {
     final subscriptionProvider = context.read<SubscriptionProvider>();
     final hasActiveSubscription = subscriptionProvider.hasActiveSubscription;
 
-    // 무료 사용자는 작업 항목 10개 제한
     const freeUserLimit = 15;
 
     if (!hasActiveSubscription && _workItems.length >= freeUserLimit) {
@@ -124,7 +120,6 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
     _showWorkItemDialog();
   }
 
-  // Plus 멤버십 업그레이드 안내 다이얼로그
   void _showUpgradeDialog() {
     showDialog(
       context: context,
@@ -169,21 +164,18 @@ class _CompanyEditScreenState extends State<CompanyEditScreen> with WidgetsBindi
   Future<void> _showWorkItemDialog({WorkItem? workItem, int? index}) async {
     final nameController = TextEditingController(text: workItem?.name);
     final priceController = TextEditingController(
-text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
-);
+      text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0',
+    );
     final priceFocusNode = FocusNode();
 
-    // 포커스 이벤트 리스너 추가
     priceFocusNode.addListener(() {
       if (priceFocusNode.hasFocus) {
-        // 포커스 받을 때: 쉼표 제거
         final text = priceController.text.replaceAll(',', '');
         priceController.value = TextEditingValue(
           text: text,
           selection: TextSelection.collapsed(offset: text.length),
         );
       } else {
-        // 포커스 잃을 때: 쉼표 추가
         final value = int.tryParse(priceController.text.replaceAll(',', '')) ?? 0;
         final formattedText = NumberFormat('#,###').format(value);
         priceController.value = TextEditingValue(
@@ -260,7 +252,6 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                   }
                 });
 
-                // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
                 if (widget.company != null) {
                   final userId = Supabase.instance.client.auth.currentUser!.id;
                   final updatedCompany = Company(
@@ -276,7 +267,6 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                   try {
                     await DatabaseHelper.instance.updateCompany(updatedCompany);
 
-                    // Analytics: 작업 항목 추가/수정 이벤트
                     if (index == null) {
                       await AnalyticsService().logFeatureUsed(
                         featureName: 'work_item_added',
@@ -316,11 +306,9 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
       ),
     );
 
-    // 다이얼로그가 닫힌 후 데이터 새로고침
     await _reloadCompanyData();
   }
 
-  // 메시지 템플릿 설정 화면으로 이동
   Future<void> _navigateToMessageTemplate() async {
     if (widget.company == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -336,7 +324,6 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
       ),
     );
 
-    // 템플릿이 업데이트되면 화면 새로고침
     if (result == true) {
       await _reloadCompanyData();
     }
@@ -357,20 +344,11 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
       try {
         if (widget.company == null) {
           await DatabaseHelper.instance.createCompany(company);
-
-          // Analytics: 업체 생성 이벤트
-          await AnalyticsService().logCompanyCreated(
-            workItemCount: _workItems.length,
-          );
+          await AnalyticsService().logCompanyCreated(workItemCount: _workItems.length);
         } else {
           await DatabaseHelper.instance.updateCompany(company);
+          await AnalyticsService().logCompanyUpdated(workItemCount: _workItems.length);
 
-          // Analytics: 업체 수정 이벤트
-          await AnalyticsService().logCompanyUpdated(
-            workItemCount: _workItems.length,
-          );
-
-          // 업체명이 변경되었고 스케줄 업체명도 변경하도록 체크된 경우
           if (_updateScheduleCompanyNames && _originalCompanyName.isNotEmpty && _originalCompanyName != _nameController.text) {
             final updatedCount = await DatabaseHelper.instance.updateScheduleCompanyNames(
               userId,
@@ -386,7 +364,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         }
 
         if (mounted) {
-          Navigator.pop(context, true); // true를 반환하여 목록 새로고침 트리거
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
@@ -416,7 +394,6 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
-            // 업체명
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -426,31 +403,22 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
               ),
               maxLength: 10,
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return '업체명을 입력해주세요';
-                }
-                if (value.length > 10) {
-                  return '업체명은 10자 이내로 입력해주세요';
-                }
+                if (value == null || value.isEmpty) return '업체명을 입력해주세요';
+                if (value.length > 10) return '업체명은 10자 이내로 입력해주세요';
                 return null;
               },
               onChanged: (value) {
-                // 업체명이 변경되면 체크박스 상태 초기화 및 UI 갱신
                 setState(() {
                   _updateScheduleCompanyNames = false;
                 });
               },
             ),
 
-            // 업체명 변경 시 스케줄 업체명 변경 체크박스 (기존 업체 수정 시에만 표시)
             if (widget.company != null &&
                 _originalCompanyName.isNotEmpty &&
                 _nameController.text != _originalCompanyName)
               CheckboxListTile(
-                title: const Text(
-                  '기존 스케줄의 업체명도 모두 변경',
-                  style: TextStyle(fontSize: 14),
-                ),
+                title: const Text('기존 스케줄의 업체명도 모두 변경', style: TextStyle(fontSize: 14)),
                 subtitle: const Text(
                   '체크하면 이 업체로 등록된 모든 스케줄의 업체명이 변경됩니다',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -465,7 +433,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // 색상 선택
             Card(
@@ -488,7 +456,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 onTap: _showColorPicker,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
 
             // 메시지 템플릿 설정 버튼
             Card(
@@ -509,10 +477,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '작업 항목',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                const Text('작업 항목', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ElevatedButton.icon(
                   onPressed: () => _handleAddWorkItem(),
                   icon: const Icon(Icons.add),
@@ -522,16 +487,12 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
             ),
             const SizedBox(height: 12),
 
-            // 작업 항목 리스트
             if (_workItems.isEmpty)
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(32),
                   child: Center(
-                    child: Text(
-                      '작업 항목이 없습니다',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                    child: Text('작업 항목이 없습니다', style: TextStyle(color: Colors.grey)),
                   ),
                 ),
               )
@@ -542,14 +503,11 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                 itemCount: _workItems.length,
                 onReorder: (oldIndex, newIndex) async {
                   setState(() {
-                    if (newIndex > oldIndex) {
-                      newIndex -= 1;
-                    }
+                    if (newIndex > oldIndex) newIndex -= 1;
                     final item = _workItems.removeAt(oldIndex);
                     _workItems.insert(newIndex, item);
                   });
 
-                  // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
                   if (widget.company != null) {
                     final userId = Supabase.instance.client.auth.currentUser!.id;
                     final updatedCompany = Company(
@@ -567,9 +525,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                       if (!mounted) return;
                     } catch (e) {
                       if (!mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('저장 실패: $e')),
-                      );
+                      messenger.showSnackBar(SnackBar(content: Text('저장 실패: $e')));
                     }
                   }
                 },
@@ -585,10 +541,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                           const SizedBox(width: 8),
                           CircleAvatar(
                             backgroundColor: _selectedColor.withValues(alpha: 0.2),
-                            child: Text(
-                              '${index + 1}',
-                              style: TextStyle(color: _selectedColor),
-                            ),
+                            child: Text('${index + 1}', style: TextStyle(color: _selectedColor)),
                           ),
                         ],
                       ),
@@ -608,12 +561,10 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () async {
                               final messenger = ScaffoldMessenger.of(context);
-
                               setState(() {
                                 _workItems.removeAt(index);
                               });
 
-                              // 업체가 이미 존재하는 경우 바로 데이터베이스에 저장
                               if (widget.company != null) {
                                 final userId = Supabase.instance.client.auth.currentUser!.id;
                                 final updatedCompany = Company(
@@ -629,9 +580,7 @@ text: workItem != null ? NumberFormat('#,###').format(workItem.price) : '0'
                                   await DatabaseHelper.instance.updateCompany(updatedCompany);
                                 } catch (e) {
                                   if (mounted) {
-                                    messenger.showSnackBar(
-                                      SnackBar(content: Text('저장 실패: $e')),
-                                    );
+                                    messenger.showSnackBar(SnackBar(content: Text('저장 실패: $e')));
                                   }
                                 }
                               }

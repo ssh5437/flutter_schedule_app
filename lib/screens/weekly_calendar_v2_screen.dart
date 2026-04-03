@@ -64,7 +64,8 @@ class WeeklyCalendarV2ScreenState extends State<WeeklyCalendarV2Screen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
-    final userId = Supabase.instance.client.auth.currentUser!.id;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
     final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
     final companies = await DatabaseHelper.instance.readAllCompanies(userId);
 

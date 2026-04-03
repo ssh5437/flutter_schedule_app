@@ -80,7 +80,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   Future<void> _loadSchedules() async {
     setState(() => _isLoading = true);
     try {
-      final userId = Supabase.instance.client.auth.currentUser!.id;
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
       // 완료, 확정, 미확정 스케줄 모두 가져오기
       final allSchedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['완료', '확정', '예정']);
 
