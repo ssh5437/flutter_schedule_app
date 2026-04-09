@@ -151,6 +151,11 @@ class EncryptionHelper {
     return _cachedKey!;
   }
 
+  /// 키를 미리 로드하여 첫 번째 암복호화 지연을 제거
+  static Future<void> warmUp() async {
+    await _getOrCreateKey();
+  }
+
   /// 문자열을 암호화
   static Future<String> encrypt(String plainText) async {
     if (plainText.isEmpty) return '';

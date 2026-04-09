@@ -7,6 +7,7 @@ import '../models/schedule.dart';
 import '../models/date_memo.dart';
 import '../database/database_helper.dart';
 import '../services/widget_service.dart';
+import '../utils/encryption_helper.dart';
 import '../utils/naver_navigation_helper.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../widgets/memo_dialog.dart';
@@ -151,8 +152,14 @@ class HomeScreenState extends State<HomeScreen> {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
 
-      final schedules = await DatabaseHelper.instance.getSchedulesByStatus(userId, ['예정', '확정']);
-      final companies = await DatabaseHelper.instance.readAllCompanies(userId);
+      // 암호화 키 선로드 + 스케줄/업체 병렬 조회
+      await EncryptionHelper.warmUp();
+      final results = await Future.wait([
+        DatabaseHelper.instance.getUpcomingSchedules(userId),
+        DatabaseHelper.instance.readAllCompanies(userId),
+      ]);
+      final schedules = results[0] as List<Schedule>;
+      final companies = results[1] as List;
 
       // 업체별 색상 매핑 생성
       final Map<String, int> companyColors = {};
@@ -380,7 +387,9 @@ class HomeScreenState extends State<HomeScreen> {
                 // 스케줄 목록
                 Expanded(
                   child: RefreshIndicator(
-                    onRefresh: _loadSchedules,
+                    onRefresh: () async {
+                      await Future.wait([_loadSchedules(), _loadMemos()]);
+                    },
                     child: Builder(
                       builder: (context) {
                         // 필터링된 스케줄 계산
@@ -636,7 +645,7 @@ class HomeScreenState extends State<HomeScreen> {
                                   // 날짜 헤더
                                   Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
                                     margin: const EdgeInsets.only(top: 16),
                                     decoration: BoxDecoration(
                                       color: Colors.grey.shade200,
@@ -644,13 +653,39 @@ class HomeScreenState extends State<HomeScreen> {
                                         bottom: BorderSide(color: Colors.grey.shade300, width: 1),
                                       ),
                                     ),
-                                    child: Text(
-                                      _formatDateHeader(dateKey),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _formatDateHeader(dateKey),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        // 경로보기 버튼 (주소 있는 스케줄이 2개 이상인 경우)
+                                        if (schedulesForDate.where((s) => s.address?.isNotEmpty == true).length >= 2)
+                                          GestureDetector(
+                                            onTap: () => _showRouteSelectionSheet(schedulesForDate),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF3D6FE8),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.directions_car, size: 13, color: Colors.white),
+                                                  SizedBox(width: 4),
+                                                  Text('경로보기', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
 
@@ -694,8 +729,8 @@ class HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
 
-                                  // 해당 날짜의 스케줄들 (연속 스케줄 사이 이동 버튼 포함)
-                                  ..._buildScheduleCardsWithNavigation(schedulesForDate),
+                                  // 해당 날짜의 스케줄들
+                                  ...schedulesForDate.map((s) => _buildScheduleCard(s, '')),
                                 ],
                               );
                             }),
@@ -711,91 +746,120 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 같은 날짜 스케줄 목록을 카드 + 이동 버튼 혼합으로 빌드
-  List<Widget> _buildScheduleCardsWithNavigation(List<Schedule> schedules) {
-    final widgets = <Widget>[];
-    for (int i = 0; i < schedules.length; i++) {
-      widgets.add(_buildScheduleCard(schedules[i], ''));
 
-      // 다음 스케줄이 있고, 두 스케줄 모두 주소가 있는 경우 이동 버튼 추가
-      if (i < schedules.length - 1) {
-        final current = schedules[i];
-        final next = schedules[i + 1];
-        final hasAddresses = (current.address?.isNotEmpty ?? false) &&
-            (next.address?.isNotEmpty ?? false);
+  // 경로 선택 바텀시트
+  void _showRouteSelectionSheet(List<Schedule> schedules) {
+    final withAddress = schedules.where((s) => s.address?.isNotEmpty == true).toList();
+    final selected = <int>{};  // 선택된 인덱스 (withAddress 기준)
 
-        if (hasAddresses) {
-          widgets.add(_buildNavigationButton(current, next));
-        }
-      }
-    }
-    return widgets;
-  }
-
-  // 두 스케줄 사이 이동 버튼
-  Widget _buildNavigationButton(Schedule from, Schedule to) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          // 세로 연결선
-          Column(
-            children: [
-              Container(width: 1.5, height: 6, color: Colors.grey.shade300),
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.shade100,
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Icon(Icons.arrow_downward, size: 13, color: Colors.grey.shade500),
-              ),
-              Container(width: 1.5, height: 6, color: Colors.grey.shade300),
-            ],
-          ),
-          const SizedBox(width: 10),
-          // 이동 버튼
-          Expanded(
-            child: GestureDetector(
-              onTap: () => NaverNavigationHelper.openNavigation(
-                context: context,
-                fromAddress: from.address!,
-                fromName: from.customerName,
-                toAddress: to.address!,
-                toName: to.customerName,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF4FF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFBDD0FF)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.directions_car, size: 14, color: Color(0xFF3D6FE8)),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        '${from.customerName} → ${to.customerName} 길 안내',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF3D6FE8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('경로에 포함할 스케줄 선택',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('선택 순서대로 출발 → 경유 → 도착이 설정됩니다',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  ...withAddress.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final s = entry.value;
+                    final isChecked = selected.contains(idx);
+                    // 선택된 순서 번호 계산
+                    final order = selected.toList()..sort();
+                    final orderNum = isChecked ? order.indexOf(idx) + 1 : null;
+                    return CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: isChecked,
+                      onChanged: (val) {
+                        setSheetState(() {
+                          if (val == true) {
+                            selected.add(idx);
+                          } else {
+                            selected.remove(idx);
+                          }
+                        });
+                      },
+                      title: Row(
+                        children: [
+                          if (orderNum != null) ...[
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF3D6FE8),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text('$orderNum',
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Expanded(
+                            child: Text(s.customerName,
+                                style: const TextStyle(fontSize: 14)),
+                          ),
+                        ],
+                      ),
+                      subtitle: Text(s.address ?? '',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: selected.length < 2
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              final sortedIdx = selected.toList()..sort();
+                              final stops = sortedIdx.map((i) => (
+                                    address: withAddress[i].address!,
+                                    name: withAddress[i].customerName,
+                                  )).toList();
+                              NaverNavigationHelper.openMultiNavigation(
+                                context: context,
+                                stops: stops,
+                              );
+                            },
+                      icon: const Icon(Icons.directions_car, size: 18),
+                      label: Text(selected.length < 2
+                          ? '스케줄을 2개 이상 선택하세요'
+                          : '${selected.length}개 경로로 길 안내'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3D6FE8),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

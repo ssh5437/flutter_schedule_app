@@ -617,19 +617,41 @@ class DatabaseHelper {
       whereArgs: [userId],
       orderBy: 'visitDate DESC, CASE WHEN visitTime IS NULL THEN 1 ELSE 0 END ASC, visitTime ASC',
     );
+    return _decryptSchedules(result);
+  }
 
-    // 모든 스케줄의 개인정보 복호화
-    final schedules = <Schedule>[];
-    for (var item in result) {
+  /// 오늘 이후 스케줄만 복호화 (홈화면 전용 - 빠른 로드)
+  Future<List<Schedule>> getUpcomingSchedules(String userId) async {
+    final db = await database;
+    final now = DateTime.now();
+    // 날짜 부분만 비교 (시간/타임존 형식 차이 무관)
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final result = await db.query(
+      'schedules',
+      where: "userId = ? AND status != '취소' AND (substr(visitDate, 1, 10) >= ? OR visitDate IS NULL)",
+      whereArgs: [userId, todayStr],
+      orderBy: 'CASE WHEN visitDate IS NULL THEN 1 ELSE 0 END ASC, visitDate ASC, CASE WHEN visitTime IS NULL THEN 0 ELSE 1 END ASC, visitTime ASC',
+    );
+    return _decryptSchedules(result);
+  }
+
+  /// 복호화 공통 처리 (병렬)
+  Future<List<Schedule>> _decryptSchedules(List<Map<String, dynamic>> rows) async {
+    return Future.wait(rows.map((item) async {
       final map = Map<String, dynamic>.from(item);
-      map['customerName'] = await EncryptionHelper.decrypt(map['customerName']);
-      map['phoneNumber'] = await EncryptionHelper.decrypt(map['phoneNumber']);
-      if (map['address'] != null) {
-        map['address'] = await EncryptionHelper.decrypt(map['address']);
-      }
-      schedules.add(Schedule.fromMap(map));
-    }
-    return schedules;
+      final decrypted = await Future.wait([
+        EncryptionHelper.decrypt(map['customerName'] as String),
+        EncryptionHelper.decrypt(map['phoneNumber'] as String),
+        if (map['address'] != null)
+          EncryptionHelper.decrypt(map['address'] as String),
+      ]);
+      map['customerName'] = decrypted[0];
+      map['phoneNumber'] = decrypted[1];
+      if (map['address'] != null) map['address'] = decrypted[2];
+      return Schedule.fromMap(map);
+    }));
   }
 
   Future<List<Schedule>> getSchedulesByStatus(String userId, List<String> statuses) async {

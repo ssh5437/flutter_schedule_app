@@ -45,11 +45,6 @@ class NaverNavigationHelper {
   }
 
   /// 두 주소 간 네이버 지도 길 안내 열기
-  /// [context] - 로딩 표시 및 오류 안내용
-  /// [fromAddress] - 출발지 주소
-  /// [fromName] - 출발지 표시명
-  /// [toAddress] - 도착지 주소
-  /// [toName] - 도착지 표시명
   static Future<void> openNavigation({
     required BuildContext context,
     required String fromAddress,
@@ -57,55 +52,73 @@ class NaverNavigationHelper {
     required String toAddress,
     required String toName,
   }) async {
-    // 로딩 스낵바
+    await openMultiNavigation(
+      context: context,
+      stops: [
+        (address: fromAddress, name: fromName),
+        (address: toAddress, name: toName),
+      ],
+    );
+  }
+
+  /// 다중 경유지 네이버 지도 길 안내 열기
+  /// stops[0] = 출발지, stops[last] = 도착지, 중간 = 경유지 (최대 5개)
+  static Future<void> openMultiNavigation({
+    required BuildContext context,
+    required List<({String address, String name})> stops,
+  }) async {
+    if (stops.length < 2) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('경로를 불러오는 중...'),
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 3),
       ),
     );
 
-    // 출발지/도착지 좌표 동시 조회
-    final results = await Future.wait([
-      _geocode(fromAddress),
-      _geocode(toAddress),
-    ]);
-
-    final from = results[0];
-    final to = results[1];
+    final coords = await Future.wait(stops.map((s) => _geocode(s.address)));
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-    if (from == null || to == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(from == null
-              ? '출발지 주소를 찾을 수 없습니다: $fromName'
-              : '도착지 주소를 찾을 수 없습니다: $toName'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    // 좌표 조회 실패 확인
+    for (int i = 0; i < coords.length; i++) {
+      if (coords[i] == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('주소를 찾을 수 없습니다: ${stops[i].name}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
     }
 
-    // 네이버 지도 앱 URL scheme
-    final appUrl = Uri.parse(
-      'nmap://route/car'
-      '?slat=${from.lat}&slng=${from.lng}&sname=${Uri.encodeComponent(fromName)}'
-      '&dlat=${to.lat}&dlng=${to.lng}&dname=${Uri.encodeComponent(toName)}'
-      '&appname=$_appPackage',
-    );
+    final start = coords.first!;
+    final dest = coords.last!;
+    final waypoints = coords.sublist(1, coords.length - 1);
 
-    // 앱 미설치 시 스토어 링크
-    final storeUrl = Uri.parse(
-      'market://details?id=com.nhn.android.nmap',
+    // nmap URL 조립
+    final sb = StringBuffer(
+      'nmap://route/car'
+      '?slat=${start.lat}&slng=${start.lng}&sname=${Uri.encodeComponent(stops.first.name)}',
     );
+    for (int i = 0; i < waypoints.length; i++) {
+      final w = waypoints[i]!;
+      final n = i + 1;
+      sb.write('&v${n}lat=${w.lat}&v${n}lng=${w.lng}&v${n}name=${Uri.encodeComponent(stops[i + 1].name)}');
+    }
+    sb.write('&dlat=${dest.lat}&dlng=${dest.lng}&dname=${Uri.encodeComponent(stops.last.name)}');
+    sb.write('&appname=$_appPackage');
+
+    final appUrl = Uri.parse(sb.toString());
+    final storeUrl = Uri.parse('market://details?id=com.nhn.android.nmap');
 
     if (await canLaunchUrl(appUrl)) {
       await launchUrl(appUrl);
     } else {
-      // 네이버 지도 앱 미설치 → Play Store로 이동 안내
       if (context.mounted) {
         showDialog(
           context: context,

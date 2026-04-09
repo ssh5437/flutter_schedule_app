@@ -414,19 +414,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final GlobalKey<MapScreenState> _mapKey = GlobalKey<MapScreenState>();
   static const platform = MethodChannel('com.vividlife.bizplan/widget');
 
-  late final List<Widget> _screens;
+  // 처음 방문한 탭만 생성 (지연 초기화)
+  late final List<Widget?> _screens;
+
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0: return HomeScreen(key: _homeKey);
+      case 1: return CalendarViewScreen(key: _calendarKey);
+      case 2: return MapScreen(key: _mapKey);
+      case 3: return const CompletedSchedulesScreen();
+      case 4: return const StatisticsScreen();
+      case 5: return const SettingsScreen();
+      default: return const SizedBox.shrink();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 홈화면만 즉시 생성, 나머지는 첫 탭 클릭 시 생성
     _screens = [
       HomeScreen(key: _homeKey),
-      CalendarViewScreen(key: _calendarKey),
-      MapScreen(key: _mapKey),
-      const CompletedSchedulesScreen(),
-      const StatisticsScreen(),
-      const SettingsScreen(),
+      null,
+      null,
+      null,
+      null,
+      null,
     ];
     _setupMethodChannel();
     _checkForWidgetScheduleId();
@@ -587,11 +601,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       child: Scaffold(
         body: IndexedStack(
           index: _currentIndex,
-          children: _screens,
+          children: List.generate(_screens.length, (i) =>
+            _screens[i] ?? const SizedBox.shrink(),
+          ),
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
+            // 처음 방문하는 탭이면 화면 생성
+            if (_screens[index] == null) {
+              _screens[index] = _buildScreen(index);
+            }
             setState(() {
               _currentIndex = index;
             });
