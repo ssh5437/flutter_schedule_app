@@ -12,15 +12,8 @@ import android.os.Bundle
 import androidx.core.view.WindowCompat
 import android.view.WindowManager
 import android.view.View
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import androidx.core.content.FileProvider
-import java.io.File
-
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.vividlife.bizplan/widget"
-    private val CLIPBOARD_CHANNEL = "com.vividlife.bizplan/clipboard"
     private var methodChannel: MethodChannel? = null
     private var pendingScheduleId: Int? = null
 
@@ -62,55 +55,25 @@ class MainActivity : FlutterActivity() {
                     updateWidgets()
                     result.success(true)
                 }
+                "launchSms" -> {
+                    val phoneNumber = call.argument<String>("phoneNumber") ?: ""
+                    try {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = android.net.Uri.parse("smsto:$phoneNumber")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "launchSms failed", e)
+                        result.error("LAUNCH_ERROR", e.message, null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
             }
         }
-
-        // 이미지 클립보드 채널
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CLIPBOARD_CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "copyTextAndImageToClipboard" -> {
-                        val text = call.argument<String>("text") ?: ""
-                        val imagePath = call.argument<String>("imagePath")
-                        if (imagePath == null) {
-                            result.error("INVALID_ARGUMENT", "imagePath is required", null)
-                            return@setMethodCallHandler
-                        }
-                        try {
-                            val file = File(imagePath)
-                            if (!file.exists()) {
-                                result.error("FILE_NOT_FOUND", "Image file not found: $imagePath", null)
-                                return@setMethodCallHandler
-                            }
-                            val uri = FileProvider.getUriForFile(
-                                this,
-                                "${applicationContext.packageName}.fileprovider",
-                                file
-                            )
-                            val ext = imagePath.substringAfterLast('.').lowercase()
-                            val mimeType = if (ext == "png") "image/png" else "image/jpeg"
-                            // 텍스트와 이미지를 하나의 ClipData에 담기
-                            val clipData = ClipData(
-                                "message_with_card",
-                                arrayOf("text/plain", mimeType),
-                                ClipData.Item(text)
-                            )
-                            clipData.addItem(ClipData.Item(uri))
-                            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(clipData)
-                            Log.d("MainActivity", "Text+Image copied to clipboard: $uri mimeType=$mimeType")
-                            result.success(true)
-                        } catch (e: Exception) {
-                            Log.e("MainActivity", "copyTextAndImageToClipboard failed", e)
-                            result.error("CLIPBOARD_ERROR", e.message, null)
-                        }
-                    }
-                    else -> result.notImplemented()
-                }
-            }
 
         // Flutter 엔진이 준비되면 pending intent 처리
         handleIntent(intent)

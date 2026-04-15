@@ -82,10 +82,17 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
     }).join('\n');
   }
 
+  static const _platform = MethodChannel('com.vividlife.bizplan/widget');
+
   Future<void> _sendSMS() async {
-    final uri = Uri(scheme: 'sms', path: _schedule.phoneNumber);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      await _platform.invokeMethod('launchSms', {'phoneNumber': _schedule.phoneNumber});
+    } catch (_) {
+      // 폴백: url_launcher
+      final uri = Uri(scheme: 'sms', path: _schedule.phoneNumber);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     }
   }
 

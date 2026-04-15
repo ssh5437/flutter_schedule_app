@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/schedule.dart';
@@ -13,6 +14,7 @@ import '../services/notification_service.dart';
 import '../services/widget_service.dart';
 import '../services/address_service.dart';
 import '../services/analytics_service.dart';
+import '../providers/subscription_provider.dart';
 import '../widgets/gradient_app_bar.dart';
 import 'company_edit_screen.dart';
 
@@ -426,34 +428,32 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
               Navigator.pop(context);
 
-              // 사용 가능 횟수 확인 (먼저 체크만 하고 실제 증가는 성공 시에만)
-              final remaining = await TextExtractionLimitHelper.getRemainingCount();
-
-              if (remaining <= 0) {
-                if (!mounted) return;
-
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('사용 횟수 초과'),
-                    content: Text(
-                      '텍스트 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
-                      '이번 달 남은 횟수: $remaining회\n\n'
-                      '무제한으로 사용하려면 멤버십에 가입해주세요.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('확인'),
+              // Plus 멤버십이면 횟수 제한 없음
+              final isPlus = context.read<SubscriptionProvider>().hasActiveSubscription;
+              if (!isPlus) {
+                final remaining = await TextExtractionLimitHelper.getRemainingCount();
+                if (remaining <= 0) {
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('사용 횟수 초과'),
+                      content: Text(
+                        '텍스트 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
+                        '무제한으로 사용하려면 Plus 멤버십에 가입해주세요.',
                       ),
-                    ],
-                  ),
-                );
-                return;
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('확인'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+                await TextExtractionLimitHelper.incrementUsage();
               }
-
-              // 사용 횟수 증가
-              await TextExtractionLimitHelper.incrementUsage();
 
               // 로딩 다이얼로그 표시
               showDialog(
@@ -714,34 +714,38 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       return;
     }
 
-    // 사용 가능 횟수 확인 (먼저 체크만 하고 실제 증가는 성공 시에만)
-    final remaining = await TextExtractionLimitHelper.getRemainingCount();
+    // Plus 멤버십이면 횟수 제한 없음
+    final isPlus = context.read<SubscriptionProvider>().hasActiveSubscription;
+    if (!isPlus) {
+      // 사용 가능 횟수 확인 (먼저 체크만 하고 실제 증가는 성공 시에만)
+      final remaining = await TextExtractionLimitHelper.getRemainingCount();
 
-    if (remaining <= 0) {
-      if (!mounted) return;
+      if (remaining <= 0) {
+        if (!mounted) return;
 
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('사용 횟수 초과'),
-          content: Text(
-            '이미지 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
-            '이번 달 남은 횟수: $remaining회\n\n'
-            '무제한으로 사용하려면 멤버십에 가입해주세요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('확인'),
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('사용 횟수 초과'),
+            content: Text(
+              '이미지 추출 기능은 한 달에 ${TextExtractionLimitHelper.monthlyLimit}회까지 무료로 사용할 수 있습니다.\n\n'
+              '이번 달 남은 횟수: $remaining회\n\n'
+              '무제한으로 사용하려면 Plus 멤버십에 가입해주세요.',
             ),
-          ],
-        ),
-      );
-      return;
-    }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
 
-    // 사용 횟수 증가
-    await TextExtractionLimitHelper.incrementUsage();
+      // 사용 횟수 증가
+      await TextExtractionLimitHelper.incrementUsage();
+    }
 
     bool isDialogOpen = false;
 

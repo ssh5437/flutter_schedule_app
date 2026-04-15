@@ -29,6 +29,7 @@ class HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   bool _showPendingSchedules = true; // 미확정 스케줄 표시 여부
   bool _showTodayOnly = false; // 오늘 스케줄만 표시 여부
+  final ScrollController _scrollController = ScrollController();
   Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
 
@@ -298,6 +299,12 @@ class HomeScreenState extends State<HomeScreen> {
       default:
         return Colors.blue;
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -584,6 +591,7 @@ class HomeScreenState extends State<HomeScreen> {
 
                         // 스케줄 목록 표시
                         return ListView(
+                          controller: _scrollController,
                           children: [
                             // 시간 미정 섹션 (최상단)
                             if (noTimeSchedules.isNotEmpty) ...[
@@ -665,10 +673,17 @@ class HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                         ),
-                                        // 경로보기 버튼 (주소 있는 스케줄이 2개 이상인 경우)
-                                        if (schedulesForDate.where((s) => s.address?.isNotEmpty == true).length >= 2)
-                                          GestureDetector(
-                                            onTap: () => _showRouteSelectionSheet(schedulesForDate),
+                                        // 경로보기 버튼 (해당 날짜 주소 있는 스케줄 합산 2개 이상)
+                                        Builder(builder: (context) {
+                                          final sameDateNoTime = noTimeSchedules.where((s) =>
+                                            s.visitDate != null &&
+                                            DateTime(s.visitDate!.year, s.visitDate!.month, s.visitDate!.day).toIso8601String() == dateKeyStr,
+                                          ).toList();
+                                          final allForRoute = [...schedulesForDate, ...sameDateNoTime];
+                                          final hasEnough = allForRoute.where((s) => s.address?.isNotEmpty == true).length >= 2;
+                                          if (!hasEnough) return const SizedBox.shrink();
+                                          return GestureDetector(
+                                            onTap: () => _showRouteSelectionSheet(allForRoute),
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
@@ -684,7 +699,8 @@ class HomeScreenState extends State<HomeScreen> {
                                                 ],
                                               ),
                                             ),
-                                          ),
+                                          );
+                                        }),
                                       ],
                                     ),
                                   ),
@@ -812,8 +828,27 @@ class HomeScreenState extends State<HomeScreen> {
                             const SizedBox(width: 6),
                           ],
                           Expanded(
-                            child: Text(s.customerName,
-                                style: const TextStyle(fontSize: 14)),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(s.customerName,
+                                      style: const TextStyle(fontSize: 14)),
+                                ),
+                                if (s.visitTime == null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.orange.shade300, width: 0.8),
+                                    ),
+                                    child: Text('시간미정',
+                                        style: TextStyle(fontSize: 10, color: Colors.orange.shade800)),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
