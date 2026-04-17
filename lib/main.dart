@@ -414,6 +414,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final GlobalKey<MapScreenState> _mapKey = GlobalKey<MapScreenState>();
   static const platform = MethodChannel('com.vividlife.bizplan/widget');
 
+  // 백그라운드 진입 시각 (짧은 복귀 시 불필요한 새로고침 방지)
+  DateTime? _backgroundedAt;
+  static const _refreshThreshold = Duration(minutes: 10);
+
   // 처음 방문한 탭만 생성 (지연 초기화)
   late final List<Widget?> _screens;
 
@@ -469,6 +473,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
     if (state == AppLifecycleState.paused) {
       // 백그라운드 진입 시각 기록
+      _backgroundedAt = DateTime.now();
       AnrMonitor.instance.onBackground();
     }
 
@@ -478,8 +483,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // resume 시작 시각 기록
       AnrMonitor.instance.onResumeStart();
 
-      // 1) UI 새로고침은 즉시 실행 (pull 대기 없이)
-      if (mounted) {
+      // 백그라운드 시간이 threshold 미만이면 새로고침 생략 (스크롤 위치 유지)
+      final backgroundDuration = _backgroundedAt != null
+          ? DateTime.now().difference(_backgroundedAt!)
+          : _refreshThreshold;
+      final shouldRefresh = backgroundDuration >= _refreshThreshold;
+      _backgroundedAt = null;
+
+      // 1) UI 새로고침 (충분히 오래 백그라운드에 있었을 때만)
+      if (mounted && shouldRefresh) {
         _homeKey.currentState?.refresh();
         _calendarKey.currentState?.refresh();
         setState(() {});

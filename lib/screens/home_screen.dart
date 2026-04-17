@@ -28,7 +28,7 @@ class HomeScreenState extends State<HomeScreen> {
   Map<DateTime, DateMemo> _memosByDate = {}; // 날짜별 메모
   bool _isLoading = true;
   bool _showPendingSchedules = true; // 미확정 스케줄 표시 여부
-  bool _showTodayOnly = false; // 오늘 스케줄만 표시 여부
+  bool _showTodayOnly = true; // 오늘 스케줄 표시 여부
   final ScrollController _scrollController = ScrollController();
   Color _pendingColor = const Color(0xFFFAE6BB); // 미확정 스케줄 색상
   Color _confirmedColor = const Color(0xFFFFFFFF); // 확정 스케줄 색상 (흰색)
@@ -148,7 +148,10 @@ class HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadSchedules() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    // 데이터가 없을 때만 로딩 인디케이터 표시 (silent refresh)
+    if (_schedules.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) return;
@@ -204,11 +207,7 @@ class HomeScreenState extends State<HomeScreen> {
       WidgetService.updateWidget();
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _schedules = [];
-        _companyColors = {};
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -417,13 +416,9 @@ class HomeScreenState extends State<HomeScreen> {
                           // 미확정 스케줄 필터
                           if (!_showPendingSchedules && s.computedStatus != '확정') return false;
 
-                          // 오늘 스케줄 필터
-                          if (_showTodayOnly) {
-                            if (s.visitDate!.year != today.year ||
-                                s.visitDate!.month != today.month ||
-                                s.visitDate!.day != today.day) {
-                              return false;
-                            }
+                          // 오늘 스케줄 표시 여부
+                          if (!_showTodayOnly && displayDateStart.isAtSameMomentAs(todayStart)) {
+                            return false;
                           }
 
                           return true;
