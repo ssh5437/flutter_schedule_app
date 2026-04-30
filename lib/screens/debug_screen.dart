@@ -7,6 +7,7 @@ import '../models/schedule.dart';
 import '../widgets/gradient_app_bar.dart';
 import '../providers/subscription_provider.dart';
 import '../services/subscription_service.dart';
+import '../services/backup_service.dart';
 
 class DebugScreen extends StatefulWidget {
   const DebugScreen({super.key});
@@ -291,6 +292,19 @@ class _DebugScreenState extends State<DebugScreen> {
     }
   }
 
+  Future<void> _exportCompanies() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await BackupService().exportCompanies(user.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('업체정보 내보내기 실패: $e')),
+      );
+    }
+  }
+
   Future<void> _migrateLegacyData() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -408,6 +422,19 @@ class _DebugScreenState extends State<DebugScreen> {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _exportCompanies,
+                icon: const Icon(Icons.business),
+                label: const Text('업체정보 백업하기'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),

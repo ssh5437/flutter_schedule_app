@@ -136,10 +136,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
 
   // 기간 내 스케줄 필터링 (visitDate가 있는 것만)
   List<Schedule> get _filteredSchedules {
+    final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final end = DateTime(_endDate.year, _endDate.month, _endDate.day);
     return _allSchedules.where((schedule) {
       if (schedule.visitDate == null) return false;
-      return schedule.visitDate!.isAfter(_startDate.subtract(const Duration(days: 1))) &&
-             schedule.visitDate!.isBefore(_endDate.add(const Duration(days: 1)));
+      final d = schedule.visitDate!;
+      final dateOnly = DateTime(d.year, d.month, d.day);
+      return !dateOnly.isBefore(start) && !dateOnly.isAfter(end);
     }).toList();
   }
 
@@ -770,13 +773,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
   Widget _buildOverviewTab() {
     // 개요 탭은 고정 기간 사용
     final now = DateTime.now();
-    final yesterday = now.subtract(const Duration(days: 1));
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
     final twelveMonthsAgo = DateTime(now.year - 1, now.month, now.day);
     // 12개월 전 ~ 어제까지의 스케줄 필터링 (visitDate가 있는 것만)
     final overviewSchedules = _allSchedules.where((schedule) {
       if (schedule.visitDate == null) return false;
-      return schedule.visitDate!.isAfter(twelveMonthsAgo.subtract(const Duration(days: 1))) &&
-             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
+      final d = schedule.visitDate!;
+      final dateOnly = DateTime(d.year, d.month, d.day);
+      return !dateOnly.isBefore(twelveMonthsAgo) && !dateOnly.isAfter(yesterday);
     }).toList();
 
     // 12개월 총 매출/작업
@@ -802,11 +806,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> with TickerProvider
     }).toList();
 
     // 최근 30일 총 매출/작업 계산
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+    final thirtyDaysAgo = DateTime(now.year, now.month, now.day - 30);
     final last30DaysSchedules = _allSchedules.where((schedule) {
       if (schedule.visitDate == null) return false;
-      return schedule.visitDate!.isAfter(thirtyDaysAgo.subtract(const Duration(days: 1))) &&
-             schedule.visitDate!.isBefore(yesterday.add(const Duration(days: 1)));
+      final d = schedule.visitDate!;
+      final dateOnly = DateTime(d.year, d.month, d.day);
+      return !dateOnly.isBefore(thirtyDaysAgo) && !dateOnly.isAfter(yesterday);
     }).toList();
     final last30DaysRevenue = last30DaysSchedules.fold(0, (sum, s) => sum + s.totalPrice);
     final last30DaysCount = last30DaysSchedules.length;

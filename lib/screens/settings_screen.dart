@@ -402,6 +402,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 백업 복구
   Future<void> _performRestore() async {
+    // 복구 유형 선택
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('데이터 복구'),
+        content: const Text('복구할 데이터 유형을 선택하세요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'company'),
+            child: const Text('업체 정보 가져오기'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'backup'),
+            child: const Text('전체 백업 복구'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null) return;
+
+    if (choice == 'company') {
+      await _importCompanies();
+      return;
+    }
+
     try {
       debugPrint('========================================');
       debugPrint('🔄 백업 복구 프로세스 시작');
@@ -541,6 +571,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('복구 실패: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _importCompanies() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final count = await BackupService().importCompaniesFromFile(user.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('업체 정보 $count개를 가져왔습니다.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('업체 정보 가져오기 실패: $e'),
           backgroundColor: Colors.red,
         ),
       );

@@ -761,7 +761,7 @@ class HomeScreenState extends State<HomeScreen> {
   // 경로 선택 바텀시트
   void _showRouteSelectionSheet(List<Schedule> schedules) {
     final withAddress = schedules.where((s) => s.address?.isNotEmpty == true).toList();
-    final selected = <int>{};  // 선택된 인덱스 (withAddress 기준)
+    final selected = <int>[];  // 선택된 인덱스 (선택 순서 유지)
 
     showModalBottomSheet(
       context: context,
@@ -788,9 +788,7 @@ class HomeScreenState extends State<HomeScreen> {
                     final idx = entry.key;
                     final s = entry.value;
                     final isChecked = selected.contains(idx);
-                    // 선택된 순서 번호 계산
-                    final order = selected.toList()..sort();
-                    final orderNum = isChecked ? order.indexOf(idx) + 1 : null;
+                    final orderNum = isChecked ? selected.indexOf(idx) + 1 : null;
                     return CheckboxListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
@@ -861,8 +859,7 @@ class HomeScreenState extends State<HomeScreen> {
                           ? null
                           : () {
                               Navigator.pop(ctx);
-                              final sortedIdx = selected.toList()..sort();
-                              final stops = sortedIdx.map((i) => (
+                              final stops = selected.map((i) => (
                                     address: withAddress[i].address!,
                                     name: withAddress[i].customerName,
                                   )).toList();

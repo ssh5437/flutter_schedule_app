@@ -160,6 +160,80 @@ class BackupService {
     }
   }
 
+  // 업체 정보를 JSON 파일로 내보내기 (공유)
+  Future<void> exportCompanies(String userId) async {
+    try {
+      final db = DatabaseHelper.instance;
+      final companies = await db.readAllCompanies(userId);
+
+      final data = {
+        'type': 'company_template',
+        'version': 1,
+        'exportDate': DateTime.now().toIso8601String(),
+        'companies': companies.map((c) => {
+          'name': c.name,
+          'color': c.color,
+          'displayOrder': c.displayOrder,
+          'workItems': c.workItems.map((w) => {
+            'name': w.name,
+            'price': w.price,
+          }).toList(),
+        }).toList(),
+      };
+
+      final tmpDir = await getTemporaryDirectory();
+      final fileName = 'company_template_${DateTime.now().millisecondsSinceEpoch}.json';
+      final file = File('${tmpDir.path}/$fileName');
+      await file.writeAsString(jsonEncode(data));
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: '업체 정보 템플릿',
+        text: 'B-EZ 업체 정보 파일입니다.',
+      );
+    } catch (e) {
+      throw Exception('업체 정보 내보내기 실패: $e');
+    }
+  }
+
+  // 업체 JSON 파일에서 가져오기
+  Future<int> importCompaniesFromFile(String userId) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.single.path == null) {
+      throw Exception('파일이 선택되지 않았습니다');
+    }
+
+    final file = File(result.files.single.path!);
+    final jsonString = await file.readAsString();
+    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+
+    if (data['type'] != 'company_template') {
+      throw Exception('업체 정보 파일이 아닙니다');
+    }
+
+    final companiesList = data['companies'] as List<dynamic>;
+    final db = DatabaseHelper.instance;
+    int count = 0;
+    for (final companyJson in companiesList) {
+      final workItems = (companyJson['workItems'] as List<dynamic>)
+          .map((w) => WorkItem(name: w['name'], price: w['price']))
+          .toList();
+      final company = Company(
+        userId: userId,
+        name: companyJson['name'],
+        color: companyJson['color'] ?? 0xFF2196F3,
+        displayOrder: companyJson['displayOrder'] ?? 0,
+        workItems: workItems,
+      );
+      await db.createCompany(company);
+      count++;
+    }
+    return count;
+  }
+
   // 백업 파일 다운로드 (Downloads 폴더에 저장)
   Future<String> downloadBackup({DateTime? startDate, DateTime? endDate}) async {
     try {
