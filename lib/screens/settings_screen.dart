@@ -12,6 +12,7 @@ import '../widgets/gradient_app_bar.dart';
 import 'notification_settings_screen.dart';
 import 'membership_screen.dart';
 import 'debug_screen.dart';
+import 'help_guide_screen.dart';
 import '../providers/subscription_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -670,6 +671,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.menu_book, color: Color(0xFF1565C0)),
+            title: const Text('기능 가이드'),
+            subtitle: const Text('업체 등록, 텍스트/이미지 추출 사용법'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HelpGuideScreen()),
+              );
+            },
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.card_membership),
             title: const Text('멤버십 관리'),

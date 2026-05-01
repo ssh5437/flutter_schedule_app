@@ -69,6 +69,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE subscriptions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
         product_id TEXT NOT NULL,
         purchase_id TEXT,
         purchase_date TEXT,
@@ -1186,6 +1187,13 @@ class DatabaseHelper {
   // 구독 정보 저장/업데이트
   Future<void> saveSubscription(String userId, Subscription subscription) async {
     final db = await database;
+
+    // user_id 컬럼이 없는 구버전 DB 방어 처리
+    try {
+      await db.execute('ALTER TABLE subscriptions ADD COLUMN user_id TEXT');
+    } catch (_) {
+      // 이미 존재하면 무시
+    }
 
     // 기존 구독 정보 삭제 후 새로 삽입
     await db.delete(

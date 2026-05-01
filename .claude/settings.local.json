@@ -53,7 +53,8 @@
       "Bash(supabase db push:*)",
       "Bash(supabase db remote exec:*)",
       "Bash(supabase db remote execute:*)",
-      "Bash(move \"20260117_ensure_jscare2026_coupon.sql\" \"20260117000002_ensure_jscare2026_coupon.sql\")"
+      "Bash(move \"20260117_ensure_jscare2026_coupon.sql\" \"20260117000002_ensure_jscare2026_coupon.sql\")",
+      "Bash(xargs grep *)"
     ],
     "deny": [],
     "ask": []
