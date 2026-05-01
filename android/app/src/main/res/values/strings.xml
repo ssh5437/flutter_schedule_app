@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">B-EZ</string>
-    <string name="widget_description">내일 일정만</string>
+    <string name="widget_description">오늘 일정</string>
     <string name="widget_description_large">달력 + 일정</string>
+    <string name="widget_today_label">오늘 스케줄</string>
+    <string name="widget_today_description">오늘 스케줄 상세 (시간·고객·작업·주소)</string>
 </resources>

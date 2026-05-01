@@ -110,33 +110,33 @@ class ScheduleWidgetLargeProvider : AppWidgetProvider() {
                 }
 
                 // 35개 날짜 셀 채우기 (5주 x 7일)
-                for (i in 0..34) {
-                    val dayId = context.resources.getIdentifier("day_$i", "id", context.packageName)
-                    val dayNumber = i - firstDayOfWeek + 1
+                try {
+                    for (i in 0..34) {
+                        val dayId = context.resources.getIdentifier("day_$i", "id", context.packageName)
+                        if (dayId == 0) continue  // 리소스 못찾으면 건너뜀
+                        val dayNumber = i - firstDayOfWeek + 1
 
-                    if (dayNumber in 1..daysInMonth) {
-                        // 이번 달 날짜
-                        val dayText = if (scheduleDates.contains(dayNumber)) {
-                            "$dayNumber\n•"  // 스케줄이 있는 날은 점 추가
+                        if (dayNumber in 1..daysInMonth) {
+                            val dayText = if (scheduleDates.contains(dayNumber)) {
+                                "$dayNumber\n•"
+                            } else {
+                                dayNumber.toString()
+                            }
+                            views.setTextViewText(dayId, dayText)
+                            if (dayNumber == today) {
+                                views.setTextColor(dayId, android.graphics.Color.parseColor("#FFFFFF"))
+                                views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#FF9800"))
+                            } else {
+                                views.setTextColor(dayId, textColor)
+                                views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#00000000"))
+                            }
                         } else {
-                            dayNumber.toString()
-                        }
-                        views.setTextViewText(dayId, dayText)
-
-                        // 오늘 날짜는 주황색 배경
-                        if (dayNumber == today) {
-                            views.setTextColor(dayId, android.graphics.Color.parseColor("#FFFFFF"))
-                            views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#FF9800"))
-                        } else {
-                            // 일반 날짜 - 배경색에 따른 텍스트 색상 사용
-                            views.setTextColor(dayId, textColor)
+                            views.setTextViewText(dayId, "")
                             views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#00000000"))
                         }
-                    } else {
-                        // 빈 셀 (이전달/다음달)
-                        views.setTextViewText(dayId, "")
-                        views.setInt(dayId, "setBackgroundColor", android.graphics.Color.parseColor("#00000000"))
                     }
+                } catch (e: Exception) {
+                    Log.e("ScheduleWidgetLarge", "Calendar fill error: ${e.message}")
                 }
 
                 // 스케줄 표시

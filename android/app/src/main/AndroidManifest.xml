@@ -125,6 +125,7 @@
 
         <!-- 홈 화면 위젯 (작은 크기) -->
         <receiver android:name=".ScheduleWidgetProvider"
+            android:label="오늘 일정"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -136,6 +137,7 @@
 
         <!-- 홈 화면 위젯 (큰 크기 - 달력 포함) -->
         <receiver android:name=".ScheduleWidgetLargeProvider"
+            android:label="달력 + 일정"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -143,6 +145,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/schedule_widget_large_info" />
+        </receiver>
+
+        <!-- 홈 화면 위젯 (오늘 스케줄 상세 - 시간/고객명/작업/주소) -->
+        <receiver android:name=".TodayScheduleWidgetProvider"
+            android:label="오늘 스케줄"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_schedule_widget_info" />
         </receiver>
 
         <!-- FileProvider for image picker (camera) -->

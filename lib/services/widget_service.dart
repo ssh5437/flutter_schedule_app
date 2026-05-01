@@ -126,12 +126,11 @@ class WidgetService {
         await HomeWidget.saveWidgetData<String>('schedule_dates_formatted', '스케줄: $formatted');
       }
 
-      // 스케줄 데이터 저장 (최대 3개)
+      // 기존 위젯 데이터 저장 (최대 3개)
       for (int i = 0; i < 3; i++) {
         if (i < todaySchedules.length) {
           final schedule = todaySchedules[i];
 
-          // 작업 내용 파싱 (JSON 배열)
           String workItemsText = '';
           try {
             final workItemsList = (schedule.workItems as List).cast<String>();
@@ -146,18 +145,36 @@ class WidgetService {
           await HomeWidget.saveWidgetData<String>('schedule_${i}_status', schedule.computedStatus);
           await HomeWidget.saveWidgetData<String>('schedule_${i}_company', schedule.companyName ?? '');
           await HomeWidget.saveWidgetData<int>('schedule_${i}_id', schedule.id ?? 0);
-
-          debugPrint('Saved schedule_$i: $time - $workItemsText (${schedule.computedStatus})');
         } else {
-          // 빈 슬롯은 빈 문자열로 설정
           await HomeWidget.saveWidgetData<String>('schedule_${i}_time', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_title', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_status', '');
           await HomeWidget.saveWidgetData<String>('schedule_${i}_company', '');
           await HomeWidget.saveWidgetData<int>('schedule_${i}_id', 0);
-
-          debugPrint('Saved schedule_$i: empty slot');
         }
+      }
+
+      // 오늘 스케줄 상세 위젯 데이터 저장
+      final dateText = DateFormat('M월 d일 (E)', 'ko_KR').format(now);
+      final countText = '${todaySchedules.length}건';
+      await HomeWidget.saveWidgetData<String>('today_date_text', dateText);
+      await HomeWidget.saveWidgetData<String>('today_count_text', countText);
+      await HomeWidget.saveWidgetData<int>('today_schedule_count', todaySchedules.length);
+
+      for (int i = 0; i < todaySchedules.length; i++) {
+        final s = todaySchedules[i];
+        String workText = '';
+        try {
+          workText = (s.workItems as List).cast<String>().join(', ');
+        } catch (e) {
+          workText = s.workItems.toString();
+        }
+        await HomeWidget.saveWidgetData<String>('today_${i}_time', s.visitTime ?? '시간미정');
+        await HomeWidget.saveWidgetData<String>('today_${i}_customer', s.customerName);
+        await HomeWidget.saveWidgetData<String>('today_${i}_work', workText);
+        await HomeWidget.saveWidgetData<String>('today_${i}_address', s.address ?? '');
+        await HomeWidget.saveWidgetData<String>('today_${i}_status', s.computedStatus);
+        await HomeWidget.saveWidgetData<int>('today_${i}_id', s.id ?? 0);
       }
 
       // 위젯 업데이트 (작은 위젯)
@@ -171,6 +188,13 @@ class WidgetService {
       await HomeWidget.updateWidget(
         name: 'ScheduleWidgetLargeProvider',
         androidName: 'ScheduleWidgetLargeProvider',
+        iOSName: 'ScheduleWidget',
+      );
+
+      // 오늘 스케줄 상세 위젯 업데이트
+      await HomeWidget.updateWidget(
+        name: 'TodayScheduleWidgetProvider',
+        androidName: 'TodayScheduleWidgetProvider',
         iOSName: 'ScheduleWidget',
       );
 
