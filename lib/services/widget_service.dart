@@ -165,7 +165,14 @@ class WidgetService {
         final s = todaySchedules[i];
         String workText = '';
         try {
-          workText = (s.workItems as List).cast<String>().join(', ');
+          final items = (s.workItems as List).cast<String>();
+          final counts = <String, int>{};
+          for (final item in items) {
+            if (item.isNotEmpty) counts[item] = (counts[item] ?? 0) + 1;
+          }
+          workText = counts.entries
+              .map((e) => e.value > 1 ? '${e.key} ${e.value}건' : e.key)
+              .join(', ');
         } catch (e) {
           workText = s.workItems.toString();
         }
